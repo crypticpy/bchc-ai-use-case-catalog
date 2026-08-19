@@ -8,5 +8,5 @@ gem "webrick", "~> 1.8"
 gem "sass-embedded", "~> 1.77"
 
 group :test do
-  gem "minitest", "~> 5.25"
+  gem "minitest", "~> 6.0"
 end
