@@ -1,0 +1,128 @@
+# ---------------------------------------------------------------------------
+# The governance page — /governance/ (module: governance in _data/site.yml).
+#
+# The rules the coalition agreed for what gets published, how it is reviewed
+# and what happens afterwards, published on the site itself so they are
+# visible to anyone browsing rather than buried in a PDF. Every block below is
+# optional: leave a list empty and its section is not rendered; switch the
+# module off and the page is not built at all.
+#
+# `body` fields are Markdown. Keep the wording yours — this ships with the
+# Big Cities Health Coalition text as a worked example. Because it names one
+# coalition's committees and timelines, `npm run eject:samples` (and the setup
+# wizard's "remove the samples" step) switch the module off in _data/site.yml
+# rather than emptying this file: rewrite it, then set `governance: true`.
+# ---------------------------------------------------------------------------
+
+eyebrow: "Governance"
+title: "How this catalog is governed"
+summary: "What may be published here, who checks it, how long that takes, and what happens to an entry after it goes live. Agreed by the coalition's Data Modernization Work Group."
+
+intro: |
+  This catalog is a coalition asset, not an unmoderated list. Nothing is published automatically: every submission is checked for completeness, basic privacy hygiene and accuracy by people from member health departments before it appears, and every published entry is revisited on a schedule so what you find here can be trusted to still be true. The rules on this page are the ones the reviewers apply; the contributor guide linked at the foot of the page walks through them from the submitter's side of the form.
+
+# Optional: `metrics_intro` — the sentence above the "How the catalog is
+# doing" block, which renders only once _data/metrics.json exists (written by
+# the monthly Catalog metrics workflow). Default: "Counted from this
+# repository's own issues and pull requests, refreshed monthly."
+# metrics_intro: ""
+
+# --- Review ---------------------------------------------------------------
+review:
+  intro: "A submission moves through a lightweight but consistent review. The tiers exist so member jurisdictions can rely on what is listed here without turning review into a bottleneck that discourages sharing."
+  steps:
+    - name: "Submit"
+      who: "Submitting jurisdiction"
+      body: "Fill in the submission form (or the GitHub issue form — they are the same questions). It opens a GitHub issue that reviewers can see, comment on and ask questions in."
+    - name: "Intake triage"
+      who: "Intake Team · Tier 1"
+      target: "about 5 business days"
+      body: "A small rotating group confirms the entry is complete, the contact is reachable and there is no obvious personal or protected health information in the write-up, links or screenshots. Anything with a data-governance question is flagged for the committee."
+    - name: "Substantive review"
+      who: "Governance Committee · Tier 2"
+      target: "about 10 business days"
+      body: "Representatives from across member jurisdictions check that the resource works as described, that the technology, licensing and portability claims are accurate, that it sits in the right category and that it meets the coalition's data-governance baseline. The committee may ask for revisions or clarification."
+    - name: "Partner review, when warranted"
+      who: "National association partner · Tier 3"
+      body: "Higher-visibility or higher-risk submissions — anything touching identifiable data, clinical decision support or public-facing tools — may be routed through a neutral third-party reviewer for an outside check."
+    - name: "Decision"
+      who: "Governance Committee"
+      body: "**Approved** entries are published with the status *Reviewed & approved*. **Revisions requested** returns the entry to the submitter with specific feedback. **Declined** is rare, reserved for entries that fail the data-governance or accuracy checks, and always comes with a rationale."
+    - name: "Publish"
+      who: "Maintainers"
+      body: "The approved entry is merged (a GitHub pull request, in practice) and appears on the site within a couple of minutes, with its own page and a place in the catalog."
+    - name: "Maintain"
+      who: "Submitting jurisdiction · Intake Team"
+      body: "Every entry is revisited annually, or sooner when a reader flags it, to confirm the contact is still valid, the resource is still active and the stage of development is current. An entry that is no longer current is marked **Deprecated** — kept for the record — rather than removed."
+  criteria_intro: "Reviewers apply five criteria. They are the same five a submitter can check before pressing the button."
+  criteria:
+    - name: "Completeness"
+      body: "Every required field is filled in, honestly."
+    - name: "Accuracy"
+      body: "The technology, licensing, open-source and portability claims are correct."
+    - name: "Data governance"
+      body: "No personal or protected health information in the resource or its documentation; the sensitivity notes are honest and complete."
+    - name: "Reuse readiness"
+      body: "Enough documentation, links and contact detail that another jurisdiction could realistically evaluate or adopt it."
+    - name: "Category fit"
+      body: "Correctly placed in one of the coalition's use-case categories."
+
+# --- Roles ----------------------------------------------------------------
+roles_intro: "Four roles keep the catalog running. None of them is a full-time job."
+roles:
+  - name: "Governance Committee"
+    body: "Sets policy, conducts substantive review, resolves disputes and approves changes to the submission template or the categories."
+  - name: "Intake Team"
+    body: "Two or three rotating work-group members who do first-line triage of new submissions."
+  - name: "Coalition staff lead"
+    body: "Administers the repository, coordinates committee scheduling and maintains vendor and partner relationships."
+  - name: "Submitting jurisdiction"
+    body: "Keeps its own entries accurate, answers reuse enquiries from peers and tells the maintainers when something changes."
+
+# --- Policies -------------------------------------------------------------
+# `id` becomes the section anchor (the footer's accessibility statement links
+# to #accessibility when a policy with that id exists). Keep ids stable once
+# published, and do not reuse the page's own section ids: review, criteria,
+# roles, metrics, questions.
+policies:
+  - id: privacy
+    title: "No personal or protected health information"
+    body: |
+      No personal information (PII) or protected health information (PHI) may appear in a submitted resource, its documentation, its example data or its screenshots. Every submitter attests to this when they submit; reviewers spot-check during intake and substantive review.
+
+      If a privacy or security issue is discovered after publication, the entry is taken down first and discussed second: email the maintainers, and the page is removed from the site while the question is worked out. The maintainer runbook describes exactly what happens.
+  - id: licensing
+    title: "Licensing and intellectual property"
+    body: |
+      The default expectation is a permissive open-source license — MIT, Apache 2.0, or a Creative Commons license for documents — wherever the sharing jurisdiction can offer one. Jurisdictions that cannot may share on more limited terms (available on request, or government-to-government only); the entry says so in *Access terms*, and a peer asks before taking.
+
+      **Submitting a resource does not transfer ownership.** The originating jurisdiction retains authorship and credit; the catalog only points at the work and describes it.
+  - id: data-governance
+    title: "Data governance baseline"
+    body: |
+      An entry describes, in plain language, what data the resource touches, where that data comes from and who sees the output. Where a data-sharing agreement, de-identification step or approval covers the data, the *Data governance notes* say which. An entry that touches identifiable data, supports clinical decisions or faces the public receives closer review, and may be routed to a partner reviewer.
+  - id: accessibility
+    title: "Accessibility and quality"
+    body: |
+      Published pages are built to WCAG 2.1 AA and tested for it on every build with automated checks (axe, pa11y, Lighthouse) and keyboard-only walkthroughs. If something on this site does not work for you, email the maintainers (the address is at the foot of this page) and it will be treated as a defect, not a request.
+
+      There is a minimum documentation bar: a resource with no working link and no reachable contact is not published, because nobody could evaluate or adopt it.
+  - id: maintenance
+    title: "Maintenance, versioning and deprecation"
+    body: |
+      Every published entry is reviewed annually to confirm it is still active and accurate; the site marks any entry that has gone a year without confirmation and asks the maintainers to check. An entry that is no longer current is marked **Deprecated** rather than deleted, so the coalition keeps its institutional history — what was tried, by whom, and what it cost. Version history is kept automatically through the repository's change tracking.
+  - id: appeals
+    title: "Appeals and dispute resolution"
+    body: |
+      A submitter who disagrees with a review decision may appeal to the full Governance Committee by replying on the review thread or emailing the maintainers. The committee's answer, with its rationale, is final for that submission; the submitter is always free to revise and resubmit.
+  - id: conduct
+    title: "Code of conduct"
+    body: |
+      Member jurisdictions engage with one another's shared work as colleagues: ask before you assume, credit what you reuse, give feedback that names the problem rather than the person, and keep questions about an entry in the open where the next reader can find the answer. The full code of conduct, linked below, is short and applies to every submission, review thread and discussion here.
+
+# --- Closing --------------------------------------------------------------
+# Rendered as the last block, with the organization's contact email beside it
+# and links to the repository's contributor guide, code of conduct and
+# maintainer guide (built from site.yml github.repository, so a fork's links
+# point at the fork).
+outro: "Questions about any of this — or a decision you want to appeal — go to the maintainers. Proposed changes to the template, the categories or these rules go to the Governance Committee, which meets on the work group's regular cadence."

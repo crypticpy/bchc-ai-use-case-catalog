@@ -1,0 +1,50 @@
+{
+  "sample": true,
+  "generated": "2026-08-18",
+  "window": {
+    "from": "2025-10-01",
+    "to": "2026-08-18",
+    "quarters": 4
+  },
+  "totals": {
+    "submissions": 13,
+    "published": 9,
+    "organizations": 10,
+    "entries": 10,
+    "turnaround_days": {
+      "count": 9,
+      "median": 11,
+      "p90": 24
+    }
+  },
+  "quarters": [
+    {
+      "quarter": "2025-Q4",
+      "from": "2025-10-01",
+      "submissions": 1,
+      "published": 0,
+      "organizations": 0
+    },
+    {
+      "quarter": "2026-Q1",
+      "from": "2026-01-01",
+      "submissions": 3,
+      "published": 2,
+      "organizations": 2
+    },
+    {
+      "quarter": "2026-Q2",
+      "from": "2026-04-01",
+      "submissions": 6,
+      "published": 5,
+      "organizations": 5
+    },
+    {
+      "quarter": "2026-Q3",
+      "from": "2026-07-01",
+      "submissions": 3,
+      "published": 2,
+      "organizations": 2
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+/* Responsive images: the two rules `_includes/picture.html` needs so that
+   wrapping an <img> in <picture> changes the bytes on the wire and nothing else.
+   Owned by the media-pipeline workstream (see docs/images.md). */
+@layer components {
+  /* A <picture> is a wrapper for source selection, not a box. `display: contents`
+     removes it from layout, so the <img> inside keeps whatever the surrounding
+     element already gave a bare <img> — the card's 16:7 media band, the gallery's
+     aspect-ratio buttons — with no per-surface CSS to keep in sync. Browsers old
+     enough to lack `display: contents` predate AVIF and take the plain <img> path
+     from the manifest fallback anyway. */
+  picture {
+    display: contents;
+  }
+
+  /* `.gallery-item > img` in entry.css is a direct-child rule, and the <picture>
+     is now in between. Restated here rather than loosened there: the direct-child
+     form is what keeps the rule off the lightbox's own <img>. */
+  .gallery-item > picture > img {
+    @apply h-full w-full object-cover;
+  }
+}

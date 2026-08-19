@@ -1,0 +1,115 @@
+name: Verification sweep
+
+# Once a month, list the catalog entries nobody has confirmed inside the window
+# in _data/site.yml (`catalog.verify_after_days`) and keep ONE open issue with
+# that checklist. The site already tells readers when an entry is old; this is
+# the other half — telling the maintainers, somewhere they will see it.
+#
+# It is a reminder, not a gate: it never edits an entry, never closes anything,
+# and asks for nothing but `issues: write`. Clearing an item is a human deciding
+# the entry is still true and saying so with `verified:` in a pull request.
+#
+# Turn it off by setting the repository variable VERIFICATION_SWEEP to `false`
+# (Settings -> Secrets and variables -> Actions -> Variables), or by deleting
+# this file. A template fork with no entries yet produces no issue either way.
+
+on:
+  schedule:
+    # 07:00 UTC on the 1st. Early enough to be waiting on the 1st in every US
+    # timezone, and off the hour-zero peak where scheduled runs queue for ages.
+    - cron: "0 7 1 * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# A manual run while the monthly one is in flight would otherwise race it and
+# could open a second issue before the first has been searched for.
+concurrency:
+  group: verification-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    if: vars.VERIFICATION_SWEEP != 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Find unconfirmed entries
+        id: sweep
+        run: node scripts/verification_sweep.mjs
+
+      - name: Open or update the sweep issue
+        if: steps.sweep.outputs.count != '0'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SWEEP_TITLE: ${{ steps.sweep.outputs.title }}
+          SWEEP_BODY: ${{ steps.sweep.outputs.body }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const title = process.env.SWEEP_TITLE;
+            const body = process.env.SWEEP_BODY;
+            const labels = ['verification'];
+
+            // The label has to exist before an issue can carry it.
+            // bootstrap-labels.yml creates it, but that workflow is a manual
+            // one-time step a fork can skip, and this one runs unattended on a
+            // schedule — so it makes sure. Creating it here is idempotent, and
+            // the colour and description match bootstrap-labels.yml.
+            try {
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name: 'verification',
+                color: '8250DF',
+                description: 'Entries due to be re-confirmed with their contact',
+              });
+            } catch (error) {
+              if (error.status !== 422) throw error; // 422 = already exists
+            }
+
+            // One rolling issue, not one per month: reuse whichever labelled
+            // issue is still open, oldest first, so a maintainer who has been
+            // ticking boxes for three months keeps their thread and its
+            // comments instead of finding a new empty one each time.
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: 'open',
+              labels: labels.join(','),
+              sort: 'created',
+              direction: 'asc',
+              per_page: 1,
+            });
+            const existing = open.find((issue) => !issue.pull_request);
+
+            if (existing) {
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, title, body });
+              core.notice(`Updated #${existing.number}: ${title}`);
+              await core.summary.addRaw(`Updated [#${existing.number}](${existing.html_url}) — ${title}`).write();
+              return;
+            }
+
+            const { data: created } = await github.rest.issues.create({ owner, repo, title, body, labels });
+            core.notice(`Opened #${created.number}: ${title}`);
+            await core.summary.addRaw(`Opened [#${created.number}](${created.html_url}) — ${title}`).write();
+
+      - name: Report a clean sweep
+        if: steps.sweep.outputs.count == '0'
+        run: echo "Every entry has been confirmed inside the window. Nothing to open." >> "$GITHUB_STEP_SUMMARY"

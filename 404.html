@@ -1,0 +1,60 @@
+---
+layout: default
+title: "Page not found"
+permalink: /404.html
+sitemap: false
+---
+{%- comment -%}
+Not found. A dead end is the one page where the visitor has nothing to work
+with, so it carries the two things that can rescue the visit: the catalog search
+box (the same plain GET form the home hero submits into `/<path>/?q=`, no JS)
+and the newest entries. Both come from _data/schema.yml — the entry path, the
+plural noun and the reserved `title`/`summary` keys — and both disappear with
+the `catalog` module. Local assigns are prefixed `nf_`.
+{%- endcomment -%}
+{%- assign nf_cfg = site.data.site -%}
+{%- assign nf_schema = site.data.schema -%}
+{%- assign nf_plural = nf_schema.entry.plural | default: 'Entries' -%}
+{%- assign nf_path = nf_schema.entry.path | default: 'catalog' -%}
+{%- assign nf_catalog_url = '/' | append: nf_path | append: '/' -%}
+{%- assign nf_entries = site.pages | where: 'layout', 'entry' | sort: 'published', 'first' | reverse -%}
+{%- assign nf_recent = '' | split: '' -%}
+{%- if nf_cfg.modules.catalog and nf_entries.size > 0 -%}{%- assign nf_recent = nf_entries | slice: 0, 3 -%}{%- endif -%}
+
+<div class="mx-auto max-w-xl py-16 text-center">
+  <span class="eyebrow">404</span>
+  <h1 class="mt-2 font-heading text-4xl font-semibold text-brand-primary-dark">We couldn't find that page</h1>
+  <p class="mt-4 text-brand-muted">It may have moved or the link is out of date.</p>
+
+  {%- if nf_cfg.modules.catalog -%}
+  <form class="mt-8 flex flex-col gap-3 sm:flex-row" action="{{ nf_catalog_url | relative_url }}" method="get" role="search">
+    <div class="relative flex-1">
+      <label class="sr-only" for="notfound-search">Search {{ nf_plural | downcase }}</label>
+      <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-brand-muted">{% include icon.html name='search' size='sm' %}</span>
+      <input class="h-12 w-full rounded-full border border-brand-line-strong bg-surface-card pl-11 pr-4 text-base text-brand-ink placeholder:text-brand-muted focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary" id="notfound-search" type="search" name="q" placeholder="Search {{ nf_plural | downcase }}…" autocomplete="off">
+    </div>
+    <button class="btn-primary" type="submit">Search</button>
+  </form>
+  {%- endif -%}
+
+  <div class="mt-6 flex justify-center gap-3">
+    <a class="btn-secondary" href="{{ '/' | relative_url }}">Go home</a>
+    {%- if nf_cfg.modules.catalog -%}<a class="btn-secondary" href="{{ nf_catalog_url | relative_url }}">Browse all {{ nf_plural | downcase }}</a>{%- endif -%}
+  </div>
+</div>
+
+{%- if nf_recent.size > 0 -%}
+<section class="mx-auto max-w-xl pb-16" aria-labelledby="notfound-recent-heading">
+  <h2 class="eyebrow" id="notfound-recent-heading">Recently added</h2>
+  <ul class="mt-3 divide-y divide-brand-line" role="list">
+    {%- for nf_e in nf_recent -%}
+    <li>
+      <a class="group block rounded-lg py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2" href="{{ nf_e.url | relative_url }}">
+        <span class="entry-row-title block group-hover:text-brand-primary">{{ nf_e.title | escape }}</span>
+        {%- if nf_e.summary and nf_e.summary != '' -%}<span class="mt-1 line-clamp-2 block text-sm leading-6 text-brand-muted">{{ nf_e.summary | escape }}</span>{%- endif -%}
+      </a>
+    </li>
+    {%- endfor -%}
+  </ul>
+</section>
+{%- endif -%}

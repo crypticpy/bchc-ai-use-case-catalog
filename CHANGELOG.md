@@ -1,0 +1,852 @@
+# Changelog
+
+All notable changes to this template are recorded here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
+[Semantic Versioning](https://semver.org/): a change to the content model
+(`_data/schema.yml`) that existing entries or presets would have to follow is a
+major version, and each entry says so when it happens.
+
+## [Unreleased]
+
+## [1.7.0] — 2026-08-18
+
+The template now shows its work. Its own deployment used to be one demo catalog
+of fictional health departments, which answered "what does this look like?" for
+exactly one of the things it can be. It is now a landing page introducing the
+template, with four complete example sites behind it — one per setup-wizard
+preset, each built from this repository by the same `npm run setup` a fork
+runs, each with its own fields, filters, colours and sample content. Nothing in
+a fork changes: the showcase is built only while `demo` is `true`, and
+`npm run eject:samples` deletes it.
+
+### Added
+
+- **A landing page for the template** (`/`), written entirely in
+  [`_data/showcase.yml`](_data/showcase.yml) and laid out by
+  `_includes/showcase-landing.html`: what the template is, a card per example
+  with a screenshot and what it is configured like, what you get whichever one
+  you start from, how publishing works, and the ways in — the launch guide, the
+  browser wizard, the day-one starter site.
+- **Four live examples**, each a full build at `/examples/<preset-id>/`:
+  [AI use case catalog](https://crypticpy.github.io/bchc-template/examples/ai-use-cases/)
+  (the configuration this repository ships with),
+  [cohort portal](https://crypticpy.github.io/bchc-template/examples/cohort-portal/)
+  (six team projects across two cohort years, with the cohorts and events
+  modules on),
+  [resource library](https://crypticpy.github.io/bchc-template/examples/resource-library/)
+  (six guides, toolkits and datasets) and
+  [blank catalog](https://crypticpy.github.io/bchc-template/examples/blank/)
+  (three entries on the smallest useful schema). The per-example facts on the
+  landing's cards — how many fields, how many filters, which modules — are
+  generated from `assets/js/configurator/presets.js`, so they cannot drift from
+  what picking that preset gives you.
+- **`scripts/build_showcase.mjs` and `npm run build:showcase`** — the builder
+  behind that: a scratch copy of the repository per example, run through the
+  CLI wizard with the preset, the sample content in `_showcase/<preset-id>/`
+  laid over it, then `jekyll build` into `_site/examples/<preset-id>/`. The
+  landing is a build of this repository too, reduced to `/`, `/setup/` and
+  `/404.html` by `_plugins/showcase.rb`. Documented in
+  [docs/configuration.md](docs/configuration.md#the-showcase) and
+  [docs/showcase-plan.md](docs/showcase-plan.md).
+- **An example switcher** on every example site: the demo banner becomes a menu
+  for moving between the four and back to the landing, so a visitor can compare
+  them without the back button.
+- **Sample content for three more presets** (`_showcase/`), authored against
+  each preset's own schema and validated by the same `check_front_matter.rb`
+  the catalog uses.
+- **The showcase is in the accessibility gate.** `quality.yml` builds the
+  landing and one example and pa11y-ci audits the landing, the example's home
+  page, one entry page and the switcher's open state — under the same gate as
+  the deploy, so a fork's gate is unchanged.
+
+### Changed
+
+- **The template's own deployment.** <https://crypticpy.github.io/bchc-template/>
+  is now the landing page; the AI use case catalog it used to be lives at
+  [`/examples/ai-use-cases/`](https://crypticpy.github.io/bchc-template/examples/ai-use-cases/),
+  unchanged. The showcase is opt-in: `pages.yml` builds it only when the
+  repository variable `CATALOG_SHOWCASE` is `true` *and* `_data/site.yml`
+  still has `demo: true`; a copy of the template never has the variable, so it
+  deploys the single ordinary build it always did — from its very first push.
+- **The submission form no longer offers a link it cannot honour.** Without
+  `github.repository` set — the three non-flagship examples on purpose, a fork
+  that has not filled it in yet — `/submit/` used to render a Submit button
+  pointing at `github.com//issues/new`. It now says there is no catalog
+  repository behind the site and keeps everything that still works: the
+  questions, the live card preview, the copy-out buttons and the email
+  fallback, with the send button renamed to what it actually does.
+- **`npm run eject:samples` removes the showcase too** — `_showcase/`,
+  `_data/showcase.yml` and `assets/images/showcase/` — along with the rest of
+  the sample content. A fork's home page is its catalog.
+
+## [1.6.1] — 2026-08-18
+
+The launch guide, walked for real: a fresh copy of the template
+([crypticpy/bchc-catalog-starter](https://github.com/crypticpy/bchc-catalog-starter),
+live at <https://crypticpy.github.io/bchc-catalog-starter/>) was made by
+following [docs/launch.md](docs/launch.md) end to end — template button, the
+three settings, the Apply setup issue, one entry through the issue form — and
+everything the walkthrough found wrong is fixed below.
+
+### Added
+
+- **The day-one starter site is linked** from the README (next to the live
+  demo), the opening of [docs/launch.md](docs/launch.md), and the demo
+  banner, so a reader can see what a copy looks like once the guide is done:
+  configured, samples gone, one entry.
+- **`demo_starter_url` in `_data/site.yml`** (optional; documented in
+  [docs/configuration.md](docs/configuration.md#demo-mode)). While `demo` is
+  `true`, the banner adds "See what a fresh copy looks like on day one" with
+  that link; blank or absent, the sentence is not rendered. It rides through
+  the wizard like every other key no question asks about.
+- **The wizard's review step names the Apply setup issue** as the easiest way
+  to publish the files — the path the launch guide recommends — with a direct
+  link when the repository is known, ahead of the file-by-file editor route it
+  described before.
+
+### Fixed
+
+- **An ejected fork's checks are green again.** With the sample content
+  removed, the first pull request in a fresh copy failed `Validate Content`
+  and `Quality` for six reasons that were all the template assuming its own
+  samples: `scripts/generate.mjs --check` reported the wizard defaults stale
+  because the `_data/site.yml` repository-link sync ran after the defaults
+  were compiled (now runs first); the preset build matrix
+  (`scripts/build_variants.mjs`) assumed the shipped samples, cohort and
+  governance data (it now skips, with a reason, when no sample entry is
+  present); three unit tests read the shipped repository's demo state and
+  cohort files (made fork-safe); the style guide's navigation linked to card,
+  row and entry sections that need an entry to render (pills hidden until one
+  exists); the two catalog flow tests timed out on an empty catalog (skipped
+  when `/search.json` lists nothing); and `derive_images --check` failed on
+  `_data/derivatives.json` records for screenshots that no longer existed —
+  `npm run eject:samples` (and so the Apply setup checkbox and `npm run
+  setup`) now drops the sample screenshots' records from the manifest with the
+  entries.
+- **Launch guide corrections from the walkthrough** ([docs/launch.md](docs/launch.md)):
+  the Bootstrap labels list omitted `content:site-config` (the Apply setup
+  issue's label) and the `review:*` labels; the initial commit already runs
+  **Build & Deploy**, so the guide says to check that run rather than push
+  another; Dependabot pull requests arrive on day one and are named as such;
+  `url`/`baseurl` are stated to be the build's, not the wizard's; the Apply
+  setup and `CONTENT_BOT_TOKEN` sections describe what a `GITHUB_TOKEN` pull
+  request actually shows — dispatched **(dispatch)** statuses plus
+  pull-request-event runs parked at "action required" — instead of "checks
+  do not run"; the demo-content section mentions the derivatives manifest;
+  and the test-entry steps say the scaffold writes `review_status: Under
+  review`, that `escalate_on` answers add `review:data-governance`, and that
+  the reviewer sets the approved value before merging.
+
+## [1.6.0] — 2026-08-18
+
+DMWG alignment, wave 4 — metrics and promotion, the last of the four waves in
+[docs/dmwg-alignment-plan.md](docs/dmwg-alignment-plan.md). The governance
+page can now show how the catalog is doing, counted from the repository's own
+issues and pull requests; an entry can say which entry it was adapted from,
+and the source says how many adopted it; and the feed — shipped in 1.2.0 —
+is named on the governance page as the promotion channel it already was.
+
+**Upgrading a fork.** Nothing here changes an entry a fork already has.
+`_data/metrics.json` is sample content and `merge=ours`: a fork that had
+already ejected the samples never gets it, one that had not gets the sample
+figures once and its first monthly run overwrites them (or delete the file —
+the block, its nav item and heading render only while it exists). The
+schedule is off by setting `CATALOG_METRICS` to `false`; a manual run always
+works. `reused_from` and `entry.contributor_key` are yours to add to your
+`merge=ours` schema; without the pointer the metrics simply publish no
+organizations figure.
+
+### Added — wave 4, metrics and promotion
+
+- **How the catalog is doing.** New `scripts/metrics.mjs` and a monthly
+  `.github/workflows/metrics.yml` (07:30 UTC on the 2nd, or on demand):
+  two read-only REST calls count, over the last four calendar quarters,
+  submissions (issues carrying `content:new-entry`; pull requests never
+  count), publications (merged pull requests on an `entry/` branch),
+  distinct contributing organizations (the field `entry.contributor_key`
+  names, `organization` in the shipped schema; live entries only, sample
+  content excluded; no key, no figure) and review turnaround (issue opened →
+  linked pull request merged, median and 90th percentile with the count they
+  rest on). The result is `_data/metrics.json`, written only when the figures
+  changed, committed as `chore(metrics): … [skip ci]` and followed by an
+  explicit `Build & Deploy` dispatch — the same behaviour with `GITHUB_TOKEN`
+  and `CONTENT_BOT_TOKEN`. `/governance/` renders it as a **How the catalog
+  is doing** section — up to four figure cards (organizations only above
+  zero, review time only once something has been reviewed), a per-quarter
+  table, and a line about the feed when there is one — with an optional
+  `metrics_intro` sentence in `_data/governance.yml`; nothing renders until
+  the file exists. Run the workflow from the Actions tab with **Preview only**
+  ticked to see the figures in the run summary without committing. No
+  analytics vendor is involved and nothing is installed on the site; Plausible
+  stays optional for the browsing-vs-contributing question.
+- **`_data/metrics.json` ships as sample content** — figures consistent with
+  the ten sample entries, marked `"sample": true` — so the demo shows the
+  block. `npm run eject:samples` deletes it with the sample entries, and a
+  fork's first monthly run writes its own.
+- **Reuse tracking.** A new per-field schema hint, `links_entries: true`,
+  turns a `list` of entry slugs into links to those entries — and the entry
+  being named gets an **Adopted by *n*** card in its rail listing the live
+  entries that adapted it. The shipped schema uses it for a new optional
+  **Adapted from** field (`reused_from`) in *Sharing & licensing*, so a
+  jurisdiction can say whose work it started from; an unknown slug renders as
+  plain text rather than a dead link, and `npm run validate` fails it (the
+  hint is also refused on anything but a `list` field). Two sample entries
+  now say what they adapted, so the demo shows both sides.
+- **`entry.contributor_key`** — the schema pointer the metrics read
+  (`organization` in the shipped schema), documented alongside the other
+  `entry.*` pointers in [docs/content-model.md](docs/content-model.md).
+- **A `shipped-empty` build variant** — the shipped configuration with
+  nothing published yet — joins `npm run test:build`, so the governance page
+  with figures but no feed to link to, and the empty catalog under the real
+  schema, are built and checked on every pull request.
+- **Promotion, named.** The governance page's metrics block ends by saying
+  where new and updated entries are announced — the Atom feed at
+  `/catalog/feed.xml` (shipped in 1.2.0) and the "it's live" comment on the
+  submitter's own issue — so the coalition's "promotion of new resources"
+  requirement points at something that already runs.
+
+## [1.5.0] — 2026-08-18
+
+DMWG alignment, waves 1–3 — the content model, then the site, then the review
+workflow catch up with the Data Modernization Work Group's governance
+framework ([docs/dmwg-alignment-plan.md](docs/dmwg-alignment-plan.md)). Add,
+never delete: every existing field stays; nine join them, the rules the
+reviewers apply are published on the site rather than in a PDF, and the pull
+request a submission becomes now carries those rules, the answers that need a
+closer look, and the tier it is in. Wave 4 — the metrics page and the
+promotion helpers — is next.
+
+**Upgrading a fork.** A minor version, not a major one, because nothing here
+changes an entry a fork already has: `_data/schema.yml` is yours
+(`merge=ours`), so the nine fields, `escalate_on`, `entry.require_link` and
+the other pointers are available and unused until you add them — with the
+field editor at `/setup/`, the Apply setup issue, or by hand, then
+`npm run generate` ([docs/upgrading.md](docs/upgrading.md)). Every template
+piece that reads a new pointer behaves as before when it is absent: no
+`status_key` means no deprecation notice, no `escalate_on` means a quiet
+checklist, no `require_link` means the missing-link check only warns. Two
+things do arrive by merge. The `governance` module's page and example
+`_data/governance.yml`: your `_data/site.yml` has no `governance:` key yet, so
+no header or footer link appears, but `_plugins/modules.rb` only drops a
+module's pages when the key is explicitly `false` — add `governance: false`
+until you have rewritten the file, then flip it. And the `stamp` job in
+`pages.yml`, which needs the Actions app allowed to push to `main` or
+`CONTENT_BOT_TOKEN`; without either it reports and stands down.
+
+### Added — wave 3, the review workflow
+
+- **The pull request tells its reviewer what to check.** The scaffolded body
+  ends with a **Maintainer checklist** built by the new `scripts/lib/review.mjs`:
+  the review criteria from `_data/governance.yml` when the site publishes them
+  — the same list as `/governance/`, not a second copy in the workflow — or a
+  generic five otherwise; the mechanics; and the review-status flip the schema
+  asks for (`review_status` set to **Reviewed & approved** — the scaffold wrote
+  *Under review* — or left open with `review:revisions-requested`). The
+  workflow's hard-coded `printf` checklist is gone; the scaffolder's new
+  `checklist` output replaces it.
+- **`escalate_on` — the answers that call for closer review.** A new per-field
+  schema hint, an explicit list (a boolean's `false`, select/multiselect
+  options) rather than an inference from tone. The shipped schema flags an
+  unticked PII/PHI attestation, PII/PHI/CJIS under *Data it touches* and a
+  *Public-facing* audience. A matching submission's pull request opens with a
+  **Closer review** block naming each field and answer, the run summary
+  repeats it, and a new best-effort label step adds `review:data-governance`
+  (and `review:intake` on every scaffolded pull request) — reporting rather
+  than failing when a fork has not created the labels. `check_front_matter.rb`
+  rejects a list that names an option the field does not have.
+- **Review-tier labels.** `bootstrap-labels.yml` creates `review:intake`,
+  `review:committee`, `review:partner`, `review:data-governance`,
+  `review:revisions-requested` and `review:declined`, in the purple family
+  next to `content:site-config`; the admin guide gets a "Review tiers and
+  labels" section with a declined-with-rationale comment that has worked.
+- **The minimum documentation bar.** `check_front_matter.rb` notices an entry
+  with no link anywhere — every `url` field empty, no `links` item — because a
+  reader would have nowhere to go to evaluate or adopt it. A warning by
+  default; a failure under the new `entry.require_link: true`, which the
+  shipped schema sets. New `entry.status_approved_value` names what approval
+  means, for the checklist above.
+- **`updated` stamps itself.** A `stamp` job now opens `Build & Deploy`: for
+  every entry file a push to `main` *modified* (not added — a new entry has
+  `published`), `scripts/stamp_updated.mjs` sets `updated:` to that day unless
+  it already says today or later, skips `sample: true` content, edits the
+  front matter as text so comments survive, and commits back; the build job
+  deploys the stamped commit so the page, the feed and "Recently updated"
+  agree. Non-fatal by design: a push refused by branch protection is reported
+  in the run summary with the three ways out, and the site deploys as pushed.
+
+### Added — wave 2, governance on the site
+
+- **A `governance` module and page.** `/governance/` renders everything in the
+  new `_data/governance.yml`: how review works as a numbered timeline (submit,
+  intake triage in about five business days, substantive review in about ten,
+  partner review when warranted, decision, publish, maintain), the five
+  criteria reviewers apply, who does what, and seven standing policies —
+  privacy, licensing and IP, the data-governance baseline, accessibility and
+  quality, maintenance and deprecation, appeals, code of conduct — each with a
+  stable anchor. Every block is optional and the "On this page" list is built
+  only from blocks that render. New `governance.css` component classes;
+  `_data/modules.yml` gives the module its `/governance/` prefix so
+  `_plugins/modules.rb` drops the page when it is off; the header nav, both
+  wizards' module step, `navigationFromSite()` and every preset know the
+  module (on in the shipped config, off in the other three presets).
+- **The footer says how the site is built and how to subscribe.** An optional
+  `footer.accessibility` sentence in the bottom bar links to
+  `/governance/#accessibility` when the module is on and the data file has a
+  policy with that id, and a *Feed* link (new
+  `rss` icon) sits beside the copyright — the visible twin of the `<link
+  rel="alternate">` in `<head>`, guarded by the same "does the catalog have
+  entries" test, so an empty fork never links a 404.
+- **`CODE_OF_CONDUCT.md`** for the repository and every deployment's review
+  threads, and **`docs/contributor-guide.md`** — the submitter's side of the
+  process: search first, what the form asks, the three things reviewers look
+  at hardest, that you keep ownership, the review timeline, what happens after
+  an entry is live. The governance page's closing block links to both from
+  `github.repository`, so a fork's links point at the fork.
+- The About and Submit pages carry a paragraph pointing at governance when the
+  module is on; `submit.turnaround` now states the intake and committee
+  targets. The quality gate audits `/governance/` with pa11y when the module
+  is on.
+- **The ejector knows the governance file is an example, not sample rows.**
+  `npm run eject:samples`, the wizard's last question and the Apply setup
+  checkbox switch the module off (`governance: false` in `_data/site.yml`) —
+  the file names one coalition's committees and timelines and an emptied
+  mapping would render bare headings — and say so, so a fork does not publish
+  BCHC's review process as its own. `CODE_OF_CONDUCT.md` is excluded from the
+  build like the other repository documents.
+
+### Fixed
+
+- The home page's "Recently added" grid lists live entries, but its empty
+  state was gated on the total — a catalog where every entry is deprecated
+  showed an empty grid and no message. It now says so and points at the
+  catalog, which keeps deprecated entries for the record.
+
+### Added — wave 1, the content model
+
+- **Nine schema fields, one new group.** `use_case_category` (select, fact
+  slot), `review_status` (select, maintainer-only, faceted), a **Sharing &
+  licensing** group — `license` and `portability` as required selects on the
+  fact strip, `access_terms` and `portability_notes` as textareas — plus
+  `no_pii_attestation` (a required boolean: a ticked box in the wizard, a
+  Yes/No dropdown in the issue form), `data_governance_notes` and
+  `contact_title`. Forty fields in eight groups; every form, card, filter and
+  validator picked them up from the schema without a template change, and
+  the ten sample entries are back-filled with honest values.
+- **Deprecate, don't delete.** Three optional schema pointers —
+  `entry.status_key`, `entry.deprecated_value`, `entry.status_scaffold_value`
+  — name the review-status field, the option that means "kept for the
+  record", and the value a fresh scaffold receives. A deprecated entry stays
+  published: its page opens with a warning-toned notice, its card and list row
+  say "Deprecated — kept for the record", the home page stops featuring it,
+  the catalog lists it after every live entry and the default sort demotes it
+  below stale ones. New Liquid filters `deprecated_entry`, `live_entries` and
+  `deprecated_entries` in `_plugins/schema_filters.rb`; `entry-order.js`
+  ranks deprecated below stale; the scaffolder stamps **Under review** on
+  every new entry.
+- **"Skip filters".** The catalog rail is DOM-first on wide screens and every
+  facet option is a tab stop, so a keyboard user who only wanted the search
+  box walked sixty-odd buttons to reach it — more, now that four new facets
+  exist. A sr-only-until-focused link at the top of the rail lands on the
+  results heading, one Tab before the search box; the AT flow test uses it.
+- **Person card, business-card shape.** A rail group's further `text` fields
+  (a title, a role) now sit under the contact's name instead of in the
+  label/value list below "Ask in the open" — detected by type, never by key.
+
+### Docs
+
+- `content-model.md` gains "Review status and deprecation", the Sharing group
+  and attestation notes, and the 40-field table; `admin-guide.md` now leads
+  with deprecation, reserves folder deletion for duplicates and withdrawn
+  consent, and points reviewers at the governance page; `configuration.md`
+  documents the `governance` module, `footer.accessibility` and
+  `_data/governance.yml`; `docs/index.md` routes submitters to the contributor
+  guide; README, CONTRIBUTING and roadmap updated. Wave 3: `content-model.md`
+  documents `escalate_on`, `entry.status_approved_value` and
+  `entry.require_link`, and `updated` as automation-written; `admin-guide.md`
+  gains the review-tier table, the declined reply, the documentation-bar line
+  in the checklist and how the `updated` stamp works; the wizard's schema
+  header lists the new hints.
+
+## [1.4.0] — 2026-08-18
+
+The design pass. v1.3.0 was a working instrument that did not yet look like
+one anyone would choose to keep open; this release is the tastefulness
+without the overhead — no new dependencies, one new 44 KB font file, and
+about a hundred lines of CSS moved rather than added.
+
+### Changed
+
+- **Serif headings.** Source Serif 4 (variable, optical size pinned at 24,
+  44 KB, built by `npm run fonts` like the other two) is now the default
+  `fonts.heading` over the Inter body: page and entry titles, section
+  titles, card titles, rail-card headings and the logo wordmark. A
+  metric-matched Georgia fallback face keeps the swap from reflowing. The
+  wizards' Look step offers it alongside the two sans families; set
+  `fonts.heading: "Source Sans 3"` for an all-sans site.
+- **Three grounds instead of one border.** A new `surface_tint` colour token
+  (`#EAF0F7`) gives bands (the home "Browse by" section) and panels (results
+  header, entry fact strip, rail cards, stale notice, wizard sidebar) an edge
+  without a border. Cards drop their `line` border for `shadow-e0` — a 1px
+  `ink/10` ring drawn as a shadow plus a faint ambient — so a grid of cards
+  reads as objects on a surface rather than a spreadsheet of boxes. The
+  catalog's sticky results header sits on the tint too, without a drop
+  shadow.
+  `forced-colors` mode gets a real border back. `npm run validate` checks
+  `ink`, `muted` and `primary` against the new tint (4.5:1).
+- **Hero and footer.** `primary_dark → primary` gradient with a masked
+  dot-grid texture in the hero's top-right corner; the footer mirrors the
+  same gradient so the page's two dark ends match. The "Latest additions"
+  panel is a `white/6` inset on that ground with a `white/15` ring (no blur —
+  nothing scrolls behind it). The hero search is one pill with the Search
+  button set inside it, the primary action ("Browse the catalog") is a solid
+  white button (`.btn-on-dark-solid`) and "Share …" is the ghost beside it.
+  The display title is `clamp(36px, 28px + 2vw, 48px)`.
+- **Home page rhythm.** Eyebrow → title → lead section heads (`.section-head`,
+  section titles up 24 → 28 px), the three value propositions as text over a
+  hairline instead of three more cards (a highlight is now a `title` and a
+  `body`; an `eyebrow` key on an existing site is ignored), the "Browse by"
+  tiles with their option labels in ink and a reserved icon column, and the
+  "Share …" call to action as a tinted panel with a `primary → secondary` 7 %
+  wash. Carousel arrows hide when the track does not scroll.
+- **Featured** is an `ink` pill with the star in `accent` (`data-tone="featured"`),
+  emphasis by weight rather than by an orange pill; `accent` still means
+  Featured and nothing else. Sensitive-data labels on the fact strip sit in a
+  white pill so `warn` keeps 4.5:1 off the tint.
+- Card meta lines set the free-text segment (the organization name) in
+  sentence case at medium weight (`.entry-meta-seg--text`), so it truncates
+  about 15 % later than in caps; option-valued segments keep the eyebrow
+  style. `--measure` is 36rem (~74 characters) instead of 40. The wizard's
+  step titles are one size down so "Step N of 7" and the title read as one
+  unit.
+- `docs/design-system.md` gains a Surfaces section and the type table now
+  matches the built site; `docs/design-brief.md` carries an amendment note.
+
+
+## [1.3.0] — 2026-08-17
+
+Contributor panel, wave 2: the six decisions left open by v1.2.0 were taken
+(the "what it took" group, a verification lifecycle, compare + printable
+brief, contact etiquette, an upgrade path; the saved-constraints overlay is
+deferred) and the wave-2 queue shipped — vocabulary-aware search, facet
+landing pages, responsive image derivatives, a native `<dialog>` filter
+sheet, view transitions, variable fonts, an apply-setup workflow, demo mode,
+a three-step branding wizard and an assistive-technology flow test. Seven
+units built it in isolated worktrees; the whole submission pipeline was also
+verified end to end on the live repository (issue → PR with first-party
+checks → thumbnail commit → merge → "it's live" comment, about eight minutes
+of wall clock). The new schema fields are all optional, so existing entries
+and presets need no change.
+
+### Added
+
+- **"What it took"** — a schema group asking the five questions a peer needs
+  before they can copy a project: cost to stand up, cost to keep running, how
+  it was bought, the reviews it went through, and who it affects. All optional,
+  the four selects are facets, and the option lists are a starting draft for
+  the site owner to rewrite. A new **`fact` card slot** puts a field on the
+  entry page's fact strip without spending one of the card's four glyphs.
+- **Verification lifecycle** — a `verified` front-matter date,
+  `catalog.verify_after_days` in `_data/site.yml` (365 by default), a quiet
+  "not confirmed since" notice on stale entry pages, a "Last confirmed" line on
+  their cards, a demotion below fresh entries in the default sort, and a
+  **monthly verification sweep** (`verification-sweep.yml`) that keeps one
+  rolling issue listing the entries due to be re-confirmed (opt out with the
+  repository variable `VERIFICATION_SWEEP=false`).
+- **Compare up to three entries side by side.** A shortlist tray on the
+  catalog collects picks from the cards; `/compare/` lays them out field by
+  field, grouped as the schema groups them, differences first. The shortlist
+  survives a reload and travels in the URL. A build-time **`/entries.json`**
+  carries every entry and every non-prose field.
+- **Print an entry or a comparison as a decision brief** — a print stylesheet
+  drops the chrome, spells out link URLs, keeps the table header across pages
+  and stamps where and when it was printed.
+- **"Ask in the open"** beside an entry's contact email opens a GitHub
+  Discussion so the answer helps the next reader (`contact.ask_in_open`;
+  needs Discussions with a Q&A category). The contact `mailto:` now arrives
+  with a subject and a first line naming the entry and its URL.
+- **Vocabulary-aware search**: typing a word the catalog spells differently
+  ("chatbot" for "Chat assistant") offers the filter itself as the first
+  suggestion, with its field and count, and the same tags as "Did you mean"
+  chips when nothing matches. `_data/search.yml` holds query synonyms,
+  per-option aliases and the bounds on the generated browse pages
+  (`docs/search.md`).
+- **Facet landing pages** at `/catalog/<field>/<value>/` — a real, crawlable
+  page for every tag in use, with title, description, canonical and sitemap
+  entry — and an **A–Z directory** at `/catalog/a-z/` that needs no JavaScript.
+- **Responsive image derivatives**: `npm run images` writes AVIF and WebP
+  copies of every screenshot at 400/800/1280 px, `_includes/picture.html`
+  serves them through `<picture>` (falling back to the original wherever no
+  derivative exists), and the submission and media workflows generate and
+  commit them (`docs/images.md`). `check_file_sizes.rb` warns above 2 MB for
+  images.
+- **Apply setup issue form**: the `/setup/` wizard's output can be applied
+  without a terminal — paste the three YAML files into "Apply setup (creates
+  PR)" and a workflow re-renders the full configuration and opens a pull
+  request (maintainers only).
+- **Demo mode**: `demo: true` in `_data/site.yml` puts a banner on every page
+  saying the content is sample data; `npm run eject:samples` removes the
+  samples and turns it off (`npm run setup` offers the same step).
+- **Upgrade path for forks**: `.gitattributes` marks the files a fork owns
+  `merge=ours`, `npm run upgrade:check` previews an incoming release as "what
+  you take / what you keep", and `docs/upgrading.md` carries the recipe.
+- **File and image fields upload from the issue form** — GitHub's native
+  upload control replaces the "commit it after the PR" step.
+- Cross-document **view transitions** between catalog and entry — the card's
+  image and title carry over into the entry's hero and heading — plus
+  speculation rules that start loading an entry after ~200 ms of hover; both
+  inert where unsupported and off under `prefers-reduced-motion`. **Web Share**
+  on entry pages where the browser supports it.
+- Semantic radius and motion utilities driven by `_data/theme.yml`
+  (`rounded-hairline/control/card/sheet/pill`, `duration-fast/base/slow`,
+  `ease-brand`). The theme's new `motion:` block — three named speeds, snappy /
+  default / calm, or hand-written timings — is set from the wizard's Look step,
+  which also previews the sixth (`xs`) radius step.
+- `npm run test:flows` — keyboard-only walkthroughs of the catalog, search,
+  submission and setup journeys in a real browser (focus order, visible focus,
+  live-region announcements, no dead ends), run as a third lane in
+  `quality.yml`. `npm run fonts` rebuilds the font subsets from upstream.
+- **Validate Content** now checks that every screenshot has up-to-date
+  derivatives (`npm run images -- --check`), so a hand-added image cannot merge
+  without them.
+- New docs: `search.md`, `compare.md`, `images.md`, `upgrading.md`.
+
+### Changed
+
+- The mobile filter sheet is a native `<dialog>`: focus trap, ESC, `inert` and
+  focus restoration are the platform's rather than 137 lines of script. The
+  catalog search box is a `<search>` landmark with a `type="search"` input.
+- Badge tones are a `data-tone` attribute instead of a composed class name and
+  `tailwind.config.js` no longer needs a safelist; an unrecognised tone renders
+  a neutral pill instead of unstyled text. The deprecated `.badge-<tone>` and
+  `.chip-secondary` spellings are gone — a fork that wrote them by hand needs
+  `class="badge" data-tone="…"`.
+- Fonts are two variable woff2 subsets instead of seven static cuts, with
+  metric-matched fallback faces: 2 requests / 104.5 KiB where a page took
+  5 / 157.3 KiB, and no reflow on swap.
+- Card and gallery images carry `width`/`height`; the thumbnail workflow is
+  now "Generate entry media", also triggers on images and re-dispatches both
+  Validate and Quality after it pushes.
+- Pull requests opened by the content bots are labelled with their
+  `content:*` label; **Bootstrap labels** also creates `verification`.
+- `/compare/` is dropped with the catalog module, like the rest of the catalog's
+  pages. Link hosts under a link are hidden in print (the URL is spelled out
+  instead).
+- The setup wizard's Branding step is three steps — Basics, Look and Words —
+  and answers saved by an earlier version resume on the right step.
+- `organization` moved to weight 8, so sharing an organization no longer makes
+  two entries strongly related.
+- The zero-result panel says which query found nothing; the admin guide's
+  description of dispatched checks matches what the PR checks box shows.
+
+### Fixed
+
+- The catalog-index test no longer asserts a ranking against the live sample
+  catalog, so adding an entry cannot fail CI (it did, on a real submission).
+- The demo banner's "Demo content" label meets 4.5:1 on its tinted ground, and
+  the compare tray's link has a name before the first pick.
+- The setup wizard's Review step no longer scrolls sideways at 390 px, and an
+  invalid field is marked the moment its error summary appears.
+- The Atom feed falls back to `site.github.url` for absolute ids and warns
+  once at build time when no `url` is set.
+- `check_front_matter.rb` validates `verified` and warns when a `file` field
+  points at a path not yet in the repository.
+- Slugs spell out the letters NFKD leaves whole — "Straße" is `strasse`, "Łódź"
+  is `lodz`, "Ærø" is `aero` — on both the JS and Ruby side, instead of dropping
+  them.
+- `quality.yml` uploads its reports with `actions/upload-artifact` v7 (Node 24;
+  the v5 pin was logging a deprecation notice on every run).
+
+## [1.2.0] — 2026-08-17
+
+The first "contributor panel" release: twelve simulated world-class
+contributors (principal engineers, library maintainers, an interface designer,
+public-health officials, GitHub and Microsoft engineers) each proposed what
+they would improve; seven implementation units shipped the accepted set. The
+report is in the release notes.
+
+### Added
+
+- **Search reads the whole write-up.** Every entry is indexed per section, so a
+  suggestion names the section it matched in, shows the sentence around the
+  term and links straight to that heading. Weak matches (below 25 % of the top
+  score) sit behind "Show n more that mention …". `schema.search.body_chars`
+  caps how much of each section is indexed (0 or unset = unlimited).
+- An Atom feed of the newest 25 entries at `/<entry.path>/feed.xml`
+  (`/catalog/feed.xml` as shipped), one `<category>` per facet value,
+  advertised in `<head>` only when the catalog has entries.
+- Every cohort milestone gets its own page, generated from
+  `_data/cohorts/<year>.yml`. A hand-written file under
+  `cohorts/<year>/events/<id>/` still overrides it and inherits any field it
+  leaves blank.
+- **Submission form:** a "Check your answers" step that reads every answer back
+  by section with a Change button, then a confirmation panel that says nothing
+  is submitted until *Submit new issue* is pressed on GitHub; "Save and come
+  back later" with a draft bar that says when it was saved and how many
+  answers it holds; and the whole form works without JavaScript — a plain GET
+  to GitHub's issue form, real `required` attributes and a copy-paste outline.
+- `submit.turnaround` and `submit.review_note` are configurable in both wizards
+  and every preset ships a turnaround it can keep. The setup wizard's review
+  step lists the three things it cannot do for you.
+- **Bot pull requests get first-party checks.** Each issue-driven workflow
+  dispatches Validate and Quality against the branch it created (the default
+  token cannot trigger them), `thumbnails.yml` re-dispatches after its own
+  push, and an optional `CONTENT_BOT_TOKEN` makes the PRs trigger checks
+  natively. Run summaries list what was dispatched; the PR body carries an
+  entry preview; when the merged entry deploys, the closed issue is told
+  "Your entry is now live at …".
+- `.github/workflows/lint-workflows.yml` runs actionlint and zizmor on any pull
+  request touching `.github/**`. **Bootstrap labels** prints a preflight
+  summary (labels, Pages source, launch-guide link).
+- `npm run dev` — one command for the Tailwind watcher, `jekyll serve
+  --livereload` and regeneration of the schema-derived files.
+- `npm run test:build` — builds every preset and module combination and checks
+  the rendered HTML for hard-coded articles, downcased sentences, dead links
+  and leftover Liquid.
+- `npm run validate` fails a `_data/theme.yml` palette that does not meet
+  WCAG AA, naming the pair and the measured ratio; the schema validator warns
+  when a field `description` repeats its `prompt`.
+- The Quality workflow runs Lighthouse on mobile as well as desktop and writes
+  a table of the scores and the pa11y results to the run summary.
+- `theme.yml → type.measure` / `type.measure_display` set the reading and
+  display line lengths; body copy measures ~68 characters (was ~88).
+- Docs: `docs/launch.md` (fork-to-live tutorial), `docs/incidents.md`
+  (takedown runbook), `docs/index.md`, `docs/decisions.md` (the canonical
+  decision log), `docs/glossary.md`.
+- `with_article`, a Liquid filter that picks "a" or "an" for the schema's
+  entry noun. `static_file` and `facet_options` filters.
+
+### Changed
+
+- **Builds are much faster on large catalogs:** related entries are computed
+  once per build instead of per page (260 entries: 25.8 s → 3.8 s), and are
+  chosen by how distinctive a shared value is (IDF), scaled by the field's
+  `weight` — a lower weight counts for more, as it does everywhere else.
+- The search index is fetched only when someone searches, at low priority
+  with a timeout, instead of being preloaded on every page.
+- Multiselect questions reach the GitHub issue form as a multi-select
+  dropdown, so the answers survive the hand-off and can be marked required
+  there.
+- Submission-form errors are written from the schema and name the question
+  they belong to; the progress rail says how many problems each section has;
+  the setup wizard marks problems on the control and clears them on the next
+  keystroke.
+- Catalog cards line up: the meta line no longer wraps and every slot reserves
+  its height, so a row scans across instead of stair-stepping; padding and
+  title size follow the card's own width (container queries); results settle
+  instead of blinking — only cards that just entered the filtered set fade in.
+- Option descriptions moved out of hover tooltips into a "What do these
+  mean?" disclosure under each facet group and the fact strip.
+- Page titles scale fluidly instead of stepping at 640 px; headings and
+  paragraphs use `text-wrap: balance` / `pretty` where supported.
+- The catalog page heading, nav label, breadcrumb and `<title>` are all
+  derived from the schema's entry noun.
+- Only one image per page is eager-loaded with a high fetch priority.
+- `jekyll-feed` was removed; the feed moved from `/feed.xml` to
+  `/<entry.path>/feed.xml`.
+- The scaffolder shares one slug rule across JS and Ruby (NFKD; a title with
+  no Latin characters scaffolds `entry-<issue>` with a warning instead of
+  failing); Actions helpers are shared and generated files are written
+  atomically.
+
+### Fixed
+
+- Prose pages render in the site's own palette again: `prose-slate` was
+  overwriting every themed variable, leaving links at 1.70:1 with no
+  underline.
+- Selected, current and complete states stay visible under Windows High
+  Contrast Mode (new forced-colors layer); a tap no longer leaves a control
+  stuck in its hover state on touch devices; `hidden` can no longer be undone
+  by a display utility.
+- The on-dark thumbnail badge is opaque, fixing a contrast failure over pale
+  screenshots.
+- The home carousel's first card keeps its 16 px inset on phones (it was
+  smooth-scrolled flush at load, which also stopped Chrome reporting LCP).
+- The lightbox announces the image ("Image n of m. <alt>") and opens the
+  dialog before filling it; search suggestions navigate on click.
+- Copy that assumed the entry noun starts with a consonant ("Submit a
+  entry"), empty-state headings that lowercased their first word, and the
+  About page's "draft pull request" wording.
+- Links to the submission form are hidden when the submit module is off; the
+  footer honours the same `module:` gate as the header.
+- Image downloads are capped as they stream, not after the fact.
+- The schema validator rejected `tone: on-dark`, which the badge CSS styles
+  and the docs document.
+- Doubled spaces in the mobile filter sheet's "Show n use cases" button.
+- **Security:** the image fetcher's SSRF guard now judges IPv6 literals
+  numerically. IPv4-mapped (`[::ffff:169.254.169.254]`), IPv4-compatible and
+  NAT64 (`64:ff9b::/96`) literals are decoded and checked with the IPv4
+  rules, so a hex spelling produced by the URL parser (`[::ffff:a9fe:a9fe]`)
+  can no longer reach loopback, link-local or private space; `fe80::/10`,
+  `fc00::/7`, `ff00::/8` and `2001:db8::/32` are matched by mask rather than
+  by text prefix.
+
+## [1.1.0] — 2026-08-17
+
+Closes the four P3 findings the v1.0.0 panel left open, and settles the
+toolchain questions Dependabot raised.
+
+### Added
+
+- The 404 page carries the catalog search box (the same plain GET form as the
+  home hero) and the three newest entries, both driven by `_data/schema.yml`
+  and hidden when the `catalog` module is off.
+- "Browser support" section in `docs/design-system.md`.
+
+### Changed
+
+- Entry page: on wide screens the rail (contents, reuse, contact) now sits
+  beside the header instead of starting under it, so the top of the page has
+  no empty column; a rail taller than the viewport scrolls in place instead of
+  hiding its last card. DOM order — and therefore the reading order on phones
+  and screen readers — is unchanged.
+- Fact strip: cells align label and value rows across the strip, cap at three
+  values with a "+n" chip that names the rest, use two columns in the
+  1024–1279 px band beside the rail, and draw hairlines per cell so a short
+  last row no longer ends in a grey block.
+- Filter rail: pill labels are 13 px at `lg` (were 12); zero-count options
+  recede on three cues (muted ink, hairline border, 70 % opacity).
+- Dependencies: ESLint 10 (`@eslint/js` 10), `globals` 17, `js-yaml` 5
+  (`import * as yaml`).
+- Tailwind stays on 3.4 by decision — v4's browser floor is too high for the
+  audience — and Dependabot now ignores the major bump. Rationale in
+  `docs/design-system.md` and `docs/roadmap.md`.
+
+## [1.0.0] — 2026-08-17
+
+The first release meant to be forked. Three review panels (visual, interaction,
+accessibility, front-end code, architecture, documentation, pipeline security)
+were held during development; every P1 and P2 finding from the final panel is
+fixed in this release, and the remaining P3s are listed in `docs/roadmap.md`.
+
+### Added
+
+- Design system: `docs/design-system.md` (tokens, type scale, elevation, motion,
+  every component class) and a `/styleguide/` page rendered from the live theme
+  and the newest entries. Component CSS lives in `assets/css/components/*.css`.
+- Quality gates in CI: `quality.yml` runs pa11y-ci (axe + HTML CodeSniffer,
+  WCAG 2 AA, desktop and 390 px viewports) and Lighthouse CI on every push and
+  PR; `validate.yml` now runs ESLint, Prettier, the Node and Ruby test suites,
+  `generate --check`, front-matter validation and a full build.
+- Contributor docs: `ARCHITECTURE.md`, `CONTRIBUTING.md`, `SECURITY.md`.
+- Schema v2 presentation hints — `card` (`badge` / `meta` / `line` / `chip` /
+  `icon`), `weight`, `icon`, `group`, `prompt`, `option_meta`
+  (short / icon / tone / description), group `placement` (`rail` | `main`) —
+  and two field types, `images` and `links`. See `docs/content-model.md`.
+- Catalog: redesigned card with an at-a-glance signal strip, grouped filter
+  rail with live counts and URL state, mobile filter sheet, combobox search
+  (body text indexed, relevance sort), grid/list toggle, home "browse by" tiles.
+- Entry page: fact strip, screenshot gallery with lightbox, table of contents,
+  reuse/contact cards, related entries, schema-driven grouped sections.
+- Submit wizard: sectioned form with progress, live card preview that mirrors
+  the catalog card, autosave with restore/discard, inline validation and an
+  error summary, popup-blocked and email fallbacks, "what happens next".
+- Issue → PR automation: screenshot downloads with size caps and a private-host
+  guard, links parsing, YAML emission that round-trips through js-yaml and
+  Psych, per-issue concurrency, a `SUBMISSIONS_OPEN` repository variable to
+  pause public intake, SHA-pinned actions.
+- Configurator: shared `core.js` split into modules; presets carry schema v2;
+  `defaults.generated.js` is derived from the YAML by `npm run generate`. The
+  `/setup/` Branding step shows a live preview of the real components under
+  the chosen palette, type and rounding; the field builder's "Show on card"
+  toggle can pin a card slot.
+- Ten sample AI use cases across health programmes and back-office functions,
+  each with a screenshot.
+- Setup wizard: entry-model fields as collapsed rows with a sticky action bar,
+  `group`/`weight` controls on every field and on the add-a-field form, and a
+  focusable error summary that links to each control at fault. The CLI wizard
+  gained a declarative flag table (`--preset/--yes/--dry-run/--out/--help`).
+- `_data/modules.yml` maps each module to the paths it owns; `_plugins/modules.rb`
+  reads it instead of a hand-maintained table.
+- Tests: `test/plugins/*_test.rb` for every Jekyll plugin, a JS↔Ruby parity test
+  for the schema constants, `test/scripts/filter_state.test.mjs` for the catalog
+  filter logic, jsdom tests for the wizard and the submit form, and adversarial
+  tests for every issue-driven script (239 node + 77 Ruby).
+- pa11y-ci audits interactive states too: the mobile filter sheet, "Show all"
+  expanded, the lightbox, and the wizard's Branding and Entry-model steps.
+- Screenshots in `README.md` and `docs/configuration.md`.
+- `npm run validate` (and the CI gate) fails a fork that still names the
+  template's repository in `_data/site.yml` or the issue chooser, with the fix
+  spelled out; `npm run generate` rewrites the chooser links from `site.yml`.
+- Workflows run on Node 22 (`engines.node >= 22`).
+
+### Changed
+
+- Interaction: the submit form's "open a pre-filled issue" flow works under
+  `noopener`; `?q=` deep links search on load; the layout reflows at 400 %
+  zoom; the "Show all" toggle, carousel buttons and search listbox manage focus
+  correctly; live regions stay quiet on boot; the filter sheet closes on Escape
+  from anywhere; filter counts read as "(12 matches)" to assistive tech; the
+  results header and rail hide when JavaScript is off; the catalog status names
+  the search that is *applied*, not the text being typed; a step pill in the
+  setup wizard validates every step it would skip.
+- Layout: one `.page-title` size on every page, `.eyebrow` variants replace
+  ad-hoc tracked capitals, the entry rail comes first in DOM order on small
+  screens, the entry table of contents also shows on mobile, the home page's
+  "Recently added" grid yields to the hero list at desktop widths, carousel
+  items fill their row exactly with a "Browse all" link beside the controls, the
+  filter rail fades at its bottom edge when it scrolls, text-only cards keep
+  their own height next to image cards, and headings that receive scripted
+  focus use a dashed offset outline instead of the control ring. Hero CTAs hide
+  with their module (`module:` on each CTA). Cohort-portal preset:
+  `department` → `area`; resource-library preset copy is organization-neutral.
+- Accessibility: the submit form's fieldset legends label their selects, every
+  option input has an id the error summary can link to, the images textarea is
+  described by its note, email inputs carry `autocomplete`; the setup wizard's
+  copy buttons announce "Copied" politely, and its select controls keep a
+  current value that is no longer among the options.
+- Code organisation: `filters.js` split into `lib/filter-state.js`,
+  `lib/entry-order.js` and `filter-sheet.js`; the wizard into `wizard/*` and
+  `steps/*`; the CLI into `scripts/lib/setup-*.mjs`; `_layouts/cohort.html` and
+  `_layouts/event.html` use prefixed Liquid assigns.
+- Removed the unused per-field `section` hint and the top-level `sections:`
+  map from the schema, presets and validator (`groups` replaced them).
+- Quality configs moved to `quality/` (`urls.js` discovers sample entries;
+  `pa11yci.js`, `lighthouserc.js`); the thumbnails workflow reads the entry
+  path from the schema; every issue-driven workflow has a concurrency group.
+
+- Fonts ship as latin/latin-ext woff2 subsets (Inter, Source Sans 3) with the
+  body and heading faces preloaded; the TTFs are gone.
+- Focus indication is one solid 2 px `primary` ring with a ground-coloured
+  offset everywhere.
+- Scaffolded entries carry `render_with_liquid: false`; the validator fails an
+  entry without it.
+- Both configurators ask the same six colour questions (`line_strong` and
+  `warn` included) and the live preview honours all of them.
+
+### Security
+
+- Screenshot fetches resolve DNS and refuse loopback / private / link-local
+  addresses on every redirect hop; the GitHub token is only sent to GitHub hosts.
+- Issue-body parsing takes the first occurrence of each heading and treats
+  everything after the write-up as prose, so a submission cannot inject fields.
+- Slugs are validated and writes are confined to `catalog/<slug>/`.
+- The cohort and event scripts share the first-wins issue-form parser, confine
+  every write to `cohorts/<year>/events/<id>/`, emit front matter through the
+  shared YAML emitter, write every `$GITHUB_OUTPUT` value behind a random
+  heredoc delimiter, and their workflows declare `permissions: {}` at the top
+  level, honour `SUBMISSIONS_OPEN`, and report a failed run back on the issue.
+  Adversarial tests spawn each script with hostile issue bodies.
+- `SECURITY.md` says what the automation guarantees, what it does not (the
+  workflow token is repository-wide; branch protection is the backstop; DNS
+  rebinding against a self-hosted runner), and how to report a vulnerability.
+
+## [0.1.0] — 2026-08-17
+
+### Added
+
+- Initial template: Jekyll + GitHub Pages catalog driven by `_data/*.yml`,
+  four presets (AI use-case catalog, cohort portal, resource library, blank),
+  in-browser and CLI configurators, GitHub-issue submission flow, events /
+  cohorts / resources modules, Lunr search, thumbnails workflow.
+
+[Unreleased]: https://github.com/crypticpy/bchc-template/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/crypticpy/bchc-template/compare/v1.6.1...v1.7.0
+[1.6.1]: https://github.com/crypticpy/bchc-template/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/crypticpy/bchc-template/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/crypticpy/bchc-template/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/crypticpy/bchc-template/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/crypticpy/bchc-template/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/crypticpy/bchc-template/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/crypticpy/bchc-template/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/crypticpy/bchc-template/compare/38365a5...v1.0.0
+[0.1.0]: https://github.com/crypticpy/bchc-template/commits/38365a5

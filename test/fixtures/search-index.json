@@ -1,0 +1,88 @@
+{
+  "generated_at": "2026-08-17T00:00:00Z",
+  "synonyms": {
+    "multilingual": ["translation"],
+    "translation": ["multilingual"]
+  },
+  "docs": [
+    {
+      "id": "notice-translation",
+      "title": "Notice translation",
+      "summary": "Translates public notices into the languages residents read.",
+      "facets": "Translation & language access Communications & outreach Public-facing Live",
+      "sections": [
+        {
+          "h": null,
+          "a": null,
+          "t": "Residents were receiving code enforcement letters they could not read."
+        },
+        {
+          "h": "What it does",
+          "a": "what-it-does",
+          "t": "The tool drafts a plain language version of each notice and routes it to a bilingual reviewer before anything is mailed."
+        },
+        {
+          "h": "How to reuse",
+          "a": "how-to-reuse",
+          "t": "Fork the prompt library, swap in your own notice templates, and keep the reviewer step. The reviewer step is what makes this safe to run at all."
+        }
+      ],
+      "url": "/catalog/notice-translation/",
+      "kind": "entry"
+    },
+    {
+      "id": "permit-tracker",
+      "title": "Permit tracker",
+      "summary": "Shows applicants where their permit stands.",
+      "facets": "Workflow automation Permitting Internal Live",
+      "sections": [
+        {
+          "h": "What it does",
+          "a": "what-it-does",
+          "t": "Applicants get a status page instead of calling the counter. A notice goes out whenever the status changes."
+        }
+      ],
+      "url": "/catalog/permit-tracker/",
+      "kind": "entry"
+    },
+    {
+      "id": "inspection-scheduler",
+      "title": "Inspection scheduler",
+      "summary": "Books restaurant inspections without a phone call.",
+      "facets": "Scheduling Environmental health Public-facing Pilot",
+      "sections": [
+        {
+          "h": "How to reuse",
+          "a": "how-to-reuse",
+          "t": "The confirmation notice is the only piece that needed rewriting for our jurisdiction."
+        }
+      ],
+      "url": "/catalog/inspection-scheduler/",
+      "kind": "entry"
+    },
+    {
+      "id": "grant-finder",
+      "title": "Grant finder",
+      "summary": "Matches community groups to open funding.",
+      "facets": "Search Grants Public-facing Pilot",
+      "sections": [
+        {
+          "h": "Lessons learned",
+          "a": "lessons-learned",
+          "t": "We post a notice to the newsletter whenever a new funder is added."
+        }
+      ],
+      "url": "/catalog/grant-finder/",
+      "kind": "entry"
+    },
+    {
+      "id": "event:2026:kickoff",
+      "title": "Cohort kickoff",
+      "summary": "Meet the 2026 cohort.",
+      "facets": "Room 2 2026",
+      "sections": [],
+      "url": "/cohorts/2026/events/kickoff/",
+      "kind": "event"
+    }
+  ]
+}

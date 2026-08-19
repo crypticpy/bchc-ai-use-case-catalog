@@ -1,0 +1,57 @@
+/* Form controls: help text ABOVE the input, errors below, control borders use line_strong (>= 3:1). */
+@layer components {
+  .field { @apply space-y-1.5; }
+  .field-label { @apply block text-sm font-semibold text-brand-ink; }
+  .field-help { @apply text-sm text-brand-muted; }
+  .field-input { @apply block w-full rounded-lg border-brand-line-strong bg-surface-card text-base text-brand-ink placeholder:text-brand-muted/70 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary sm:text-sm; }
+  .field-input[aria-invalid="true"] { @apply border-brand-warn focus:ring-brand-warn/25; }
+  .field-error { @apply flex items-start gap-1.5 text-sm font-medium text-brand-warn; }
+  .field-option { @apply flex cursor-pointer items-start gap-3 rounded-lg border border-brand-line bg-surface-card px-3 py-2.5 text-sm text-brand-ink transition-colors duration-120 hover:border-brand-line-strong has-[:checked]:border-brand-primary has-[:checked]:bg-brand-primary/5; }
+  .field-option-desc { @apply block text-xs font-normal text-brand-muted; }
+  /* A fixed 3px corner, not the theme radius: on a 16px box the "soft"/"round"
+     tokens read as a circle, which says "pick one" when you may pick several. */
+  .checkbox { @apply mt-0.5 h-4 w-4 rounded-[3px] border-brand-line-strong text-brand-primary focus:ring-brand-primary; }
+  .radio { @apply mt-0.5 h-4 w-4 border-brand-line-strong text-brand-primary focus:ring-brand-primary; }
+
+  /* ---- Submit page ------------------------------------------------------ */
+  /* "Required" is spelled out, never conveyed by an asterisk alone (a11y #12). */
+  .field-required { @apply ml-1.5 align-middle text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-muted; }
+  .field-options { @apply grid gap-2 sm:grid-cols-2; }
+  .field-options-wide { @apply grid gap-2 sm:grid-cols-2; }
+  .field-note { @apply rounded-lg border border-dashed border-brand-line-strong bg-surface-base px-4 py-3 text-sm text-brand-muted; }
+
+  /* A numbered form step. */
+  /* first-of-type, not first: the error summary <div> precedes the first <section>. */
+  .form-section { @apply scroll-mt-28 border-t border-brand-line pt-8 first-of-type:border-0 first-of-type:pt-0; }
+
+  /* Sticky section navigation (>= lg). E2 is allowed here: it floats. */
+  .progress-rail { @apply panel p-4; }
+  .progress-link { @apply flex items-start gap-2.5 rounded-lg px-2 py-1.5 text-sm text-brand-muted transition-colors duration-120 hover:bg-brand-primary/5 hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
+  .progress-link[aria-current="true"] { @apply bg-brand-primary/5 font-semibold text-brand-primary-dark; }
+  .progress-dot { @apply mt-1.5 h-2 w-2 shrink-0 rounded-full border border-brand-line-strong bg-surface-card; }
+  .progress-link[data-done="true"] .progress-dot { @apply border-brand-primary bg-brand-primary; }
+  /* Half-filled dot: something answered, a required field still blank. */
+  .progress-link[data-done="partial"] .progress-dot { @apply border-brand-primary; background: linear-gradient(90deg, rgb(var(--c-primary)) 50%, transparent 50%); }
+  .progress-count { @apply text-xs font-medium text-brand-muted tabular; }
+
+  /* Error summary shown after a failed submit. */
+  .error-summary { @apply rounded-2xl border border-brand-warn/40 bg-brand-warn/5 p-4; }
+  .error-summary-title { @apply flex items-center gap-2 text-sm font-semibold text-brand-warn; }
+  .error-summary-link { @apply text-sm font-medium text-brand-warn underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-warn focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
+
+  /* Repeatable "Label + URL" rows for a `links` field. */
+  .links-row { @apply grid gap-2 rounded-lg border border-brand-line bg-surface-base p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end; }
+
+  /* Thumbnail strip under the images field. */
+  .image-previews { @apply flex flex-wrap gap-2; }
+  .image-preview { @apply h-16 w-24 overflow-hidden rounded-md border border-brand-line bg-surface-base object-cover; }
+
+  /* Live card preview. Collapsible below lg, pinned beside the form above it. */
+  .preview-panel { @apply panel p-4; }
+  .preview-summary { @apply flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-brand-ink lg:hidden; }
+  .preview-summary::-webkit-details-marker { display: none; }
+
+  /* Status line for the draft autosave. */
+  .draft-status { @apply text-xs text-brand-muted; }
+  .draft-bar { @apply flex flex-col gap-3 rounded-2xl border border-brand-primary/30 bg-brand-primary/5 p-4 text-sm text-brand-ink sm:flex-row sm:items-center sm:justify-between; }
+}

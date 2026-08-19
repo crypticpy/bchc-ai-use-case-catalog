@@ -1,0 +1,95 @@
+/* Entry detail page: fact strip, gallery + lightbox, table of contents, sidebar rail.
+   Owned by the entry-page workstream (see docs/design-brief.md → Entry page).
+   Structure comes from hairlines and spacing only — no shadow below E1. */
+@layer components {
+  /* ---- Fact strip ----------------------------------------------------- */
+  /* A spec band, not a column grid: facts are of wildly unequal length, so equal
+     columns spent about 85px per cell reserving room for the tallest one while the
+     fact that needed the width ("Needs a paid license / Needs customization / Human
+     review built in") stacked into three lines. Each fact is now content-sized and
+     the band wraps; the right edge is left ragged on purpose — same idiom as the
+     chips, and inflating the last fact to fill the row would be a lie about its size.
+     The internal rules are each fact's own top and left border, pulled 1px outward so
+     they sit under the strip's outer border and neighbouring borders coincide: a short
+     last row then ends in plain card surface instead of the block of gap colour that a
+     gap-over-line ground would paint. */
+  .fact-strip { @apply panel flex flex-wrap items-start overflow-hidden; }
+  /* The rules are `line` on `surface-tint` — present, but a step quieter than they
+     were on white; the panel's own edge is its colour change, not a border. */
+  .fact { @apply -ml-px -mt-px min-w-0 max-w-full border-l border-t border-brand-line px-5 py-3.5; }
+  .fact-label { @apply mb-1 text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-brand-muted; }
+  .fact-value { @apply flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-semibold leading-5 text-brand-ink; }
+  .fact-item { @apply inline-flex min-w-0 items-center gap-1.5; }
+  /* `warn` on the tinted panel is 4.38:1, so the caution item carries its own card-white
+     pill (the same move .badge[data-tone="warn"] makes) and reads at 4.69:1 wherever
+     the strip lands. */
+  .fact-item-warn { @apply fact-item -my-0.5 rounded-pill bg-surface-card px-2 py-0.5 text-brand-warn ring-1 ring-inset ring-brand-warn/30; }
+
+  /* ---- Staleness notice ------------------------------------------------ */
+  /* Deliberately NOT a warning: an entry nobody has re-confirmed in a year is
+     still the best account of that project anyone has written down, and painting
+     it amber teaches readers to distrust the catalog rather than to date it. So:
+     muted text, a clock rather than a triangle, and the same hairline the fact
+     strip below it carries — it reads as a caption on the strip, which is what
+     it is. It sits above the strip because it qualifies every fact in it. */
+  .entry-stale { @apply panel flex items-start gap-2 px-4 py-3 text-sm leading-5 text-brand-muted; }
+  .entry-stale a { @apply font-medium text-brand-primary hover:underline; }
+
+  /* The card/row version of the same idea, one line long. It lives here rather
+     than in catalog.css so both halves of the staleness treatment stay together;
+     the margin is scoped to .entry-foot because .entry-row already gaps its
+     children and would double the space. */
+  .entry-stale-note { @apply flex items-center gap-1.5 text-[11px] font-medium leading-4 text-brand-muted; }
+  .entry-foot .entry-stale-note { @apply mt-3; }
+
+  /* Deprecated IS the caution case: the review committee has said the entry no
+     longer describes something anyone maintains. Warn ink on the same panel — a
+     triangle, not a clock — and a hairline in the warn colour so the notice reads
+     as a decision, not a date. Deprecated entries keep their content and their
+     place in the catalog; see docs/content-model.md ("Review status"). */
+  .entry-stale--warn { @apply text-brand-ink; box-shadow: inset 4px 0 0 rgb(var(--c-warn)); }
+  .entry-stale--warn strong { @apply text-brand-warn; }
+  .entry-stale-note--warn { @apply text-brand-warn; }
+
+  /* ---- Sidebar rail --------------------------------------------------- */
+  /* Tinted, not carded: the rail is reference material beside the prose, and four
+     bordered white boxes stacked in a 280px column read as chrome. */
+  .rail-card { @apply panel p-5; }
+  .rail-title { @apply text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-brand-muted; }
+  .rail-list { @apply space-y-3 text-sm; }
+  .rail-term { @apply text-xs font-semibold text-brand-muted; }
+  .rail-def { @apply mt-0.5 text-sm text-brand-ink; }
+  /* Compact link/mail row: the rail is 280px, so the host wraps under the label
+     instead of beside it. */
+  .rail-link { @apply flex items-start gap-2 text-sm font-medium text-brand-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2; }
+  .rail-person { @apply space-y-1; }
+
+  /* ---- Table of contents ---------------------------------------------- */
+  .toc-link { @apply block border-l-2 border-brand-line py-1 pl-3 text-sm text-brand-muted transition-colors duration-120 ease-brand hover:text-brand-primary; }
+  .toc-link[aria-current="true"] { @apply border-brand-primary font-semibold text-brand-primary; }
+
+  /* ---- Gallery -------------------------------------------------------- */
+  .gallery-item { @apply relative block w-full overflow-hidden rounded-lg border border-brand-line bg-surface-card transition-colors duration-120 ease-brand hover:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2; }
+  .gallery-item > img { @apply h-full w-full object-cover; }
+  .gallery-lead { @apply gallery-item aspect-[16/9]; }
+  .gallery-thumb { @apply gallery-item aspect-[4/3]; }
+
+  /* ---- Lightbox ------------------------------------------------------- */
+  .lightbox { @apply w-[min(94vw,1080px)] max-w-none rounded-xl border border-brand-line bg-surface-card p-0 text-brand-ink; }
+  .lightbox::backdrop { background: rgb(0 0 0 / 0.72); }
+  .lightbox-stage { @apply flex items-center justify-center bg-brand-primary-dark; }
+  .lightbox-stage img { @apply max-h-[70vh] w-auto max-w-full object-contain; }
+  .lightbox-bar { @apply flex items-center justify-between gap-3 border-t border-brand-line px-4 py-3; }
+  .lightbox-nav { @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-brand-line-strong bg-surface-card text-brand-primary transition-colors duration-120 hover:border-brand-primary hover:bg-brand-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 disabled:opacity-40; }
+
+  /* ---- Print ---------------------------------------------------------- */
+  /* The rail is a normal block after the prose; interactive chrome disappears.
+     An evaluator printing the page to circulate reads the fact strip first, so no
+     fact may split across a page break. */
+  @media print {
+    .entry-rail { position: static !important; width: auto !important; }
+    .entry-no-print { display: none !important; }
+    .fact-strip { break-inside: avoid; }
+    .fact { break-inside: avoid; }
+  }
+}

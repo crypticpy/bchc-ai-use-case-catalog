@@ -1,0 +1,26 @@
+{%- comment -%}
+Provenance line for a printed page: where it came from, and when it was printed.
+
+Only visible in print (see assets/css/components/print.css) — on screen the same
+facts are the address bar. A printed brief travels: it gets photocopied into a
+packet and read three meetings later, and by then "which catalog was this, and how
+old is it?" is the only question that matters. So the source URL is server-rendered
+and needs no JavaScript; the date is the one fact a static build cannot know, so it
+is written in by the reader's own browser and simply absent when scripting is off.
+
+Filled at parse time rather than on `beforeprint`: printing to PDF through the
+DevTools protocol (and any print triggered from outside the page) never fires that
+event, and a stamp that is missing exactly when the page is saved as a file is worse
+than one that says "opened" a minute early.
+
+Local assigns are prefixed `ps_`.
+{%- endcomment -%}
+{%- assign ps_cfg = site.data.site -%}
+<p class="print-stamp">
+  Printed from {{ ps_cfg.name }}<span data-print-date></span><br>
+  {{ page.url | absolute_url }}
+</p>
+<script>
+  document.currentScript.previousElementSibling.querySelector('[data-print-date]').textContent =
+    ' on ' + new Date().toLocaleDateString(undefined, { dateStyle: 'long' });
+</script>

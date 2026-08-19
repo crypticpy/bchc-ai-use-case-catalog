@@ -1,0 +1,59 @@
+name: Weekly Smoke Build
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Regenerate schema-derived files
+        run: node scripts/generate.mjs
+
+      - name: Build CSS
+        run: npm run build:css
+
+      - name: Validate front matter
+        run: ruby scripts/check_front_matter.rb
+
+      - name: Validate file sizes
+        run: ruby scripts/check_file_sizes.rb
+
+      - name: Build site
+        env:
+          JEKYLL_ENV: production
+        run: |
+          set -euo pipefail
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          if [[ "$repo_name" == *.github.io ]]; then
+            baseurl=""
+          else
+            baseurl="/$repo_name"
+          fi
+          echo "Smoke build with baseurl='${baseurl}'"
+          bundle exec jekyll build --destination _site --baseurl "$baseurl"

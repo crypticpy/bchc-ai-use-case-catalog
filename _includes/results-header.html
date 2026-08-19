@@ -1,0 +1,102 @@
+{%- comment -%}
+Sticky results header: count, search combobox, active filters, sort, view toggle.
+
+Usage: {% include results-header.html entries=entries %}
+Params: entries (required) — only used for the total and to decide whether the
+"Recently updated" sort makes sense.
+
+Markup contract (assets/js/filters.js + assets/js/search.js):
+  [data-filters-config]      data-entry-plural / data-entry-singular / data-relevance-label
+  [data-entry-count]         visible count (every match on the page is updated)
+  [data-entry-count-label]   plural/singular noun
+  [data-entry-total]         total, inside [data-total-wrap] which is hidden when unfiltered
+  [data-filter-active-pills] container for active-filter removal pills
+  [data-filter-clear]        "Clear all", hidden when nothing is active
+  [data-sort]                <select>; a "Relevance" option is injected while a query is present
+  [data-view-toggle="grid|list"] aria-pressed buttons
+  [data-filter-status]       role="status" live region (one announcement per change)
+  <search role="search">     the landmark wrapping the combobox
+  [data-filter="search"]     role="combobox" input, [data-search-results] listbox
+  [data-search-status]       visible message when the search index fails to load
+  [data-search-live]         sr-only role="status": how many suggestions are open
+  [data-search-floor]/[data-search-more]
+                             the "show the weaker matches" button, hidden until a
+                             query has hits below the relevance floor
+  .results-header-controls   the JS-only controls (search, sort, view switch); hidden
+                             by CSS when <html> has no `js` class (see head.html)
+
+Local assigns are prefixed `rh_`.
+{%- endcomment -%}
+{%- assign rh_schema = site.data.schema -%}
+{%- assign rh_entries = include.entries -%}
+{%- assign rh_total = rh_entries | size -%}
+{%- assign rh_plural = rh_schema.entry.plural | default: 'Entries' | downcase -%}
+{%- assign rh_singular = rh_schema.entry.singular | default: 'Entry' | downcase -%}
+{%- assign rh_updated_key = rh_schema.entry.updated_key | default: 'updated' -%}
+{%- assign rh_has_updated = false -%}
+{%- for rh_e in rh_entries -%}
+  {%- if rh_e[rh_updated_key] and rh_e[rh_updated_key] != '' -%}{%- assign rh_has_updated = true -%}{%- break -%}{%- endif -%}
+{%- endfor -%}
+{%- assign rh_sort_field = nil -%}
+{%- assign rh_meta_fields = rh_schema.fields | card_fields: 'meta' -%}
+{%- for rh_f in rh_meta_fields -%}
+  {%- if rh_f.type == 'text' and rh_sort_field == nil -%}{%- assign rh_sort_field = rh_f -%}{%- endif -%}
+{%- endfor -%}
+<div class="results-header" data-filters-config data-entry-plural="{{ rh_plural }}" data-entry-singular="{{ rh_singular }}" data-relevance-label="Relevance">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+    <h2 id="results-heading" tabindex="-1" class="results-count focus-target">
+      <span data-entry-count>{{ rh_total }}</span> <span data-entry-count-label>{{ rh_plural }}</span><span data-total-wrap class="results-total" hidden> of <span data-entry-total>{{ rh_total }}</span></span>
+    </h2>
+
+    {%- comment -%} <search> is the landmark for this control, so a screen-reader
+    user can jump straight to it from the rotor instead of walking the header.
+    `role="search"` is its implicit role, repeated explicitly only because AT
+    that predates the element ignores an unknown tag. `type="search"` gets the
+    phone keyboard a search field should have and the platform clear button; its
+    input event is the same one assets/js/search.js already listens for.
+    basis-full below sm: the suggestion listbox is as wide as this box, and
+    sharing a 390px line with the count left it truncating every result title.
+    Not a <form>: there is nothing to submit — results update per keystroke, and
+    a form would offer Enter as a navigation that goes nowhere. {%- endcomment -%}
+    <search class="results-header-controls relative min-w-[12rem] flex-1 basis-full sm:basis-auto sm:max-w-sm" role="search" aria-label="Search {{ rh_plural }}">
+      <label class="sr-only" for="catalog-search">Search {{ rh_plural }}</label>
+      <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-brand-muted">{% include icon.html name='search' size='sm' %}</span>
+      <input id="catalog-search" class="search-box" type="search" role="combobox" aria-expanded="false" aria-controls="search-listbox" aria-autocomplete="list" aria-haspopup="listbox" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="Search {{ rh_plural }}…" data-filter="search" data-search-index="{{ '/search.json' | relative_url }}">
+      <ul id="search-listbox" class="search-listbox" role="listbox" aria-label="Search suggestions" data-search-results hidden></ul>
+    </search>
+
+    <div class="results-header-controls ml-auto flex items-center gap-2">
+      <label class="sr-only" for="catalog-sort">Sort {{ rh_plural }}</label>
+      <select id="catalog-sort" class="results-select" data-sort>
+        <option value="newest">Newest</option>
+        {%- if rh_has_updated %}<option value="updated">Recently updated</option>{% endif -%}
+        <option value="az">A–Z</option>
+        {%- if rh_sort_field %}<option value="field:{{ rh_sort_field.key | replace: '_', '-' }}">{{ rh_sort_field.label }}</option>{% endif -%}
+      </select>
+      <div class="flex items-center gap-1" role="group" aria-label="Result layout">
+        <button type="button" class="view-toggle" data-view-toggle="grid" aria-pressed="true" aria-label="Grid view">{% include icon.html name='grid' size='sm' %}</button>
+        <button type="button" class="view-toggle" data-view-toggle="list" aria-pressed="false" aria-label="List view">{% include icon.html name='list' size='sm' %}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-2 flex flex-wrap items-center gap-2 empty:mt-0" data-filter-bar>
+    <div class="flex flex-wrap items-center gap-1.5" data-filter-active-pills></div>
+    <button type="button" class="filter-showall mt-0 hidden" data-filter-clear>Clear all</button>
+  </div>
+
+  {%- comment -%} Searching the full write-up means common words match half the
+  catalog on a passing mention; the grid keeps the strong hits and offers the
+  rest here (assets/js/search.js). Purely client-side — no re-query, no URL
+  change, so Back still leaves the page. {%- endcomment -%}
+  <div class="mt-2" data-search-floor hidden>
+    {%- comment -%} Default label so the button has an accessible name in the
+    served HTML (htmlcs H91 checks it whether or not the wrapper is hidden);
+    search.js replaces it with the count and the query. {%- endcomment -%}
+    <button type="button" class="filter-showall mt-0" data-search-more>Show weaker matches</button>
+  </div>
+
+  <p class="sr-only" role="status" data-filter-status></p>
+  <p class="sr-only" role="status" data-search-live></p>
+  <p class="mt-2 hidden text-xs text-brand-warn" role="status" data-search-status></p>
+</div>

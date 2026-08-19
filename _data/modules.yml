@@ -1,0 +1,23 @@
+# ---------------------------------------------------------------------------
+# Path prefixes owned by each togglable module. Read by _plugins/modules.rb:
+# when a module is off in _data/site.yml's `modules:` map, every page whose
+# URL starts with one of its prefixes is dropped from the build at `post_read`
+# (never built, never indexed, never in the sitemap).
+#
+# `catalog` is NOT listed here — its prefix is derived from _data/schema.yml's
+# `entry.path` instead, since it must always match the configured entry
+# folder rather than a fixed string.
+#
+# Adding a new togglable module: add its boolean to _data/site.yml's
+# `modules:` map and its path prefix(es) here.
+# ---------------------------------------------------------------------------
+cohorts:
+  - "/cohorts/"
+events:
+  - "/events/"
+resources:
+  - "/resources/"
+submit:
+  - "/submit/"
+governance:
+  - "/governance/"

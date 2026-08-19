@@ -1,0 +1,122 @@
+# ---------------------------------------------------------------------------
+# Search vocabulary and the catalog's browse pages.
+#
+# A controlled vocabulary the search box cannot see is a controlled vocabulary
+# that does not exist: someone types "chatbot", the schema says "Chat assistant",
+# and the catalog answers "no results" about an entry it holds. Everything here
+# closes that gap. It is DATA, not code — nothing below is referenced by key in
+# a template or a script.
+#
+# Consumers:
+#   _plugins/search_index.rb   copies `synonyms` into /search.json for the
+#                              query-side expansion in assets/js/search.js
+#   _includes/filter-groups.html  emits `aliases` on each filter pill as
+#                              data-filter-terms, which is what assets/js/search.js
+#                              matches a typed query against
+#   _plugins/facet_pages.rb    reads `landing`
+#
+# Delete this file and everything still works: no synonyms, no aliases, and
+# landing pages generated for every facet field (the defaults below).
+#
+# ---------------------------------------------------------------------------
+# synonyms   query-side only, and bidirectional: typing either side finds the
+#            other. Each extra term is added to the lunr query at a lower boost
+#            than the literal one, so a synonym never outranks a real hit.
+#            Use it for words that are NOT in the taxonomy — a term of art, an
+#            abbreviation, the word a resident would use. Keys and values are
+#            matched case-insensitively.
+# ---------------------------------------------------------------------------
+synonyms:
+  chatbot: ["chat assistant", "conversational"]
+  opioid: ["overdose", "naloxone"]
+  geocode: ["address matching"]
+  llm: ["large language model", "generative text"]
+  rag: ["retrieval augmented generation", "document q&a"]
+  phi: ["health information", "hipaa"]
+  pii: ["personal information", "identifiers"]
+  syndromic: ["surveillance", "essence"]
+  translation: ["multilingual", "language access"]
+  procurement: ["contract", "purchasing", "rfp"]
+
+# ---------------------------------------------------------------------------
+# aliases    <field key> -> <exact option value> -> the words a reader might
+#            type for it. When a query matches one, the search box offers the
+#            FILTER rather than a text hit — which is a better answer, because
+#            it is exhaustive and it teaches the taxonomy.
+#
+#            The option value must match _data/schema.yml exactly. An option's
+#            own label, its `option_meta.short` and its `option_meta.description`
+#            are always matchable; only add words that are not already in them.
+#
+#            This lives here rather than in the schema's `option_meta` because
+#            it is search tuning, not content model — but folding it into
+#            `option_meta.aliases` later would be a compatible move (see
+#            docs/search.md).
+# ---------------------------------------------------------------------------
+aliases:
+  ai_types:
+    "Chat assistant": ["chatbot", "virtual assistant", "helpdesk bot", "copilot"]
+    "Generative text (LLM)": ["llm", "gpt", "generative ai", "drafting"]
+    "Document Q&A (RAG)": ["rag", "ask my documents", "knowledge base"]
+    "Classification & NLP": ["triage", "tagging", "text mining", "categorize"]
+    "Prediction & forecasting": ["risk model", "machine learning", "forecast"]
+    "Computer vision": ["ocr", "image recognition", "scanned documents"]
+    "Speech & transcription": ["transcription", "voice", "audio"]
+    "Translation": ["multilingual", "language access", "interpretation"]
+    "Agents & automation": ["workflow automation", "agentic", "rpa"]
+  data_sensitivity:
+    "Health information (PHI)": ["hipaa", "phi", "patient data"]
+    "Personal information (PII)": ["pii", "identifiers", "personally identifiable"]
+    "De-identified data": ["anonymized", "deidentified"]
+    "Criminal justice data (CJIS)": ["cjis", "law enforcement data"]
+  area:
+    "Epidemiology & surveillance": ["outbreak", "case investigation", "syndromic"]
+    "Environmental health": ["inspections", "restaurant", "food safety", "vector"]
+    "Emergency preparedness": ["emergency response", "incident", "phep"]
+    "Communications & outreach": ["public information", "risk communication", "media"]
+    "Finance, procurement & contracts": ["grants", "budget", "purchasing", "rfp"]
+    "HR & workforce": ["hiring", "onboarding", "recruitment", "staffing"]
+    "Data & informatics": ["informatics", "analytics", "dashboards"]
+  platform:
+    "Microsoft Azure": ["azure openai", "microsoft cloud"]
+    "Enterprise AI workspace": ["copilot", "chatgpt enterprise", "gemini for workspace"]
+    "Low-code platform": ["power automate", "power apps", "airtable", "n8n"]
+  expertise:
+    "Anyone on staff": ["no code", "non technical"]
+    "Analyst or data scientist": ["python", "r", "sql"]
+  readiness:
+    "Human review built in": ["human in the loop", "oversight", "review step"]
+    "Needs a data agreement": ["dua", "baa", "data use agreement"]
+
+# ---------------------------------------------------------------------------
+# landing    the crawlable browse surface generated by _plugins/facet_pages.rb:
+#            one page per facet value at /<entry.path>/<field>/<value>/, plus the
+#            A–Z directory that indexes them at /<entry.path>/a-z/.
+#
+#   enabled     false switches the whole thing off (the A–Z page then lists
+#               entries only).
+#   exclude     facet field keys that should NOT get landing pages. Use it for
+#               a free-text facet whose values are long-tail noise.
+#   max_values  a field with more distinct values than this is skipped and
+#               logged, so one accidentally free-text facet cannot multiply the
+#               build by a thousand pages.
+#   min_entries values carried by fewer entries than this are skipped. 1 means
+#               "generate a page for every value in use". Raise it to 2 or 3 on
+#               a large catalog to drop the single-entry tail.
+#   max_entries how many entries one landing page lists. The rest are one click
+#               away behind the "see them all" link into the live filter, and
+#               this is what keeps the build time of a large catalog bounded.
+#
+# Every generated page costs build time: at ten entries the eleven facets below
+# produce ~74 pages and add roughly half a second. Watch it as the catalog
+# grows and reach for `min_entries` / `exclude` before `enabled: false`.
+# ---------------------------------------------------------------------------
+landing:
+  enabled: true
+  # AI tool and model names are free text, so this facet has one value per
+  # product version — "Azure OpenAI GPT-4o" is not a page anyone links to, and
+  # the count grows with the catalog rather than with the taxonomy.
+  exclude: ["ai_tools"]
+  max_values: 200
+  min_entries: 1
+  max_entries: 24

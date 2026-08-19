@@ -1,0 +1,52 @@
+name: "Update a cohort schedule"
+description: "Replace the event list for a cohort year without editing YAML files by hand."
+title: "Schedule: Cohort YYYY"
+labels:
+  - content:schedule
+body:
+  - type: markdown
+    attributes:
+      value: "The list you provide **replaces** the whole schedule for that year. Include every event you want to keep."
+  - type: input
+    id: cohort_year
+    attributes:
+      label: "Cohort year"
+      description: "Four-digit year, e.g. 2026. The year must already have been scaffolded."
+      placeholder: "2026"
+    validations:
+      required: true
+  - type: textarea
+    id: schedule_entries
+    attributes:
+      label: "Schedule entries (YAML)"
+      description: |
+        Each entry needs at least `name` and an ISO date (`YYYY-MM-DD`).
+        Optional keys: `id`, `time`, `location`, `description`, `type`, `state`, `icon`.
+        If you omit `id`, one is generated from the name and reported back in a comment.
+      render: yaml
+      value: |
+        - name: Kickoff
+          date: 2026-01-15
+          time: 09:00 - 11:30
+          location: City Hall
+          description: Welcome and orientation.
+        - name: Midpoint check-in
+          date: 2026-06-03
+          time: 13:00 - 15:00
+          location: Central Library
+          description: Progress share-out and coaching.
+        - name: Closing showcase
+          date: 2026-11-10
+          time: 17:30 - 19:00
+          location: City Hall
+          description: Presentations and celebration.
+    validations:
+      required: true
+  - type: textarea
+    id: changelog
+    attributes:
+      label: "Notes for reviewers"
+      description: "Optional context for this update."
+      placeholder: "Moved the midpoint check-in a week later; added a new office-hours session."
+    validations:
+      required: false

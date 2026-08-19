@@ -1,0 +1,91 @@
+{%- comment -%}
+Demo banner: a strip above the header on every page while `_data/site.yml` has
+`demo: true`, so nobody mistakes the template's sample catalog for a real,
+published one — the fork's own team on launch day least of all.
+
+It is deliberately quiet (a warn-tinted band, one line, no dismiss button): it
+has to be impossible to miss, but it sits above every page of the site, so it
+must not read as an error. It goes away on its own — `npm run eject:samples`,
+`npm run setup` and the "Apply setup" workflow all write `demo: false`.
+
+`demo_starter_url` in `_data/site.yml` (optional) is a copy of the template
+that has already been through the launch guide; when it is set, the banner adds
+"see what a fresh copy looks like on day one". Tested with `!= ''`, not for
+truthiness — an empty string is truthy in Liquid.
+
+On a showcase example (`site.showcase.role == 'example'`, written into _config
+by scripts/build_showcase.mjs — see docs/showcase-plan.md) the same strip
+carries the example switcher instead: which of the template's configurations
+this site is, and the way to each of the others. Every name and path comes from
+`site.showcase.examples`, so no preset id is written down here. Without
+`site.showcase` — a fork, `jekyll serve`, CI — the banner is exactly what it
+has always been.
+
+Local assigns are prefixed `db_`.
+{%- endcomment -%}
+{%- if site.data.site.demo -%}
+  {%- assign db_repo = site.data.site.github.repository | default: '' -%}
+  {%- assign db_branch = site.data.site.github.branch | default: 'main' -%}
+  {%- assign db_starter = site.data.site.demo_starter_url | default: '' | strip -%}
+  {%- if site.showcase.role == 'example' -%}
+    {%- assign db_show = site.showcase -%}
+    {%- assign db_this = '' -%}
+    {%- for db_ex in db_show.examples -%}
+      {%- if db_ex.id == db_show.example -%}{%- assign db_this = db_ex -%}{%- endif -%}
+    {%- endfor -%}
+    <div class="border-b border-brand-warn/30 bg-brand-warn/10" data-component="demo-banner">
+      <div class="mx-auto flex max-w-7xl flex-col gap-x-4 gap-y-2 px-4 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <p class="flex flex-col gap-x-2 sm:flex-row sm:items-baseline">
+          <span class="flex shrink-0 items-center gap-1.5 font-semibold text-brand-ink">
+            <span class="text-brand-warn">{%- include icon.html name='sparkles' size='sm' -%}</span>
+            <span>Example</span>
+          </span>
+          <span class="text-brand-ink">Everything on this site is sample data — one of the configurations this
+            template ships with, built from the same repository.</span>
+        </p>
+        <details class="example-switcher" data-component="example-switcher">
+          <summary class="example-switcher-summary">
+            <span>Example: {{ db_this.name }}</span>
+            <span class="example-switcher-chevron">{%- include icon.html name='chevron-down' size='sm' -%}</span>
+          </summary>
+          <ul class="example-switcher-menu">
+            {%- for db_ex in db_show.examples -%}
+              {%- unless db_ex.id == db_show.example -%}
+                <li><a class="example-switcher-link" href="{{ db_ex.path }}/">{{ db_ex.name }}</a></li>
+              {%- endunless -%}
+            {%- endfor -%}
+            <li class="example-switcher-rule"><a class="example-switcher-link" href="{{ db_show.root }}/#example-{{ db_show.example }}">How
+              this one is configured</a></li>
+            <li><a class="example-switcher-link" href="{{ db_show.root }}/">All examples</a></li>
+            {%- if db_starter != '' -%}
+              <li><a class="example-switcher-link" href="{{ db_starter }}" target="_blank" rel="noopener noreferrer">See
+                day one<span class="sr-only"> (opens in a new tab)</span></a></li>
+            {%- endif -%}
+            <li><a class="example-switcher-link" href="{{ '/setup/' | relative_url }}">Configure your own</a></li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  {%- else -%}
+  {%- comment -%} Kept at its original indentation: the markup a fork without
+  `site.showcase` renders is unchanged, whitespace included. {%- endcomment -%}
+  <div class="border-b border-brand-warn/30 bg-brand-warn/10" data-component="demo-banner">
+    <p class="mx-auto flex max-w-7xl flex-col gap-x-2 px-4 py-2.5 text-sm sm:flex-row sm:items-baseline sm:px-6 lg:px-8">
+      <span class="flex shrink-0 items-center gap-1.5 font-semibold text-brand-ink">
+        <span class="text-brand-warn">{%- include icon.html name='sparkles' size='sm' -%}</span>
+        <span>Demo content</span>
+      </span>
+      <span class="text-brand-ink">
+        Everything on this site is sample data shipped with the template.
+        <a class="font-semibold text-brand-primary underline underline-offset-2 hover:text-brand-primary-dark" href="{{ '/setup/' | relative_url }}">Configure
+          it</a>{% if db_repo != '' %} or follow the
+        <a class="font-semibold text-brand-primary underline underline-offset-2 hover:text-brand-primary-dark" href="https://github.com/{{ db_repo }}/blob/{{ db_branch }}/docs/launch.md" target="_blank" rel="noopener noreferrer">launch
+          guide<span class="sr-only"> (opens in a new tab)</span></a>{% endif %}.{% if db_starter != '' %}
+        See what a fresh copy looks like on day one:
+        <a class="font-semibold text-brand-primary underline underline-offset-2 hover:text-brand-primary-dark" href="{{ db_starter }}" target="_blank" rel="noopener noreferrer">the
+          starter site<span class="sr-only"> (opens in a new tab)</span></a>.{% endif %}
+      </span>
+    </p>
+  </div>
+  {%- endif -%}
+{%- endif -%}

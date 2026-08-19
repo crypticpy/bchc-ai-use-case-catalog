@@ -1,0 +1,301 @@
+name: New entry from issue
+
+# A submission arrives as an issue labelled `content:new-entry` (from /submit/ or
+# the issue form). This scaffolds catalog/<slug>/index.md plus any screenshots
+# the submitter attached, and opens a pull request that closes the issue.
+#
+# Trust model (see SECURITY.md): anyone can open the issue that starts this job,
+# so the job is written to be safe with hostile input rather than to keep hostile
+# input out.
+#   * Issue content is NEVER interpolated into a `run:` script — it only ever
+#     reaches a step through `env:`, so a title containing shell syntax is inert.
+#   * The scaffolder refuses to write outside `catalog/<slug>/`, and the slug is
+#     re-checked against `^[a-z0-9]+(?:-[a-z0-9]+)*$` before any path is built.
+#   * The result is a pull request. Nothing reaches the site without a
+#     maintainer merging it.
+#
+# Set the repository variable SUBMISSIONS_OPEN to `false` to accept submissions
+# only from members and collaborators; leaving it unset keeps submissions open.
+#
+# Optional secret CONTENT_BOT_TOKEN (a fine-grained PAT or GitHub App token with
+# contents + pull-requests write): when it is set the pull request is authored by
+# a real actor, so `pull_request` workflows trigger natively. Without it the job
+# dispatches them itself — see the "Run the content checks" step and
+# docs/admin-guide.md § One-time repository setup.
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+
+# The job below declares exactly the scopes it needs; nothing is granted by default.
+permissions: {}
+
+# One run per issue: editing an issue three times in a minute must not leave
+# three jobs force-pushing the same branch at each other.
+concurrency:
+  group: new-entry-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  scaffold:
+    # `state == 'open'` matters: editing a closed, already-merged submission —
+    # to fix a typo, to add a note — would otherwise force-push its branch again
+    # and try to edit a merged pull request.
+    if: >-
+      github.event.issue.state == 'open'
+      && contains(github.event.issue.labels.*.name, 'content:new-entry')
+      && (vars.SUBMISSIONS_OPEN != 'false'
+          || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      # Dispatching validate.yml/quality.yml onto the generated branch.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # The push below needs credentials; the checkout keeps them on purpose.
+          # zizmor: ignore[artipacked]
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Scaffold entry files
+        id: scaffold
+        continue-on-error: true
+        run: node scripts/new_entry_from_issue.mjs
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          # Lets the scaffolder download images attached to a private issue.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report the failure on the issue
+        if: steps.scaffold.outcome == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SCAFFOLD_ERROR: ${{ steps.scaffold.outputs.error }}
+        with:
+          script: |
+            const detail = process.env.SCAFFOLD_ERROR || 'The scaffolding step failed; see the workflow logs for details.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'This submission could not be turned into a pull request yet.',
+                '',
+                '> ' + detail.split('\n').join('\n> '),
+                '',
+                'Edit this issue to fix the problem and the automation will try again. If the message above does not tell you what to change, comment here and a maintainer will help.'
+              ].join('\n')
+            });
+            core.setFailed(detail);
+
+      # The scaffolder saves whatever the submitter attached, at whatever size
+      # their screen produced. This writes the AVIF/WebP width variants beside
+      # each one and records them in _data/derivatives.json, so the pull request
+      # carries the images the site will actually serve. Never fatal: without
+      # derivatives _includes/picture.html emits the plain <img> it always did,
+      # and a broken encoder must not cost a submitter their pull request.
+      - name: Build responsive image derivatives
+        if: steps.scaffold.outcome == 'success'
+        continue-on-error: true
+        run: node scripts/derive_images.mjs
+
+      - name: Commit the entry on a new branch
+        id: commit
+        if: steps.scaffold.outcome == 'success'
+        env:
+          BRANCH: ${{ steps.scaffold.outputs.branch }}
+          SLUG: ${{ steps.scaffold.outputs.slug }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # `git add -A` is safe only because this step is gated on the
+          # scaffolder having succeeded: it writes screenshots one at a time, so
+          # a half-finished run would otherwise be committed as if it were whole.
+          git add -A
+          if git diff --cached --quiet; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            echo "The scaffolder produced no changes." >&2
+            exit 0
+          fi
+          git commit -m "feat: add entry $SLUG"
+          # The branch is machine-generated and named after this issue, so an
+          # `issues: edited` re-run replaces its contents rather than merging.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        id: pr
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.scaffold.outputs.branch }}
+          ENTRY_DIR: ${{ steps.scaffold.outputs.entry_dir }}
+          ENTRY_TITLE: ${{ steps.scaffold.outputs.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          IMAGES: ${{ steps.scaffold.outputs.images }}
+          WARNINGS: ${{ steps.scaffold.outputs.warnings }}
+          PREVIEW: ${{ steps.scaffold.outputs.preview }}
+          CHECKLIST: ${{ steps.scaffold.outputs.checklist }}
+        run: |
+          set -euo pipefail
+          # Everything between the braces is literal markdown; a backtick here is
+          # a code span, not a command substitution.
+          # shellcheck disable=SC2016
+          {
+            printf 'Scaffolded from issue #%s.\n\n' "$ISSUE_NUMBER"
+            printf 'Closes #%s\n\n' "$ISSUE_NUMBER"
+            # The entry as a reader will meet it, so review is about the page and
+            # not about a YAML diff. Field selection comes from _data/schema.yml.
+            if [ -n "$PREVIEW" ]; then
+              printf '### The entry\n\n%s\n\n' "$PREVIEW"
+            fi
+            if [ -n "$IMAGES" ]; then
+              printf '### Screenshots downloaded\n\n%s\n\n' "$IMAGES"
+            else
+              printf '### Screenshots downloaded\n\nNone.\n\n'
+            fi
+            if [ -n "$WARNINGS" ]; then
+              printf '### Warnings from the scaffolder\n\n%s\n\n' "$WARNINGS"
+            fi
+            # The closer-review block (answers the schema flags with
+            # `escalate_on`) and the maintainer checklist — the review criteria
+            # from _data/governance.yml when the site publishes them, then the
+            # mechanics and the review-status flip. Built by scripts/lib/review.mjs
+            # so the pull request and the governance page carry the same list.
+            if [ -n "$CHECKLIST" ]; then
+              printf '%s\n' "$CHECKLIST"
+            else
+              printf '### Maintainer checklist\n\n'
+              printf -- '- [ ] Front matter values match the schema options and nothing is missing\n'
+              printf -- '- [ ] Any PDF or extra file is uploaded into `%s/`\n' "$ENTRY_DIR"
+              printf -- '- [ ] **Validate Content** is green on the *latest* commit\n'
+              printf -- '- [ ] Merge to publish\n'
+            fi
+          } > /tmp/pr-body.md
+
+          # An `issues: edited` re-run reuses the pull request that already
+          # points at this branch instead of failing.
+          # The label is safe to pass unconditionally: this job only runs for an
+          # issue that already carries `content:new-entry`, so the label exists.
+          # It is what makes generated submissions filterable in the pull
+          # request list, where nothing else distinguishes them.
+          url="$(gh pr view "$BRANCH" --json url --jq .url 2>/dev/null || true)"
+          if [ -n "$url" ]; then
+            gh pr edit "$BRANCH" --title "Add entry: $ENTRY_TITLE" --body-file /tmp/pr-body.md \
+              --add-label content:new-entry
+            echo "url=" >> "$GITHUB_OUTPUT"
+          else
+            url="$(gh pr create \
+              --base "${GITHUB_REF_NAME}" \
+              --head "$BRANCH" \
+              --title "Add entry: $ENTRY_TITLE" \
+              --label content:new-entry \
+              --body-file /tmp/pr-body.md)"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Review-tier labels are a separate, best-effort step: `gh pr create
+      # --label` fails outright when a label does not exist, and a fork that has
+      # not run bootstrap-labels.yml (or has renamed its tiers) must still get
+      # its pull request. `review:intake` marks the first tier on the governance
+      # page; `review:data-governance` goes on when an answer matched a field's
+      # `escalate_on` list in _data/schema.yml, so the closer-review block in
+      # the body is also visible from the pull request list.
+      - name: Label the pull request for review
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.scaffold.outputs.branch }}
+          ESCALATE: ${{ steps.scaffold.outputs.escalate }}
+        run: |
+          set -euo pipefail
+          labels="review:intake"
+          if [ -n "$ESCALATE" ]; then labels="$labels,review:data-governance"; fi
+          if gh pr edit "$BRANCH" --add-label "$labels" 2>/tmp/label-error.txt; then
+            echo "Labelled the pull request: $labels" >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Review labels not applied"
+              echo
+              echo "Could not add \`$labels\` — run **Bootstrap labels** from the Actions tab once, and future pull requests will be labelled. The pull request itself is fine."
+              echo
+              echo '```'
+              cat /tmp/label-error.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows — GitHub parks them behind "Approve and run" so that a bot
+      # cannot start a run by opening a PR. The maintainer then reads "waiting
+      # for approval" as "still running" and merges past the only content gate
+      # there is. `workflow_dispatch` is the documented exception: a dispatch
+      # fired with GITHUB_TOKEN runs immediately, and its check runs bind to the
+      # branch head SHA, which is the pull request's head SHA — so they show up
+      # in the Checks tab like any other run, just as separate entries.
+      #
+      # With CONTENT_BOT_TOKEN set the pull request has a real author and the
+      # normal triggers fire, so this step stands down rather than duplicating.
+      - name: Run the content checks on the new branch
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.scaffold.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              # Never fail the job over this: the pull request exists either way,
+              # and a maintainer can approve the parked runs by hand.
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Link the pull request from the issue
+        if: steps.pr.outputs.url != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Thanks. Your submission is now a pull request waiting for a maintainer:',
+                '',
+                process.env.PR_URL,
+                '',
+                'Nothing is published until a maintainer merges it. To change an answer, edit this issue — the automation will redo the pull request. To add a screenshot or a PDF, drag it onto this issue and edit it.'
+              ].join('\n')
+            });

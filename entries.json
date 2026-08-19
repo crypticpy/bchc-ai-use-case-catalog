@@ -1,0 +1,135 @@
+---
+permalink: /entries.json
+layout: null
+sitemap: false
+---
+{%- comment -%}
+Structured index of every entry, for the compare view (assets/js/compare.js).
+
+/search.json carries searchable TEXT; this file carries STRUCTURE — the schema's
+own field list and group order, plus each entry's values keyed by field key. It
+is generated entirely from `_data/schema.yml`, so a new field or a new group
+appears in the compare table with no change here and none in the JavaScript.
+
+Shape:
+  { generated_at, site: {name}, entry: {singular, plural, path},
+    groups:  [{key, title, description}],
+    fields:  [{key, label, group, type, weight, facet, search, card,
+               options?, short?, tone?}],
+    entries: [{slug, url, title, summary, published, updated, featured,
+               values: {key: value|[value]}, slugs: {facet key: [slug]}}] }
+
+  short/tone   `option_meta` resolved per option value, emitted only where it
+               differs from the default, so the client needs no schema logic.
+  slugs        the same slugs `data-facet-<key>` carries on a catalog card, so a
+               compare cell can link back into the filtered catalog.
+
+Excluded on purpose: the write-up (`markdown`) and the media types (`image`,
+`images`, `file`). A comparison is a document, not a gallery, and the body would
+dwarf everything else — /search.json already indexes it.
+
+Two Liquid-in-JSON rules this file lives by:
+  - Every list that skips items is built with a LEADING comma and printed through
+    `remove_first: ','` — the only trailing-comma-safe idiom when a `forloop` may
+    `continue`.
+  - A literal brace never touches a Liquid tag. Liquid's tokenizer ends a variable
+    at `}}?` — ONE closing brace is enough — so a closing brace inside an output
+    tag is a syntax error (even inside this comment). Braces are written as plain
+    text with a space between them and the neighbouring tag.
+
+Local assigns are prefixed `ej_`.
+{%- endcomment -%}
+{%- assign ej_schema = site.data.schema -%}
+{%- assign ej_cfg = site.data.site -%}
+{%- assign ej_fields = ej_schema.fields | sort_by_weight
+     | where_exp: "ej_wf", "ej_wf.type != 'markdown'"
+     | where_exp: "ej_wf", "ej_wf.type != 'image'"
+     | where_exp: "ej_wf", "ej_wf.type != 'images'"
+     | where_exp: "ej_wf", "ej_wf.type != 'file'" -%}
+{%- assign ej_groups = ej_schema.groups | groups_for: ej_fields -%}
+{%- comment -%} The engine keys the compare view renders itself — the column header
+carries title/summary/url and the dates — exactly the seed _layouts/entry.html uses
+for `ent_shown` (schema contract §4). Declaring one of them as a schema field must
+not put it in the table body a second time. {%- endcomment -%}
+{%- assign ej_reserved = '|title|slug|summary|published|updated|thumbnail|featured|' -%}
+{%- comment -%} An empty catalog (or one whose module is off) still emits a valid,
+empty document, so the compare page's fetch never 404s on a fresh fork. {%- endcomment -%}
+{%- assign ej_entries = site.data.entry_pages -%}
+{%- unless ej_entries -%}{%- assign ej_entries = site.pages | where: 'layout', 'entry' -%}{%- endunless -%}
+{%- assign ej_sort_key = ej_schema.entry.sort | default: 'published' -%}
+{%- assign ej_entries = ej_entries | sort: ej_sort_key, 'first' -%}
+{%- if ej_schema.entry.sort_order != 'asc' -%}{%- assign ej_entries = ej_entries | reverse -%}{%- endif -%}
+{
+"generated_at": {{ site.time | date_to_xmlschema | jsonify }},
+"site": { "name": {{ ej_cfg.name | default: site.title | jsonify }} },
+"entry": {
+  "singular": {{ ej_schema.entry.singular | default: 'Entry' | jsonify }},
+  "plural": {{ ej_schema.entry.plural | default: 'Entries' | jsonify }},
+  "path": {{ ej_schema.entry.path | default: 'catalog' | jsonify }}
+},
+"groups": [
+{%- capture ej_group_list -%}
+  {%- for ej_g in ej_groups -%}
+,{"key": {{ ej_g.key | jsonify }}, "title": {{ ej_g.title | jsonify }}{% if ej_g.description %}, "description": {{ ej_g.description | jsonify }}{% endif %}}
+  {%- endfor -%}
+{%- endcapture -%}
+{{- ej_group_list | remove_first: ',' -}}
+],
+"fields": [
+{%- capture ej_field_list -%}
+  {%- for ej_f in ej_fields -%}
+    {%- assign ej_fk = '|' | append: ej_f.key | append: '|' -%}
+    {%- if ej_reserved contains ej_fk -%}{%- continue -%}{%- endif -%}
+    {%- assign ej_slot = ej_f | card_slot -%}
+,{"key": {{ ej_f.key | jsonify }}, "label": {{ ej_f.label | jsonify }}, "group": {{ ej_f.group | default: 'other' | jsonify }}, "type": {{ ej_f.type | default: 'text' | jsonify }}, "weight": {{ ej_f.weight | default: 5 }}, "facet": {% if ej_f.facet %}true{% else %}false{% endif %}, "search": {% if ej_f.search %}true{% else %}false{% endif %}, "card": {% if ej_slot %}{{ ej_slot | jsonify }}{% else %}null{% endif %}
+    {%- if ej_f.options -%}
+      {%- capture ej_opt_list -%}{%- for ej_o in ej_f.options -%},{{ ej_o | jsonify }}{%- endfor -%}{%- endcapture -%}
+, "options": [{{ ej_opt_list | remove_first: ',' }}]
+      {%- capture ej_shorts -%}
+        {%- for ej_o in ej_f.options -%}
+          {%- assign ej_om = ej_f | option_meta: ej_o -%}
+          {%- if ej_om.short != ej_o -%},{{ ej_o | jsonify }}: {{ ej_om.short | jsonify }}{%- endif -%}
+        {%- endfor -%}
+      {%- endcapture -%}
+      {%- if ej_shorts != '' -%}, "short": { {{ ej_shorts | remove_first: ',' }} }{%- endif -%}
+      {%- capture ej_tones -%}
+        {%- for ej_o in ej_f.options -%}
+          {%- assign ej_om = ej_f | option_meta: ej_o -%}
+          {%- if ej_om.tone != 'neutral' -%},{{ ej_o | jsonify }}: {{ ej_om.tone | jsonify }}{%- endif -%}
+        {%- endfor -%}
+      {%- endcapture -%}
+      {%- if ej_tones != '' -%}, "tone": { {{ ej_tones | remove_first: ',' }} }{%- endif -%}
+    {%- endif -%}
+}
+  {%- endfor -%}
+{%- endcapture -%}
+{{- ej_field_list | remove_first: ',' -}}
+],
+"entries": [
+{%- capture ej_entry_list -%}
+  {%- for ej_e in ej_entries -%}
+    {%- capture ej_vals -%}
+      {%- for ej_f in ej_fields -%}
+        {%- assign ej_fk = '|' | append: ej_f.key | append: '|' -%}
+        {%- if ej_reserved contains ej_fk -%}{%- continue -%}{%- endif -%}
+        {%- assign ej_v = ej_e[ej_f.key] -%}
+        {%- if ej_v == nil or ej_v == '' or ej_v == empty -%}{%- continue -%}{%- endif -%}
+,{{ ej_f.key | jsonify }}: {{ ej_v | jsonify }}
+      {%- endfor -%}
+    {%- endcapture -%}
+    {%- capture ej_slugs -%}
+      {%- for ej_f in ej_fields -%}
+        {%- unless ej_f.facet -%}{%- continue -%}{%- endunless -%}
+        {%- assign ej_v = ej_e[ej_f.key] -%}
+        {%- if ej_v == nil or ej_v == '' or ej_v == empty -%}{%- continue -%}{%- endif -%}
+        {%- assign ej_vslugs = ej_v | slugify_list -%}
+        {%- capture ej_slug_list -%}{%- for ej_s in ej_vslugs -%},{{ ej_s | jsonify }}{%- endfor -%}{%- endcapture -%}
+,{{ ej_f.key | jsonify }}: [{{ ej_slug_list | remove_first: ',' }}]
+      {%- endfor -%}
+    {%- endcapture -%}
+,{"slug": {{ ej_e.slug | default: ej_e.title | slugify | jsonify }}, "url": {{ ej_e.url | relative_url | jsonify }}, "title": {{ ej_e.title | jsonify }}, "summary": {{ ej_e.summary | default: '' | jsonify }}, "published": {{ ej_e.published | date: '%Y-%m-%d' | jsonify }}{% if ej_e.updated %}, "updated": {{ ej_e.updated | date: '%Y-%m-%d' | jsonify }}{% endif %}{% if ej_e.featured %}, "featured": true{% endif %}, "values": { {{ ej_vals | remove_first: ',' }} }, "slugs": { {{ ej_slugs | remove_first: ',' }} } }
+  {%- endfor -%}
+{%- endcapture -%}
+{{- ej_entry_list | remove_first: ',' -}}
+]
+}

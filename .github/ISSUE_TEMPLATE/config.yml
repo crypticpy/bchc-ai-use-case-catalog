@@ -1,0 +1,9 @@
+# The contact-link URLs are kept in sync with github.repository in _data/site.yml by `npm run generate`.
+blank_issues_enabled: true
+contact_links:
+  - name: Maintainer guide
+    url: https://github.com/crypticpy/bchc-template/blob/main/docs/admin-guide.md
+    about: How submissions become pull requests, how to review them, and how to configure the site.
+  - name: Launch checklist
+    url: https://github.com/crypticpy/bchc-template/blob/main/docs/launch.md
+    about: Setting this catalog up for the first time — settings, the /setup/ wizard, and clearing the demo content.

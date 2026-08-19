@@ -1,0 +1,37 @@
+{%- comment -%}
+"On this page" — links to the `<h2 id>` headings kramdown generated inside the
+entry body, followed by the generated group sections. Renders nothing unless the
+combined count reaches `min` (default 3), per the design brief.
+
+Usage:
+  {% include toc.html content=content sections=ent_sections title="On this page" min=3 %}
+    content   rendered body HTML (h2 ids are read out of it)
+    sections  optional "id|Label;;id|Label" string for the generated sections
+    min       minimum number of entries before the TOC appears
+
+Scroll-spy (`aria-current="true"`) is added by assets/js/entry.js; without JS the
+links still work. Local assigns are prefixed `toc_`.
+{%- endcomment -%}
+{%- assign toc_min = include.min | default: 3 -%}
+{%- assign toc_chunks = include.content | split: '<h2 id="' -%}
+{%- assign toc_total = toc_chunks | size | minus: 1 -%}
+{%- assign toc_sections = include.sections | default: '' | split: ';;' -%}
+{%- assign toc_total = toc_total | plus: toc_sections.size -%}
+
+{%- if toc_total >= toc_min -%}
+<nav class="rail-card entry-no-print" aria-labelledby="toc-heading" data-toc>
+  <h2 class="rail-title" id="toc-heading">{{ include.title | default: 'On this page' }}</h2>
+  <ul class="mt-3 space-y-0.5" role="list">
+    {%- for toc_c in toc_chunks offset: 1 -%}
+      {%- assign toc_id = toc_c | split: '"' | first -%}
+      {%- assign toc_after = toc_c | split: '">' -%}
+      {%- assign toc_text = toc_after[1] | split: '</h2>' | first | strip_html | strip -%}
+      <li><a class="toc-link" href="#{{ toc_id | escape }}" data-toc-link>{{ toc_text | escape }}</a></li>
+    {%- endfor -%}
+    {%- for toc_s in toc_sections -%}
+      {%- assign toc_parts = toc_s | split: '|' -%}
+      <li><a class="toc-link" href="#{{ toc_parts[0] | escape }}" data-toc-link>{{ toc_parts[1] | escape }}</a></li>
+    {%- endfor -%}
+  </ul>
+</nav>
+{%- endif -%}

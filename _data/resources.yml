@@ -1,0 +1,19 @@
+# Curated resource groups for /resources/ (when modules.resources is on).
+- group: "Getting started"
+  description: "Orientation material for teams new to applied AI in public health."
+  items:
+    - title: "Responsible AI use checklist"
+      url: "https://example.org/responsible-ai-checklist"
+      type: "Guide"
+      description: "Questions to answer before piloting a model with resident-facing output."
+    - title: "Prompt and evaluation notebook starter"
+      url: "https://github.com/example-org/eval-starter"
+      type: "Code"
+- group: "Policy & governance"
+  items:
+    - title: "Sample AI acceptable-use policy"
+      url: "https://example.org/aup"
+      type: "Template"
+    - title: "Procurement questions for AI vendors"
+      url: "https://example.org/procurement"
+      type: "Guide"

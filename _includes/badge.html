@@ -1,0 +1,24 @@
+{%- comment -%}
+Categorical label. Usage:
+  {% include badge.html label="Pilot" tone="primary|secondary|accent|neutral|warn|on-dark|featured" size="sm|md|lg" icon="rocket" class="" %}
+The tone is an attribute, not part of the class name: it comes from content
+(`_data/schema.yml → option_meta[].tone`) and a composed `badge-<tone>` class both
+hid from Tailwind's scanner and rendered as bare text when the tone was unknown.
+An unrecognised tone is normalised to `neutral` here, and `assets/css/components/badges.css`
+falls through to the same neutral values even if this guard is ever bypassed.
+No `title` param: a tooltip on an element whose label is already its accessible name
+becomes a description that repeats the name, and it never reaches keyboard or touch.
+Local assigns are prefixed `bd_` so nothing leaks into the caller's scope.
+{%- endcomment -%}
+{%- assign bd_tones = 'primary,secondary,accent,neutral,warn,on-dark,featured' | split: ',' -%}
+{%- assign bd_tone = include.tone | default: 'primary' -%}
+{%- unless bd_tones contains bd_tone -%}{%- assign bd_tone = 'neutral' -%}{%- endunless -%}
+{%- assign bd_size = include.size | default: 'md' -%}
+{%- case bd_size -%}
+  {%- when 'sm' -%}{%- assign bd_size_class = '' -%}
+  {%- when 'lg' -%}{%- assign bd_size_class = 'badge-lg' -%}
+  {%- else -%}{%- assign bd_size_class = 'badge-md' -%}
+{%- endcase -%}
+{%- if include.label and include.label != '' -%}
+<span class="badge {{ bd_size_class }} {{ include.class }}" data-tone="{{ bd_tone }}">{% if include.icon %}{% include icon.html name=include.icon size='xs' %}{% endif %}<span class="truncate">{{ include.label }}</span></span>
+{%- endif -%}

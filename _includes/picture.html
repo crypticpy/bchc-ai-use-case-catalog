@@ -1,0 +1,78 @@
+{%- comment -%}
+One image, served at the size the reader's screen actually needs.
+
+Usage:
+  {% include picture.html src=src alt=alt sizes="(min-width: 1280px) 390px, 95vw"
+                          class="h-full w-full object-cover" eager=true fetchpriority=true %}
+
+Params: src (required, site-relative like `/catalog/x/screenshots/01.png`, or an
+        absolute URL), alt, sizes (the `sizes` attribute — measure the box, do
+        not guess), class + style (put on the <img>), eager (true =
+        loading="eager"), fetchpriority (true = fetchpriority="high"; pass it
+        for the ONE image that is the page's LCP candidate, never a row of them).
+
+Derivatives come from `_data/derivatives.json`, written by `npm run images`
+(scripts/derive_images.mjs) and committed with the screenshot they belong to.
+**No manifest entry means exactly today's plain <img>** — an external URL, an
+image a maintainer dropped in by hand, and a fresh fork that has never run the
+script all still render. The manifest is an optimisation, never a requirement,
+so nothing here may become load-bearing for the page to work.
+
+Every variant is confirmed on disk with `static_file` before it goes into a
+srcset. A <source> that matches by type and then 404s is NOT retried against the
+<img> — the reader gets a broken image — so a manifest that has drifted from the
+tree (a hand-deleted file, a half-resolved merge) has to degrade to the original
+rather than to nothing. The check is a memoised Set lookup, not a scan.
+
+The manifest also carries the source's pixel size, so width/height land on the
+<img> and the frame before site.css arrives reserves the right box.
+
+`<picture>` is `display: contents` (assets/css/components/media.css), so the
+<img> inside it keeps whatever layout the surrounding element gave a bare <img>.
+
+Local assigns are prefixed `pic_`.
+{%- endcomment -%}
+{%- assign pic_src = include.src -%}
+{%- if pic_src and pic_src != '' -%}
+  {%- assign pic_external = false -%}
+  {%- if pic_src contains '://' -%}{%- assign pic_external = true -%}{%- endif -%}
+  {%- if pic_external -%}
+    {%- assign pic_href = pic_src -%}
+  {%- else -%}
+    {%- assign pic_href = pic_src | relative_url -%}
+  {%- endif -%}
+
+  {%- comment -%} Manifest keys are site-absolute; front matter may omit the slash. {%- endcomment -%}
+  {%- assign pic_entry = nil -%}
+  {%- unless pic_external -%}
+    {%- assign pic_key = pic_src -%}
+    {%- assign pic_lead = pic_src | slice: 0 -%}
+    {%- unless pic_lead == '/' -%}{%- assign pic_key = '/' | append: pic_src -%}{%- endunless -%}
+    {%- if site.data.derivatives -%}{%- assign pic_entry = site.data.derivatives[pic_key] -%}{%- endif -%}
+  {%- endunless -%}
+
+  {%- capture pic_sources -%}
+    {%- if pic_entry -%}
+      {%- for pic_fmt in pic_entry.variants -%}
+        {%- capture pic_set -%}
+          {%- for pic_w in pic_fmt[1] -%}
+            {%- capture pic_variant -%}{{ pic_entry.base }}-{{ pic_w }}.{{ pic_fmt[0] }}{%- endcapture -%}
+            {%- assign pic_found = pic_variant | static_file -%}
+            {%- if pic_found -%}{{ pic_variant | relative_url }} {{ pic_w }}w,{%- endif -%}
+          {%- endfor -%}
+        {%- endcapture -%}
+        {%- assign pic_set = pic_set | split: ',' | join: ', ' -%}
+        {%- if pic_set != '' -%}<source type="image/{{ pic_fmt[0] }}" srcset="{{ pic_set }}" sizes="{{ include.sizes }}">{%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  {%- endcapture -%}
+  {%- assign pic_sources = pic_sources | strip -%}
+
+  {%- comment -%} No `sizes` on the <img>: it carries no `srcset` of its own (the
+  source file exists at one width only), and `sizes` without `srcset` is invalid
+  HTML. Each <source> above carries its own copy. {%- endcomment -%}
+  {%- assign pic_class = include.class | strip -%}
+  {%- capture pic_img -%}<img src="{{ pic_href }}" alt="{{ include.alt | escape }}"{% if pic_entry %} width="{{ pic_entry.w }}" height="{{ pic_entry.h }}"{% endif %} loading="{% if include.eager %}eager{% else %}lazy{% endif %}" decoding="async"{% if include.fetchpriority %} fetchpriority="high"{% endif %}{% if pic_class != '' %} class="{{ pic_class }}"{% endif %}{% if include.style %} style="{{ include.style }}"{% endif %}>{%- endcapture -%}
+
+  {%- if pic_sources != '' -%}<picture>{{ pic_sources }}{{ pic_img }}</picture>{%- else -%}{{ pic_img }}{%- endif -%}
+{%- endif -%}

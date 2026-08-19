@@ -1,0 +1,74 @@
+{%- comment -%}
+"Related" — the neighbours that share the most facet values with this entry,
+and the reason each one is here.
+
+The ranking is computed once per build in `_plugins/catalog_index.rb` (IDF-
+weighted, scaled by each field's schema `weight`) and hung on the page as
+`page.related`. This include only prints it. There is no Liquid fallback: every
+filter this file calls (`card_fields`, `option_short`, `as_list`) is a custom
+plugin from the same `_plugins/` directory, so a build that cannot run
+`catalog_index.rb` cannot render this include at all.
+
+Usage:
+  {% include related-entries.html entry=page title="Related" limit=3 %}
+    entry    the current entry page (needs `entry.related`)
+    title    heading text
+    limit    how many to show (default 3)
+  `fields` / `entries` are accepted and ignored — the scoring no longer needs a
+  pool handed to it.
+
+Each row is a compact <li>: title, the `card: meta` line, the reason line, then
+the signal strip. The rows are written here rather than delegated to
+entry-row.html because the reason line has to sit inside the row's <li>, and it
+is what makes the section a navigational promise instead of a coin flip — every
+shared value links back into faceted browse.
+
+Local assigns are prefixed `rel_` so nothing leaks into the caller's scope.
+{%- endcomment -%}
+{%- assign rel_related = include.entry.related -%}
+{%- if rel_related and rel_related.size > 0 -%}
+{%- assign rel_limit = include.limit | default: 3 -%}
+{%- assign rel_metas = site.data.schema.fields | card_fields: 'meta' -%}
+{%- assign rel_path = site.data.schema.entry.path | default: 'catalog' -%}
+{%- assign rel_catalog = '/' | append: rel_path | append: '/?' -%}
+<section class="mt-16 border-t border-brand-line pt-10" aria-labelledby="related-heading">
+  <h2 class="section-title" id="related-heading">{{ include.title | default: "Related" | escape }}</h2>
+  <ul class="mt-6 divide-y divide-brand-line [&>li]:border-b-0" role="list">
+    {%- for rel_r in rel_related limit: rel_limit -%}
+      {%- assign rel_e = rel_r.page -%}
+      <li class="entry-row">
+        <h3 class="entry-row-title line-clamp-2"><a href="{{ rel_r.url | relative_url | escape }}">{{ rel_r.title | escape }}</a></h3>
+
+        {%- capture rel_meta_line -%}
+          {%- assign rel_seg = 0 -%}
+          {%- for rel_f in rel_metas -%}
+            {%- if rel_seg >= 2 -%}{%- break -%}{%- endif -%}
+            {%- assign rel_vals = rel_e[rel_f.key] | as_list -%}
+            {%- if rel_vals.size > 0 -%}
+              {%- assign rel_raw = rel_vals | first -%}
+              {%- comment -%} Same anatomy as entry-row.html: full value to the screen reader, truncated short form to the eye. {%- endcomment -%}
+              <span class="entry-meta-seg{% if rel_f.type == 'text' %} entry-meta-seg--text{% endif %}"><span class="sr-only">{{ rel_f.label | escape }}: {{ rel_raw | escape }}</span><span aria-hidden="true">{{ rel_f | option_short: rel_raw | escape }}</span></span>
+              {%- assign rel_seg = rel_seg | plus: 1 -%}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endcapture -%}
+        {%- assign rel_meta_line = rel_meta_line | strip -%}
+        {%- if rel_meta_line != '' -%}<p class="entry-meta"><span class="entry-meta-segs">{{ rel_meta_line }}</span></p>{%- endif -%}
+
+        {%- if rel_r.shared.size > 0 -%}
+        <p class="mt-1 text-xs text-brand-muted"><span class="sr-only">Shared with this {{ site.data.schema.entry.singular | default: 'entry' | downcase | escape }}: </span><span aria-hidden="true">Also: </span>
+          {%- for rel_s in rel_r.shared limit: 3 -%}
+            {%- unless forloop.first %} <span aria-hidden="true">·</span> {% endunless -%}
+            {%- assign rel_slug = rel_s.slug | query_encode -%}
+            {%- assign rel_href = rel_catalog | append: rel_s.key | append: '=' | append: rel_slug -%}
+            <a class="hover:text-brand-primary hover:underline" href="{{ rel_href | relative_url | escape }}"><span class="sr-only">{{ rel_s.label | escape }}: </span>{{ rel_s.short | escape }}</a>
+          {%- endfor -%}
+        </p>
+        {%- endif -%}
+
+        {% include signal-strip.html entry=rel_e class='signal-strip !border-t-0 !pt-1' %}
+      </li>
+    {%- endfor -%}
+  </ul>
+</section>
+{%- endif -%}

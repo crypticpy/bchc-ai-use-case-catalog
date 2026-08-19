@@ -1,0 +1,30 @@
+{%- comment -%} Vertical milestone timeline for a cohort. Usage: {% include timeline.html events=data.events year=page.year %}
+`event.page_url` is set by _plugins/events.rb (every cohort event has a detail page unless the cohorts module is off). Local assigns are prefixed `tl_`. {%- endcomment -%}
+{%- assign tl_now = 'now' | date: '%s' | plus: 0 -%}
+<section aria-labelledby="cohort-timeline" class="card">
+  <div class="card-header">
+    <h2 id="cohort-timeline" class="card-title">{{ include.title | default: 'Key dates' }}</h2>
+    <p class="eyebrow-muted">{{ include.subtitle | default: 'Milestones for this cohort' }}</p>
+  </div>
+  <div class="relative px-6 py-6">
+    <span class="pointer-events-none absolute bottom-6 left-[2.15rem] top-6 w-px bg-brand-line" aria-hidden="true"></span>
+    <ol class="space-y-6">
+      {% for event in include.events %}
+        {% assign tl_state = 'upcoming' %}
+        {% if event.date %}{% assign tl_ts = event.date | date: '%s' | plus: 0 %}{% if tl_ts < tl_now %}{% assign tl_state = 'past' %}{% endif %}{% endif %}
+        <li class="relative flex gap-4">
+          <span class="relative z-10 mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 {% if tl_state == 'past' %}border-brand-secondary bg-brand-secondary text-white{% else %}border-brand-primary bg-surface-card{% endif %}">{% if tl_state == 'past' %}{% include icon.html name='check' size='xs' %}{% endif %}</span>
+          <div class="min-w-0">
+            {% if event.page_url %}
+              <a class="font-semibold text-brand-primary-dark hover:text-brand-primary hover:underline" href="{{ event.page_url | relative_url }}">{{ event.name }}</a>
+            {% else %}
+              <p class="font-semibold text-brand-primary-dark">{{ event.name }}</p>
+            {% endif %}
+            <p class="mt-0.5 text-sm text-brand-muted">{{ event.date | date: '%B %-d, %Y' }}{% if event.time %} · {{ event.time }}{% endif %}</p>
+            {% if event.location %}<p class="text-sm text-brand-muted">{{ event.location }}</p>{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>

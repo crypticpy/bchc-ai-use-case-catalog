@@ -1,0 +1,54 @@
+{%- assign th_theme = site.data.theme -%}
+{%- assign th_c = th_theme.colors -%}
+{%- comment -%} The radius scale. `th_r` is the five-step sm…2xl scale and is mirrored
+verbatim by RADIUS_SCALES in assets/js/configurator/theme-preview.js (a test asserts the two
+match, and it reads the string out of this file) — keep the two in step, and keep the
+assignment on one line. `th_rxs` is a sixth, smaller step for checkbox-sized corners; it is
+half of sm on every scale; the mirror reads both assigns out of this file.
+Every value emitted below has a Liquid `default:`, so a theme.yml written before a token
+existed still builds. {%- endcomment -%}
+{%- case th_theme.radius -%}
+  {%- when 'sharp' -%}{%- assign th_r = '0.25rem|0.375rem|0.5rem|0.75rem|1rem' -%}{%- assign th_rxs = '0.125rem' -%}
+  {%- when 'round' -%}{%- assign th_r = '0.75rem|1rem|1.5rem|2rem|2.5rem' -%}{%- assign th_rxs = '0.375rem' -%}
+  {%- else -%}{%- assign th_r = '0.5rem|0.75rem|1rem|1.25rem|1.75rem' -%}{%- assign th_rxs = '0.25rem' -%}
+{%- endcase -%}
+{%- assign th_radii = th_r | split: '|' -%}
+{%- comment -%} Optional; the configurator round-trips it. See _data/theme.yml. {%- endcomment -%}
+{%- assign th_m = th_theme.motion -%}
+<style>
+  :root {
+    --c-primary: {{ th_c.primary | default: '#1D4E89' | hex_to_rgb }};
+    --c-primary-dark: {{ th_c.primary_dark | default: '#12305A' | hex_to_rgb }};
+    --c-secondary: {{ th_c.secondary | default: '#0F6357' | hex_to_rgb }};
+    --c-accent: {{ th_c.accent | default: '#E07A2F' | hex_to_rgb }};
+    --c-ink: {{ th_c.ink | default: '#1B2430' | hex_to_rgb }};
+    --c-muted: {{ th_c.muted | default: '#5A6573' | hex_to_rgb }};
+    --c-line: {{ th_c.line | default: '#D9E0E8' | hex_to_rgb }};
+    --c-line-strong: {{ th_c.line_strong | default: '#7C8A9B' | hex_to_rgb }};
+    --c-surface: {{ th_c.surface | default: '#F5F7FA' | hex_to_rgb }};
+    --c-surface-tint: {{ th_c.surface_tint | default: '#EAF0F7' | hex_to_rgb }};
+    --c-card: {{ th_c.card | default: '#FFFFFF' | hex_to_rgb }};
+    --c-on-dark: {{ th_c.on_dark | default: '#F7F9FC' | hex_to_rgb }};
+    --c-warn: {{ th_c.warn | default: '#B45309' | hex_to_rgb }};
+    {%- comment -%} Each family is followed by a metric-matched "<family> Fallback" face,
+    defined in assets/css/components/base.css for the two bundled families only. A family
+    loaded from fonts.google_fonts_url names a face that does not exist, which the font
+    stack skips — so this is safe for every value. {%- endcomment -%}
+    {%- assign th_fh = th_theme.fonts.heading | default: 'Source Serif 4' -%}
+    {%- assign th_fb = th_theme.fonts.body | default: 'Inter' -%}
+    --font-heading: "{{ th_fh }}", "{{ th_fh }} Fallback";
+    --font-body: "{{ th_fb }}", "{{ th_fb }} Fallback";
+    --measure: {{ th_theme.type.measure | default: '36rem' }};
+    --measure-display: {{ th_theme.type.measure_display | default: '44rem' }};
+    --radius-xs: {{ th_rxs }};
+    --radius-sm: {{ th_radii[0] }};
+    --radius-md: {{ th_radii[1] }};
+    --radius-lg: {{ th_radii[2] }};
+    --radius-xl: {{ th_radii[3] }};
+    --radius-2xl: {{ th_radii[4] }};
+    --motion-fast: {{ th_m.fast | default: '120ms' }};
+    --motion-base: {{ th_m.base | default: '180ms' }};
+    --motion-slow: {{ th_m.slow | default: '240ms' }};
+    --ease-brand: {{ th_m.ease | default: 'cubic-bezier(0.2, 0, 0, 1)' }};
+  }
+</style>

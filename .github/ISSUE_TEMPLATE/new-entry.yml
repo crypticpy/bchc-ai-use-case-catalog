@@ -1,0 +1,515 @@
+# GitHub issue form for new entries.
+# Generated from _data/schema.yml by scripts/generate.mjs — do not hand-edit.
+# Regenerate with `npm run generate` after changing _data/schema.yml.
+
+name: Submit a use case (creates PR)
+description: "Share an AI use case, tool or project with the coalition. Submissions open a GitHub issue for the maintainers to review; nothing is published until it is approved."
+title: "[Use case] "
+labels:
+  - "content:new-entry"
+body:
+  - type: markdown
+    attributes:
+      value: "Please do not include protected health information, credentials or non-public data. Link out to repositories and documents rather than pasting sensitive content."
+  - type: markdown
+    attributes:
+      value: |-
+        ### About
+
+        What it is, who built it, and what it changed.
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      description: What is it called? Specific enough that someone scanning a list of names knows what it is.
+      placeholder: Automated 311 call triage with LLM classification
+    validations:
+      required: true
+  - type: dropdown
+    id: solution_type
+    attributes:
+      label: What is being shared
+      description: What are you sharing? Pick the closest match.
+      options:
+        - Source code
+        - Cloud deployment
+        - Vendor product
+        - Internal tool
+        - Playbook or write-up
+        - Dataset
+        - Dashboard or report
+        - Prompt library
+        - Training material
+        - Governance or policy document
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: use_case_category
+    attributes:
+      label: Use case category
+      description: Which of the four coalition categories fits best? The HHS-adapted categories the DMWG inventory uses. Area of work (below) is the finer cut.
+      options:
+        - "Administrative & task automation"
+        - "Communications, media & writing"
+        - "Coding & brainstorming"
+        - "Operations & logistics"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area of work
+      description: Which areas of work does it apply to? Select all that fit — these are business functions as much as health programs.
+      multiple: true
+      options:
+        - "Epidemiology & surveillance"
+        - "Clinical & community services"
+        - Environmental health
+        - Emergency preparedness
+        - "Communications & outreach"
+        - "Data & informatics"
+        - "Policy & planning"
+        - "HR & workforce"
+        - "Finance, procurement & contracts"
+        - "IT & operations"
+        - "Legal & compliance"
+        - "Staff & partner coordination"
+        - "Leadership & administration"
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      description: "How far along is it? Pick the stage that matches real use, not the plan."
+      options:
+        - Idea / exploring
+        - Pilot
+        - In production
+        - Paused or retired
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: "In one or two sentences, what does it do? Shown on the catalog card. Plain language, no jargon."
+      placeholder: Classifies incoming public health hotline calls by urgency and topic so nurses see the highest-priority cases first.
+    validations:
+      required: true
+  - type: input
+    id: impact
+    attributes:
+      label: Result in one line
+      description: What is the single most concrete result so far? A number if you have one.
+      placeholder: Cut brief turnaround from 3 days to 1 hour
+    validations:
+      required: false
+  - type: input
+    id: organization
+    attributes:
+      label: Organization
+      description: "Which organization is sharing this? A health department, city, agency or member organization."
+      placeholder: Chicago Department of Public Health
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |-
+        ### How it's built
+
+        The AI involved and where it runs.
+  - type: dropdown
+    id: ai_role
+    attributes:
+      label: How AI is involved
+      description: "Is the AI in the product, or was AI used to build it?"
+      options:
+        - AI is part of the solution
+        - AI was used to build it
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: ai_types
+    attributes:
+      label: Types of AI
+      description: What kinds of AI does it use? Select all that apply.
+      multiple: true
+      options:
+        - Generative text (LLM)
+        - Chat assistant
+        - "Document Q&A (RAG)"
+        - "Classification & NLP"
+        - "Prediction & forecasting"
+        - Computer vision
+        - "Speech & transcription"
+        - Translation
+        - "Agents & automation"
+        - Rules-based (no ML)
+    validations:
+      required: false
+  - type: textarea
+    id: ai_tools
+    attributes:
+      label: "AI tools & models"
+      description: "Which AI tools, models or services does it use? Name the models, platforms or libraries that matter. One per line, or separated by commas."
+      placeholder: "Azure OpenAI GPT-4o, LangChain, custom scikit-learn model"
+    validations:
+      required: false
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where it runs
+      description: Where does it run? Select all that apply.
+      multiple: true
+      options:
+        - AWS
+        - Microsoft Azure
+        - Google Cloud
+        - On-premises
+        - Vendor / SaaS hosted
+        - Enterprise AI workspace
+        - Low-code platform
+        - Desktop or local
+    validations:
+      required: false
+  - type: input
+    id: vendor
+    attributes:
+      label: Vendor or partner
+      description: "If a vendor or partner built or hosts it, who? Leave it blank if your own team built it."
+      placeholder: Acme Health AI
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |-
+        ### Reuse
+
+        What it would take for another team to use this.
+  - type: dropdown
+    id: expertise
+    attributes:
+      label: Skills needed to set it up
+      description: "Who is the least technical person who could get this running? Judge it by setting the thing up, not by using it afterwards."
+      options:
+        - Anyone on staff
+        - Power user
+        - Analyst or data scientist
+        - Developer
+        - Contractor or vendor
+    validations:
+      required: true
+  - type: dropdown
+    id: readiness
+    attributes:
+      label: Readiness
+      description: What would another team need before they could use this? Select all that apply.
+      multiple: true
+      options:
+        - Ready to deploy
+        - Guided setup
+        - Needs customization
+        - Needs a contractor
+        - Needs a paid license
+        - Needs a data agreement
+        - Human review built in
+        - Reference only
+    validations:
+      required: false
+  - type: input
+    id: repo_url
+    attributes:
+      label: Source code
+      description: "If the code is public, where? GitHub, GitLab, Azure DevOps or any public repository."
+      placeholder: "https://github.com/your-org/your-project"
+    validations:
+      required: false
+  - type: input
+    id: demo_url
+    attributes:
+      label: Live site or demo
+      description: Link to a live site or demo.
+      placeholder: "https://example.org/app"
+    validations:
+      required: false
+  - type: input
+    id: docs_url
+    attributes:
+      label: Documentation or write-up
+      description: "Link to documentation, slides or a write-up. A report, a blog post or a vendor case study all count."
+      placeholder: "https://example.org/docs"
+    validations:
+      required: false
+  - type: textarea
+    id: resources
+    attributes:
+      label: Other resources
+      description: "Anything else worth linking? Shared drives, SharePoint, model cards, container images, vendor pages. One per line as `Label | URL`."
+      placeholder: "Evaluation report | https://drive.google.com/…"
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: "Screenshots of it in use. Up to eight PNG, JPEG, GIF or WebP images of the tool in use (15 MB total). Make sure no personal or protected information is visible. Drag images into this box to upload them, or paste one image URL per line — optionally as `URL | alt text`."
+    validations:
+      required: false
+  - type: upload
+    id: deck_pdf
+    attributes:
+      label: Slide deck or one-pager (PDF)
+      description: Slide deck or one-pager. Attach the slide deck here. A thumbnail is generated from its first page. Attach the file here and the automation commits it with the entry.
+    validations:
+      required: false
+      accept: .pdf
+  - type: markdown
+    attributes:
+      value: |-
+        ### Sharing & licensing
+
+        How another jurisdiction may use it, and how portable it is.
+  - type: dropdown
+    id: license
+    attributes:
+      label: License
+      description: "Under what license is it shared? The coalition default is a permissive open license (MIT, Apache 2.0, CC BY). Submitting does not transfer ownership — your organization keeps authorship."
+      options:
+        - MIT
+        - Apache 2.0
+        - GPL / AGPL
+        - Creative Commons (CC BY / CC0)
+        - Other open license
+        - Not open source — available on request
+        - Not open source — description only
+    validations:
+      required: true
+  - type: textarea
+    id: access_terms
+    attributes:
+      label: Access terms
+      description: "If it is not open source, how can a peer jurisdiction get access? Government-to-government only, agreement required, contact us — whatever applies. Leave blank for open-licensed resources."
+      placeholder: Available to other health departments under a data-sharing agreement — email the contact below.
+    validations:
+      required: false
+  - type: dropdown
+    id: portability
+    attributes:
+      label: Portable to other platforms
+      description: "Could it be adapted outside its original vendor ecosystem? Microsoft-built but portable to AWS is 'partially'."
+      options:
+        - Yes — platform-agnostic
+        - Partially — with rework
+        - No — tied to its platform
+    validations:
+      required: true
+  - type: textarea
+    id: portability_notes
+    attributes:
+      label: Portability notes
+      description: "What would porting it involve? Which pieces are vendor-specific, and what a team on a different stack would need to swap."
+      placeholder: The prompt set and the evaluation harness are plain Python; the retrieval layer uses Azure AI Search and would need replacing.
+    validations:
+      required: false
+  - type: textarea
+    id: reused_from
+    attributes:
+      label: Adapted from
+      description: "Did you adapt this from another entry in this catalog? Name the source by its slug — the last part of its URL. The entry you name will say it was adopted by yours. One per line, or separated by commas."
+      placeholder: overdose-spike-brief
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |-
+        ### What it took
+
+        Money, contracting and approvals — the part a budget or governance conversation needs.
+  - type: dropdown
+    id: cost_band
+    attributes:
+      label: Cost to stand up
+      description: "Roughly what did it cost to get it running the first time? One-time cost: contracts, build, implementation. A band is fine — nobody expects an exact figure."
+      options:
+        - No new spend
+        - Under $25k
+        - $25k–$100k
+        - $100k–$500k
+        - Over $500k
+        - Not disclosed
+    validations:
+      required: false
+  - type: dropdown
+    id: run_cost
+    attributes:
+      label: Cost to keep running
+      description: "What does a normal year cost to run? Licences, hosting and usage charges only — staff time belongs in the write-up."
+      options:
+        - No ongoing cost
+        - Under $10k/yr
+        - $10k–$50k/yr
+        - Over $50k/yr
+        - Not disclosed
+    validations:
+      required: false
+  - type: dropdown
+    id: procurement
+    attributes:
+      label: How it was bought
+      description: How was this paid for or contracted? Select all that apply. This is the question peers ask most and the one that is hardest to find out.
+      multiple: true
+      options:
+        - No procurement needed
+        - Existing enterprise licence
+        - Cooperative or piggyback contract
+        - Competitive solicitation
+        - Sole source
+        - Grant funded
+        - Interagency agreement
+        - In-kind or academic partnership
+    validations:
+      required: false
+  - type: dropdown
+    id: approvals
+    attributes:
+      label: Reviews it went through
+      description: "Which internal reviews or approvals did it need? Select all that apply. Saying 'not yet reviewed' is more useful to a peer than leaving it blank."
+      multiple: true
+      options:
+        - Privacy review
+        - Security review or authority to operate
+        - Legal or contracts review
+        - Records retention review
+        - Labor or workforce consultation
+        - Community or advisory review
+        - Equity impact assessment
+        - Research ethics / IRB
+        - AI governance body
+        - None required
+        - Not yet reviewed
+    validations:
+      required: false
+  - type: textarea
+    id: equity_note
+    attributes:
+      label: Who it affects
+      description: "Who could this help or harm, and how did you check? Optional but strongly encouraged. Which populations the output reaches, what you checked for uneven performance, and what you would watch."
+      placeholder: "Reaches everyone who calls the hotline, including the ~18% who use it in Spanish. We compared triage accuracy across language groups monthly and would stop if the gap grew."
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |-
+        ### Data & access
+
+        What data it touches and who sees the output.
+  - type: dropdown
+    id: no_pii_attestation
+    attributes:
+      label: No PII/PHI in the shared material
+      description: "Do you confirm that no personal or protected health information appears in the resource, its documentation, example data or screenshots? The coalition's baseline for anything published here. Reviewers spot-check; if the answer is no, redact before submitting."
+      options:
+        - "Yes"
+        - "No"
+    validations:
+      required: true
+  - type: dropdown
+    id: data_sensitivity
+    attributes:
+      label: Data it touches
+      description: What kind of data does it touch? Select all that apply. This helps others judge governance and approval effort.
+      multiple: true
+      options:
+        - Public data only
+        - De-identified data
+        - "Internal, non-public data"
+        - Personal information (PII)
+        - Health information (PHI)
+        - Criminal justice data (CJIS)
+    validations:
+      required: true
+  - type: textarea
+    id: data_sources
+    attributes:
+      label: Data sources
+      description: "Which data sources does it use? Describe the sources — do not paste sensitive data. One per line, or separated by commas."
+      placeholder: "Immunization registry, 311 call transcripts, ESSENCE"
+    validations:
+      required: false
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who sees the output
+      description: Who sees the output? Pick the widest group that sees anything it produces.
+      options:
+        - Public-facing
+        - Internal staff
+        - Partner organizations
+    validations:
+      required: true
+  - type: textarea
+    id: data_governance_notes
+    attributes:
+      label: Data-governance caveats
+      description: "Anything a reusing jurisdiction should know about data handling? Data-use agreements, retention rules, de-identification steps — the caveats that travel with the resource."
+      placeholder: "Outputs are retained 90 days under our records schedule; the model was tuned on our own 311 transcripts, so expect to re-tune."
+    validations:
+      required: false
+  - type: markdown
+    attributes:
+      value: |-
+        ### Contact
+
+        Someone others can reach out to.
+  - type: input
+    id: contact_name
+    attributes:
+      label: Contact name
+      description: Who can people contact? Someone happy to answer questions from another team.
+      placeholder: Jordan Lee
+    validations:
+      required: true
+  - type: input
+    id: contact_title
+    attributes:
+      label: Contact title
+      description: What is their role or title? So a peer knows who they are writing to.
+      placeholder: Informatics Manager
+    validations:
+      required: false
+  - type: input
+    id: contact_email
+    attributes:
+      label: Contact email
+      description: What is their email?
+      placeholder: "jordan.lee@city.gov"
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |-
+        ### The story
+
+        Problem, approach, what it took, results and lessons.
+  - type: textarea
+    id: body
+    attributes:
+      label: Full write-up
+      description: "What's the story? Markdown is supported. Suggested headings: Problem, Approach, What it took (data, staffing, cost), Results, Lessons learned, How to reuse."
+      value: |
+        ## Problem
+
+        ## Approach
+
+        ## What it took
+
+        ## Results
+
+        ## Lessons learned
+
+        ## How to reuse this
+    validations:
+      required: true

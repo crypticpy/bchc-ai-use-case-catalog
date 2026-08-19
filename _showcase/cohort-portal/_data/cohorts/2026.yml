@@ -1,0 +1,76 @@
+title: "Data Learning Cohort 2026"
+events:
+  - id: kickoff
+    name: "Cohort kickoff"
+    date: 2026-01-13
+    time: "9:30–11:30 AM"
+    location: "Training room 2 and online"
+    type: "Session"
+    description: "Introductions, how the six months are structured, and what makes a question small enough to finish."
+  - id: scoping-clinic
+    name: "Scoping clinic"
+    date: 2026-02-10
+    time: "1:00–3:00 PM"
+    location: "Online"
+    type: "Session"
+    description: "Each team brings a one-page question and leaves with it cut in half."
+  - id: data-access-workshop
+    name: "Data access workshop"
+    date: 2026-03-10
+    time: "1:00–3:00 PM"
+    location: "Online"
+    type: "Workshop"
+    description: "Working session with data stewards on what each team may use and how to ask for it."
+  - id: midpoint-demos
+    name: "Midpoint demos"
+    date: 2026-04-07
+    time: "9:30–12:00"
+    location: "Training room 2 and online"
+    type: "Session"
+    description: "Ten minutes per team on what is working, followed by peer review of analysis plans."
+  - id: write-up-clinic
+    name: "Write-up clinic"
+    date: 2026-05-19
+    time: "1:00–3:00 PM"
+    location: "Online"
+    type: "Workshop"
+    description: "Turning an analysis into something a colleague can read and reuse."
+  - id: publication-deadline
+    name: "Project pages due"
+    date: 2026-06-30
+    type: "Deadline"
+    description: "Each team publishes its project page. Pages can be updated afterwards."
+  - id: final-showcase
+    name: "Final showcase"
+    date: 2026-09-15
+    time: "1:00–4:00 PM"
+    location: "Auditorium and online"
+    type: "Showcase"
+    description: "Teams present to the whole organisation, with posters up for the afternoon."
+materials:
+  program_guides:
+    - title: "Cohort handbook 2026"
+      type: "guide"
+      url: "https://example.org/cohorts/2026/handbook"
+    - title: "Scoping worksheet: cutting a question down to six months"
+      type: "worksheet"
+      url: "https://example.org/cohorts/2026/scoping-worksheet"
+  templates:
+    - title: "Analysis plan template"
+      type: "template"
+      url: "https://example.org/cohorts/2026/analysis-plan-template"
+    - title: "Project page checklist"
+      type: "checklist"
+      url: "https://example.org/cohorts/2026/project-page-checklist"
+  sessions:
+    - title: "Kickoff slides"
+      type: "slides"
+      url: "https://example.org/cohorts/2026/kickoff-slides"
+    - title: "Reproducible analysis, hands-on notebooks"
+      type: "hands-on"
+      url: "https://github.com/example-org/cohort-notebooks"
+policies:
+  - "Teams work only with data they are already authorised to use, and agree the scope with the data steward before the scoping clinic."
+  - "Nothing containing personal information is uploaded to this site. Published figures are aggregates, and small counts are suppressed."
+  - "Each team publishes one project page by the deadline. Pages stay up and can be corrected or extended later."
+  - "Code is published unless a steward asks otherwise; where it cannot be, the method write-up still is."

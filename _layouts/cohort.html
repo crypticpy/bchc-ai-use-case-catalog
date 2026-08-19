@@ -1,0 +1,80 @@
+---
+layout: default
+include_filters: true
+include_search: true
+---
+{%- assign coh_cfg = site.data.site -%}
+{%- assign coh_schema = site.data.schema -%}
+{%- assign coh_year_key = page.year | append: '' -%}
+{%- assign coh_data = site.data.cohorts[coh_year_key] -%}
+{%- assign coh_plural = coh_schema.entry.plural | default: 'Entries' -%}
+{%- assign coh_entries = site.pages | where: 'layout', 'entry' | where: 'cohort', page.year | sort: 'title' -%}
+{%- assign coh_count = coh_entries | size -%}
+{%- assign coh_now_ts = 'now' | date: '%s' | plus: 0 -%}
+{%- assign coh_next_event = nil -%}
+{%- if coh_data.events -%}
+  {%- for coh_ev in coh_data.events -%}
+    {%- assign coh_ts = coh_ev.date | date: '%s' | plus: 0 -%}
+    {%- if coh_ts >= coh_now_ts and coh_next_event == nil -%}{%- assign coh_next_event = coh_ev -%}{%- endif -%}
+  {%- endfor -%}
+{%- endif -%}
+
+<section class="relative mb-10 overflow-hidden rounded-3xl bg-brand-primary-dark px-6 py-12 text-brand-on-dark shadow-card sm:px-10">
+  <div class="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-primary/40 blur-3xl" aria-hidden="true"></div>
+  <div class="relative space-y-5">
+    {% capture coh_crumbs %}Cohorts|/cohorts/;;{{ page.title }}{% endcapture %}
+    <div class="text-brand-on-dark/80 [&_a]:text-brand-on-dark [&_a]:hover:text-white [&_li[aria-current]]:text-white">{% include breadcrumbs.html items=coh_crumbs %}</div>
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="eyebrow !text-brand-on-dark/80">{{ coh_cfg.organization.name }}</span>
+      {% assign coh_yl = page.year | append: '' %}{% include badge.html label=coh_yl tone='on-dark' size='md' %}
+    </div>
+    <h1 class="page-title-on-dark">{{ page.title }}</h1>
+    {% if page.intro %}<p class="max-w-3xl text-lg leading-relaxed text-brand-on-dark/90">{{ page.intro }}</p>{% endif %}
+    <div class="flex flex-wrap gap-3 pt-2">
+      {% assign coh_l1 = coh_count | append: ' ' | append: coh_plural | downcase %}{% include badge.html label=coh_l1 tone='on-dark' size='lg' %}
+      {% if coh_data.events %}{% assign coh_l2 = coh_data.events | size | append: ' events' %}{% include badge.html label=coh_l2 tone='on-dark' size='lg' %}{% endif %}
+    </div>
+  </div>
+</section>
+
+{% if content != '' %}<div class="prose-body mb-10 max-w-3xl">{{ content }}</div>{% endif %}
+
+<div class="grid gap-10 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+  <div class="order-2 min-w-0 space-y-8 lg:order-1">
+    {% include facet-filters.html entries=coh_entries %}
+    <section aria-labelledby="cohort-entries" class="space-y-6">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 id="cohort-entries" class="section-title">{{ coh_schema.entry.plural | default: "Entries" }}</h2>
+        <span class="inline-flex items-center gap-2 rounded-full border border-brand-line bg-surface-card px-4 py-2 text-sm font-semibold text-brand-primary-dark shadow-subtle"><span data-entry-count aria-live="polite" aria-atomic="true">{{ coh_count }}</span> <span data-entry-count-label>{{ coh_plural | downcase }}</span></span>
+      </div>
+      <div class="grid gap-6 sm:grid-cols-2" data-entry-grid>
+        {% for coh_entry in coh_entries %}{% include entry-card.html entry=coh_entry %}{% endfor %}
+      </div>
+      <div class="hidden" data-empty-state>{% include empty-state.html icon='search' title='No matches' body='Nothing matches the current filters. Try clearing a filter or searching for a different term.' %}</div>
+      {% if coh_count == 0 %}{% include empty-state.html icon='sparkles' title='Projects coming soon' body='Entries for this cohort will appear here once they are published.' %}{% endif %}
+    </section>
+  </div>
+
+  <aside class="order-1 space-y-6 lg:order-2">
+    {% if coh_next_event %}
+      <section class="card border-l-4 !border-l-brand-accent" aria-labelledby="next-milestone">
+        <div class="card-header flex items-center gap-2"><h2 id="next-milestone" class="card-title flex items-center gap-2">{% include icon.html name='calendar' size='sm' class='text-brand-accent' %} Next milestone</h2></div>
+        <div class="px-6 py-5">
+          <p class="font-semibold text-brand-primary-dark">{% if coh_next_event.page_url %}<a class="hover:underline" href="{{ coh_next_event.page_url | relative_url }}">{{ coh_next_event.name }}</a>{% else %}{{ coh_next_event.name }}{% endif %}</p>
+          <p class="mt-1 text-sm text-brand-muted">{{ coh_next_event.date | date: '%B %-d, %Y' }}{% if coh_next_event.time %} · {{ coh_next_event.time }}{% endif %}</p>
+          {% if coh_next_event.location %}<p class="text-sm text-brand-muted">{{ coh_next_event.location }}</p>{% endif %}
+        </div>
+      </section>
+    {% endif %}
+    {% if coh_data.events %}{% include timeline.html events=coh_data.events year=page.year %}{% endif %}
+    {% if coh_data.materials %}{% include materials.html materials=coh_data.materials title='Learning materials' subtitle='Guides and workshops for this cohort' %}{% endif %}
+    {% if coh_data.policies %}
+      <section class="card" aria-labelledby="cohort-policies">
+        <div class="card-header"><h2 id="cohort-policies" class="card-title">Program policies</h2></div>
+        <ul class="space-y-3 px-6 py-6 text-sm text-brand-ink">
+          {% for coh_policy in coh_data.policies %}<li class="flex gap-3"><span class="mt-1.5 inline-flex h-2 w-2 shrink-0 rounded-full bg-brand-primary"></span><span>{{ coh_policy }}</span></li>{% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  </aside>
+</div>

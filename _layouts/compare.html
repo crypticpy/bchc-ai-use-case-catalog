@@ -1,0 +1,61 @@
+---
+layout: default
+---
+{%- comment -%}
+The side-by-side comparison. Everything below the heading is painted by
+assets/js/compare-page.js from /entries.json — the shortlist lives in the reader's
+URL (`?e=slug,slug`) and localStorage, neither of which a static build can see, so
+there is nothing here for Jekyll to render ahead of time.
+
+What IS server-rendered is the state a reader without JavaScript lands in: a heading,
+an explanation, and a way back to the catalog. The script hides that panel only once
+it has two entries to show, so the page never reads as broken.
+
+Local assigns are prefixed `cmp_`.
+{%- endcomment -%}
+{%- assign cmp_schema = site.data.schema -%}
+{%- assign cmp_plural = cmp_schema.entry.plural | default: 'Entries' -%}
+{%- assign cmp_singular = cmp_schema.entry.singular | default: 'Entry' -%}
+{%- assign cmp_path = cmp_schema.entry.path | default: 'catalog' -%}
+{%- capture cmp_catalog_url %}/{{ cmp_path }}/{% endcapture -%}
+
+{%- comment -%} No guard for `modules.catalog == false`: `/compare/` is one of the
+catalog module's paths (_plugins/modules.rb → CATALOG_EXTRA_PATHS), so a site with
+the catalog off never builds this page in the first place. {%- endcomment -%}
+
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div class="max-w-prose">
+    {%- capture cmp_default_title %}Compare {{ cmp_plural | downcase }}{% endcapture -%}
+    {%- capture cmp_default_summary %}Up to three {{ cmp_plural | downcase }}, field by field. Differences show first; the rest is one click away.{% endcapture -%}
+    <h1 class="page-title">{{ page.title | default: cmp_default_title }}</h1>
+    <p class="mt-1 text-sm leading-6 text-brand-muted">{{ page.summary | default: cmp_default_summary }}</p>
+  </div>
+  {%- comment -%} Revealed by compare-page.js: a print button is a control, and a
+  control that cannot work without JavaScript should not be on the page at all.
+  {%- endcomment -%}
+  <button type="button" class="btn-secondary btn-sm compare-no-print" data-compare-print hidden>
+    {% include icon.html name='document' size='sm' %} Print / save as PDF
+  </button>
+</div>
+
+{%- comment -%} Not aria-live: the reader who follows a shared link has not asked for
+anything yet, and a status region that speaks on arrival talks over the page title.
+role="status" alone is announced when the script writes to it later. {%- endcomment -%}
+<p class="sr-only" role="status" data-compare-status></p>
+
+<div data-compare-app data-entries-url="{{ '/entries.json' | relative_url }}" data-catalog-url="{{ cmp_catalog_url | relative_url }}"></div>
+
+<div class="card mx-auto max-w-xl px-6 py-12 text-center" data-compare-empty>
+  <p class="font-heading text-lg font-semibold text-brand-primary-dark">Pick two to compare</p>
+  <p class="mt-2 text-sm leading-6 text-brand-muted">
+    On the catalog, use the <strong class="font-semibold text-brand-ink">Compare</strong> control on any card to add
+    {{ cmp_singular | downcase | with_article }} to your shortlist. Choose two or three, then come back here.
+  </p>
+  <p class="mt-6"><a class="btn-primary" href="{{ cmp_catalog_url | relative_url }}">Browse the {{ cmp_plural | downcase }}</a></p>
+</div>
+
+{%- assign cmp_content = content | strip -%}
+{% if cmp_content != '' %}<div class="prose-body mt-12">{{ cmp_content }}</div>{% endif %}
+
+{% include print-stamp.html %}
+<script type="module" src="{{ '/assets/js/compare-page.js' | relative_url }}"></script>

@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# Theme: colors and typography.
+# Colors are hex values; they are exposed as CSS variables and consumed by
+# Tailwind, so changing them here re-themes the whole site on the next build.
+# Keep text/background pairs at WCAG AA contrast (4.5:1 for body text).
+# ---------------------------------------------------------------------------
+
+colors:
+  primary: "#1D4E89"        # buttons, links, active states
+  primary_dark: "#12305A"   # hero + footer background, headings on light surfaces
+  secondary: "#0F6357"      # taxonomy identity (chip dots, secondary icons); AA on white
+  accent: "#E07A2F"         # highlights, warm accent badges
+  ink: "#1B2430"            # body text
+  muted: "#5A6573"          # secondary text (AA on white)
+  line: "#D9E0E8"           # dividers and card borders
+  line_strong: "#7C8A9B"    # borders of interactive controls (inputs, pills) — keep >= 3:1 on card
+  surface: "#F5F7FA"        # page background
+  surface_tint: "#EAF0F7"   # tinted bands and panels (fact strip, sidebar, home bands) — AA for ink, muted and primary
+  card: "#FFFFFF"           # card background
+  on_dark: "#F7F9FC"        # text on primary_dark backgrounds
+  warn: "#B45309"           # caution only: sensitive-data indicators, validation errors
+
+fonts:
+  # Bundled options: "Source Serif 4", "Source Sans 3", "Inter". Any other family
+  # name works if you also set google_fonts_url (a Google Fonts <link> href) below.
+  # The shipped pairing is a serif for headings over a sans for everything else;
+  # set heading to "Source Sans 3" for an all-sans site.
+  heading: "Source Serif 4"
+  body: "Inter"
+  google_fonts_url: ""
+
+type:
+  # Line length. Set in rem, not ch: the CSS `ch` unit is the width of the digit
+  # zero (~0.66em in Inter), while an average character in running English is
+  # ~0.48em — so "65ch" actually renders about 88 characters. Widen these if you
+  # switch `fonts.body` to a narrower family.
+  measure: "36rem"          # body copy — ~74 characters at 16px Inter
+  measure_display: "44rem"  # headings, impact line, summary
+
+# Corner rounding scale: "sharp" | "soft" | "round"
+radius: "soft"
+
+# Motion. Durations and easing for every transition on the site, emitted as
+# --motion-fast/base/slow and --ease-brand by _includes/theme.html. Each value has
+# a Liquid default, so the whole block may be deleted; the /setup/ configurator
+# offers these as three named speeds (snappy / default / calm) and writes whatever
+# is here back unchanged. Times are CSS <time> values up to 1000ms, and must not
+# decrease: fast <= base <= slow.
+motion:
+  fast: "120ms"   # state changes: colour, opacity, pressed
+  base: "180ms"   # hover lift, expand/collapse
+  slow: "240ms"   # sheets, dialogs, page transitions
+  ease: "cubic-bezier(0.2, 0, 0, 1)"

@@ -1,0 +1,262 @@
+# Accessibility + Lighthouse gate. Runs on every pull request and on pushes to main.
+# Builds the site with url set to the local server, serves _site, then:
+#   * pa11y-ci (axe + HTML_CodeSniffer, WCAG 2 AA) over the pages in quality/pa11yci.js (entry URLs discovered from the built site) — FAILS the job on any issue
+#   * the assistive-technology flow tests (test/a11y/flows.test.mjs): keyboard-only walkthroughs across pages and states, which a per-page audit cannot see — FAILS the job
+#   * Lighthouse CI over quality/lighthouserc.js, once per form factor — accessibility >= 0.95 is an error, other categories warn
+#
+# The tools are not in package.json so `npm ci` in the other workflows stays
+# fast; their versions are pinned in quality/package.json and read by
+# quality/run.js, so this workflow and `npm run a11y` locally run the same build.
+#
+# Every audit step is `continue-on-error` so the run always reaches the summary
+# and the artifact upload; the `Gate` step at the end turns the recorded
+# outcomes back into the job's exit status. A red run is meant to be diagnosable
+# from the summary table alone.
+name: Quality (a11y + Lighthouse)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  QUALITY_BASE_URL: http://127.0.0.1:4173
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes; leaving the token in .git/config would let any
+          # step (or anything they shell out to) act as the workflow.
+          persist-credentials: false
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # url/baseurl point at the local server so canonical links, robots.txt and the
+      # sitemap resolve the way they will on Pages (Lighthouse's SEO audits check them).
+      - name: Build site (served from 127.0.0.1:4173)
+        env:
+          JEKYLL_ENV: production
+        run: |
+          node scripts/generate.mjs
+          npm run build:css
+          printf 'url: "%s"\nbaseurl: ""\n' "$QUALITY_BASE_URL" > _config.quality.yml
+          bundle exec jekyll build --destination _site --config _config.yml,_config.quality.yml
+
+      - name: Serve _site
+        run: |
+          python3 -m http.server 4173 --directory _site >/dev/null 2>&1 &
+          for _ in $(seq 1 30); do curl -sf "$QUALITY_BASE_URL/" >/dev/null && break; sleep 1; done
+          curl -sf -o /dev/null "$QUALITY_BASE_URL/" || { echo "server did not start"; exit 1; }
+
+      # The template's own deployment is not the single build above: it is a
+      # showcase — a landing page at the root and a complete live example of
+      # every preset (docs/showcase-plan.md) — and none of those pages exist in
+      # _site. Gated exactly like the deploy in pages.yml: demo content, unless
+      # the repository variable says otherwise. A fork builds no showcase and
+      # audits nothing extra.
+      - name: Decide whether to audit the showcase
+        id: showcase
+        env:
+          CATALOG_SHOWCASE: ${{ vars.CATALOG_SHOWCASE }}
+        run: |
+          set -euo pipefail
+          demo="$(ruby -ryaml -e 'puts YAML.load_file("_data/site.yml")["demo"] == true')"
+          build=false
+          if [[ "$demo" == "true" && "$CATALOG_SHOWCASE" == "true" ]]; then build=true; fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "Showcase: $build (demo=$demo, CATALOG_SHOWCASE='${CATALOG_SHOWCASE}')"
+
+      # The landing and one example — enough for the landing's markup and the
+      # example switcher without quadrupling the build. Built outside the
+      # repository so the next scratch copy does not pick it up, and served on
+      # its own port; quality/urls.js reads the pages out of the built tree.
+      - name: Build and serve the showcase (127.0.0.1:4174)
+        if: steps.showcase.outputs.build == 'true'
+        env:
+          JEKYLL_ENV: production
+          SHOWCASE_BASE_URL: http://127.0.0.1:4174
+          SHOWCASE_DIR: ${{ runner.temp }}/showcase
+        run: |
+          set -euo pipefail
+          node scripts/build_showcase.mjs --destination "$SHOWCASE_DIR" --url "$SHOWCASE_BASE_URL" cohort-portal
+          python3 -m http.server 4174 --directory "$SHOWCASE_DIR" >/dev/null 2>&1 &
+          for _ in $(seq 1 30); do curl -sf "$SHOWCASE_BASE_URL/" >/dev/null && break; sleep 1; done
+          curl -sf -o /dev/null "$SHOWCASE_BASE_URL/" || { echo "showcase server did not start"; exit 1; }
+          {
+            echo "QUALITY_SHOWCASE_BASE_URL=$SHOWCASE_BASE_URL"
+            echo "QUALITY_SHOWCASE_DIR=$SHOWCASE_DIR"
+          } >> "$GITHUB_ENV"
+
+      # pa11y-ci pulls in whatever puppeteer it resolves at run time and that
+      # puppeteer expects its own pinned Chrome build, which `npx --yes` does not
+      # download. Point it at the runner's preinstalled Chrome instead so the
+      # gate does not depend on puppeteer's download step.
+      - name: Locate the runner's Chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser || command -v chromium)"
+          test -n "$CHROME" || { echo "no Chrome on this runner"; exit 1; }
+          echo "PUPPETEER_EXECUTABLE_PATH=$CHROME" >> "$GITHUB_ENV"
+          echo "CHROME_PATH=$CHROME" >> "$GITHUB_ENV"
+          "$CHROME" --version
+
+      # The flow tests `import('puppeteer')` rather than shelling out, so this
+      # one tool has to be in node_modules. `--no-save` keeps it out of the
+      # lockfile the other six workflows install from; SKIP_DOWNLOAD keeps it
+      # from fetching a second Chrome when the runner already has one.
+      - name: Install puppeteer for the flow tests
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+        run: |
+          version="$(node -p "require('./quality/package.json').devDependencies.puppeteer")"
+          npm install --no-save --no-audit --no-fund "puppeteer@$version"
+
+      - name: Prepare the report directory
+        run: mkdir -p "$RUNNER_TEMP/quality/lighthouse"
+
+      # `--json` puts the machine-readable report on stdout (the human log stays
+      # on stderr, so the step is still readable in the Actions UI). `--silent`
+      # keeps npm's own banner out of the JSON.
+      - name: pa11y-ci (WCAG 2 AA, axe + htmlcs)
+        id: pa11y
+        continue-on-error: true
+        run: npm run --silent a11y -- --json > "$RUNNER_TEMP/quality/pa11y.json"
+
+      # Keyboard-only walkthroughs across pages and states, which a per-page
+      # audit cannot see. Runs against the same served build; FLOW_BASE_URL
+      # defaults to QUALITY_BASE_URL.
+      - name: Assistive-technology flows
+        id: flows
+        continue-on-error: true
+        run: npm run test:flows
+
+      - name: Lighthouse CI (desktop)
+        id: lighthouse_desktop
+        continue-on-error: true
+        run: npm run lighthouse
+
+      - name: Keep the desktop reports
+        if: always()
+        run: mv .lighthouseci "$RUNNER_TEMP/quality/lighthouse/desktop" || true
+
+      # A second invocation rather than a second config: Lighthouse cannot vary
+      # the form factor within one run, and desktop alone was measuring a
+      # machine nobody opens this catalog on.
+      - name: Lighthouse CI (mobile)
+        id: lighthouse_mobile
+        continue-on-error: true
+        env:
+          QUALITY_LANE: mobile
+        run: npm run lighthouse
+
+      - name: Keep the mobile reports
+        if: always()
+        run: mv .lighthouseci "$RUNNER_TEMP/quality/lighthouse/mobile" || true
+
+      - name: Summarise the results
+        if: always()
+        env:
+          FLOWS: ${{ steps.flows.outcome }}
+          FLOWS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            node quality/summary.js \
+              --pa11y "$RUNNER_TEMP/quality/pa11y.json" \
+              --lighthouse "$RUNNER_TEMP/quality/lighthouse"
+            echo "## Assistive-technology flows"
+            echo ""
+            if [ "$FLOWS" = "success" ]; then
+              echo "Passed: every keyboard-only walkthrough in \`test/a11y/flows.test.mjs\`."
+            else
+              echo "Failed ($FLOWS): the assertion names the flow and the stop it was on — [see the step log]($FLOWS_URL)."
+            fi
+            echo ""
+            echo "Full reports are attached to this run as the \`quality-reports\` artifact."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: quality-reports
+          path: ${{ runner.temp }}/quality
+          retention-days: 14
+          if-no-files-found: warn
+
+      # The audit steps record their outcome instead of stopping the job; this
+      # is where a failure becomes the job's exit status.
+      - name: Gate
+        if: always()
+        env:
+          PA11Y: ${{ steps.pa11y.outcome }}
+          FLOWS: ${{ steps.flows.outcome }}
+          DESKTOP: ${{ steps.lighthouse_desktop.outcome }}
+          MOBILE: ${{ steps.lighthouse_mobile.outcome }}
+        run: |
+          failed=""
+          [ "$PA11Y" = "success" ] || failed="$failed pa11y-ci"
+          [ "$FLOWS" = "success" ] || failed="$failed a11y-flows"
+          [ "$DESKTOP" = "success" ] || failed="$failed lighthouse-desktop"
+          [ "$MOBILE" = "success" ] || failed="$failed lighthouse-mobile"
+          if [ -n "$failed" ]; then
+            echo "Failed:$failed — see the job summary for the scores."
+            exit 1
+          fi
+          echo "pa11y-ci, the flow tests and both Lighthouse lanes passed."
+
+  status:
+    # `gh workflow run quality.yml --ref <branch>` produces a run with no
+    # pull-request payload, so GitHub attaches no check to the branch head and
+    # the pull request shows nothing. Post the result as a commit status
+    # instead. `statuses: write` is scoped to this job and nothing else.
+    name: Report the dispatched run on its commit
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    needs: [audit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+
+    steps:
+      - name: Post a commit status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const passed = ${{ toJSON(needs.audit.result) }} === 'success';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: passed ? 'success' : 'failure',
+              context: 'Quality (dispatch)',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: passed
+                ? 'pa11y-ci and Lighthouse passed'
+                : 'pa11y-ci or Lighthouse reported problems',
+            });

@@ -1,0 +1,47 @@
+/* Governance page (/governance/, governance/index.md): the "On this page" nav,
+   the numbered review steps, the criteria list, the role cards, the metrics. All content
+   comes from _data/governance.yml; these classes only lay it out. */
+@layer components {
+  /* ---------- On this page --------------------------------------------- */
+  .gov-nav { @apply panel mt-8 px-5 py-4; }
+  .gov-nav-list { @apply mt-2 columns-1 gap-x-8 text-sm sm:columns-2; }
+  .gov-nav-list li { @apply break-inside-avoid py-1; }
+  .gov-nav-list a { @apply text-brand-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-tint; }
+
+  /* ---------- Review steps --------------------------------------------- */
+  /* A numbered process, not a timeline: the numbers carry the order (a
+     submission really does move through them in sequence) and the hairline
+     between numbers is decoration for the eye, hidden from AT. */
+  .gov-steps { @apply relative space-y-8; }
+  .gov-steps::before { @apply pointer-events-none absolute bottom-4 left-4 top-4 w-px bg-brand-line content-['']; }
+  .gov-step { @apply relative flex gap-5; }
+  .gov-step-num { @apply relative z-10 mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary font-heading text-sm font-semibold text-white ring-4 ring-surface-base; }
+  .gov-step-title { @apply font-heading text-xl font-semibold leading-snug text-brand-primary-dark; }
+  .gov-step-meta { @apply mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-brand-muted; }
+  .gov-step-target { @apply inline-flex items-center gap-1 rounded-full bg-surface-tint px-2.5 py-0.5 text-xs font-semibold text-brand-primary-dark; }
+
+  /* ---------- Criteria ------------------------------------------------- */
+  .gov-criteria { @apply grid gap-x-8 gap-y-5 sm:grid-cols-2; }
+  .gov-criterion dt { @apply flex items-center gap-2 font-heading text-base font-semibold text-brand-primary-dark; }
+  .gov-criterion dd { @apply mt-1 pl-7 text-sm leading-6 text-brand-muted; }
+
+  /* ---------- Roles ---------------------------------------------------- */
+  .gov-roles { @apply grid gap-4 sm:grid-cols-2; }
+  .gov-role { @apply card p-5; }
+  .gov-role-title { @apply font-heading text-base font-semibold text-brand-primary-dark; }
+  .gov-role-body { @apply mt-1.5 text-sm leading-6 text-brand-muted; }
+
+  /* ---------- How the catalog is doing ------------------------------- */
+  /* A stat strip and a small quarterly table from _data/metrics.json. */
+  .gov-metrics { @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]; }
+  .gov-metric { @apply card flex flex-col gap-1 p-4; }
+  .gov-metric dt { @apply text-xs font-semibold uppercase tracking-wide text-brand-muted; }
+  .gov-metric-value { @apply font-heading text-3xl font-semibold leading-none text-brand-primary-dark tabular-nums; }
+  .gov-metric-unit { @apply font-sans text-base font-normal text-brand-muted; }
+  .gov-metric-note { @apply mt-1 block text-xs text-brand-muted; }
+  .gov-metrics-table { @apply w-full min-w-[20rem] border-collapse text-sm; }
+  .gov-metrics-table th, .gov-metrics-table td { @apply border-b border-brand-line px-3 py-2 text-left; }
+  .gov-metrics-table thead th { @apply text-xs font-semibold uppercase tracking-wide text-brand-muted; }
+  .gov-metrics-table tbody th { @apply font-medium text-brand-primary-dark; }
+  .gov-metrics-table .num { @apply text-right tabular-nums; }
+}

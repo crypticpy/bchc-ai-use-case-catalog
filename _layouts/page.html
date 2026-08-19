@@ -1,0 +1,11 @@
+---
+layout: default
+---
+<article class="mx-auto max-w-3xl">
+  {% if page.eyebrow %}<span class="eyebrow">{{ page.eyebrow }}</span>{% endif %}
+  <h1 class="page-title mt-2">{{ page.title }}</h1>
+  {% if page.summary %}<p class="mt-4 text-lg leading-relaxed text-brand-muted">{{ page.summary }}</p>{% endif %}
+  <div class="prose-body mt-8">
+    {{ content }}
+  </div>
+</article>

@@ -1,0 +1,175 @@
+{%- comment -%}
+The showcase landing page — the root of the template's own deployment.
+
+`index.md` includes this instead of the home page when `site.showcase.role ==
+'landing'` (a build made by `scripts/build_showcase.mjs`). Everything it says
+comes from `_data/showcase.yml`; the per-example facts come from
+`_data/showcase_presets.json`, generated from the wizard's own presets so
+"how this example is configured" cannot drift from what picking that preset
+gives you. Both may be missing — someone building this repository plainly, a
+half-configured scratch tree — so every lookup here is nil-safe and the page
+degrades section by section rather than erroring.
+
+Order of examples is `site.showcase.examples` (the builder's order, which the
+switcher on every example site matches); the presets file is the fallback when
+the config override is absent.
+
+Local assigns are prefixed `sl_`. Section copy lives in `showcase.sections`.
+
+See docs/showcase-plan.md.
+{%- endcomment -%}
+{%- assign sl = site.data.showcase -%}
+{%- assign sl_sections = sl.sections -%}
+{%- assign sl_presets = site.data.showcase_presets -%}
+{%- assign sl_examples = site.showcase.examples -%}
+{%- unless sl_examples and sl_examples.size > 0 -%}{%- assign sl_examples = sl_presets -%}{%- endunless -%}
+
+{%- comment -%} ================= Hero ================= {%- endcomment -%}
+<section class="hero">
+  <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
+    <div class="measure-display">
+      {% if sl.eyebrow %}<p class="eyebrow-on-dark">{{ sl.eyebrow }}</p>{% endif %}
+      <h1 class="hero-title mt-4">{{ sl.title | default: site.data.site.name }}</h1>
+      {% if sl.tagline %}<p class="sc-hero-thesis mt-5">{{ sl.tagline }}</p>{% endif %}
+      {% if sl.lead %}<p class="mt-4 text-lg leading-7 text-brand-on-dark/90">{{ sl.lead }}</p>{% endif %}
+      {% if sl.hero_ctas and sl.hero_ctas.size > 0 %}
+      <div class="mt-8 flex flex-wrap gap-3">
+        {%- for sl_cta in sl.hero_ctas -%}
+          {%- comment -%} An anchor or an off-site URL is used as written; anything else is
+          a path on this build and goes through `relative_url`. {%- endcomment -%}
+          {%- assign sl_cta_first = sl_cta.url | slice: 0 -%}
+          {%- assign sl_cta_off = false -%}
+          {%- if sl_cta.url contains '://' -%}{%- assign sl_cta_off = true -%}{%- endif -%}
+          {%- if sl_cta_first == '#' or sl_cta_off -%}
+            {%- assign sl_cta_href = sl_cta.url -%}
+          {%- else -%}
+            {%- assign sl_cta_href = sl_cta.url | relative_url -%}
+          {%- endif -%}
+          <a class="{% if sl_cta.style == 'primary' %}btn-on-dark-solid{% else %}btn-on-dark{% endif %}" href="{{ sl_cta_href }}">{{ sl_cta.label }}{% if sl_cta_off %} {% include icon.html name='external-link' size='sm' %}{% endif %}</a>
+        {%- endfor -%}
+      </div>
+      {% endif %}
+    </div>
+    {%- comment -%} The same panel the shipped home gives its latest entries, here the four
+    examples as direct links — the hero's right half is otherwise empty on wide screens. The
+    cards below carry the detail; this is the shortcut. {%- endcomment -%}
+    {%- if sl_examples and sl_examples.size > 0 -%}
+    <aside class="hero-latest hidden lg:block" aria-labelledby="hero-examples-heading">
+      <p class="eyebrow-on-dark" id="hero-examples-heading">Open an example</p>
+      <ul class="mt-4 divide-y divide-white/10" role="list">
+        {%- for sl_hx in sl_examples -%}
+        {%- assign sl_hx_preset = sl_presets | where: 'id', sl_hx.id | first -%}
+        <li class="hero-latest-item">
+          <a class="hero-latest-link" href="{{ sl_hx.path }}/">
+            <span class="hero-latest-title">{{ sl_hx.name | escape }}</span>
+            {%- if sl_hx_preset.description -%}<span class="hero-latest-meta"><span>{{ sl_hx_preset.description | escape | truncate: 90 }}</span></span>{%- endif -%}
+          </a>
+        </li>
+        {%- endfor -%}
+      </ul>
+    </aside>
+    {%- endif -%}
+  </div>
+</section>
+
+{%- comment -%} ================= The four examples =================
+The heart of the page: one card per example, in the builder's order, each with
+the id the switcher deep-links to. {%- endcomment -%}
+{% if sl_examples and sl_examples.size > 0 %}
+<section id="examples" class="sc-section" aria-labelledby="showcase-examples-heading">
+  <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="section-head">
+      {% if sl_sections.examples.eyebrow %}<p class="eyebrow">{{ sl_sections.examples.eyebrow }}</p>{% endif %}
+      <h2 id="showcase-examples-heading" class="section-title">{{ sl_sections.examples.title | default: 'The examples' }}</h2>
+      {% if sl_sections.examples.lead %}<p class="section-lead">{{ sl_sections.examples.lead }}</p>{% endif %}
+    </div>
+    <ul role="list" class="sc-examples">
+      {%- for sl_ex in sl_examples -%}
+        {%- assign sl_preset = sl_presets | where: 'id', sl_ex.id | first -%}
+        {%- assign sl_copy = sl.examples | where: 'id', sl_ex.id | first -%}
+        {% include showcase/example-card.html example=sl_ex preset=sl_preset copy=sl_copy index=forloop.index %}
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+{%- comment -%} ================= What it does ================= {%- endcomment -%}
+{% if sl.features and sl.features.size > 0 %}
+<section class="band sc-section" aria-labelledby="showcase-features-heading">
+  <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="section-head">
+      {% if sl_sections.features.eyebrow %}<p class="eyebrow">{{ sl_sections.features.eyebrow }}</p>{% endif %}
+      <h2 id="showcase-features-heading" class="section-title">{{ sl_sections.features.title | default: 'What it does' }}</h2>
+      {% if sl_sections.features.lead %}<p class="section-lead">{{ sl_sections.features.lead }}</p>{% endif %}
+    </div>
+    {%- comment -%} Text over a hairline rather than cards: these are claims about the
+    template, and a card would invite a click most of them do not have. {%- endcomment -%}
+    <ul role="list" class="sc-features">
+      {%- for sl_f in sl.features %}
+      <li class="sc-feature">
+        <h3 class="sc-feature-title">{% if sl_f.icon %}{% include icon.html name=sl_f.icon size='sm' class='text-brand-primary' %}{% endif %}{{ sl_f.title }}</h3>
+        <p class="sc-feature-body">{{ sl_f.body }}</p>
+        {% if sl_f.link.url and sl_f.link.label %}<a class="sc-feature-link" href="{{ sl_f.link.url }}">{{ sl_f.link.label }} {% include icon.html name='external-link' size='xs' %}</a>{% endif %}
+      </li>
+      {%- endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+
+{%- comment -%} ================= How publishing works =================
+A sequence, so it is an ordered list and the numbers are real. {%- endcomment -%}
+{% if sl.how_it_works and sl.how_it_works.size > 0 %}
+<section class="sc-section" aria-labelledby="showcase-how-heading">
+  <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="section-head">
+      {% if sl_sections.how_it_works.eyebrow %}<p class="eyebrow">{{ sl_sections.how_it_works.eyebrow }}</p>{% endif %}
+      <h2 id="showcase-how-heading" class="section-title">{{ sl_sections.how_it_works.title | default: 'How publishing works' }}</h2>
+      {% if sl_sections.how_it_works.lead %}<p class="section-lead">{{ sl_sections.how_it_works.lead }}</p>{% endif %}
+    </div>
+    <ol role="list" class="sc-steps">
+      {%- for sl_s in sl.how_it_works %}
+      <li class="sc-step">
+        <p class="sc-step-num" aria-hidden="true">{{ forloop.index }}</p>
+        <h3 class="sc-step-title">{{ sl_s.title }}</h3>
+        <p class="sc-step-body">{{ sl_s.body }}</p>
+      </li>
+      {%- endfor %}
+    </ol>
+  </div>
+</section>
+{% endif %}
+
+{%- comment -%} ================= Start here ================= {%- endcomment -%}
+{% if sl.start_here and sl.start_here.size > 0 %}
+<section class="band sc-section" aria-labelledby="showcase-start-heading">
+  <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="section-head">
+      {% if sl_sections.start_here.eyebrow %}<p class="eyebrow">{{ sl_sections.start_here.eyebrow }}</p>{% endif %}
+      <h2 id="showcase-start-heading" class="section-title">{{ sl_sections.start_here.title | default: 'Start here' }}</h2>
+      {% if sl_sections.start_here.lead %}<p class="section-lead">{{ sl_sections.start_here.lead }}</p>{% endif %}
+    </div>
+    <ul role="list" class="sc-start">
+      {%- for sl_i in sl.start_here -%}
+        {%- comment -%} The starter item's URL is `starter_url`, which a fork may blank out;
+        an item with nowhere to go is dropped rather than rendered dead. {%- endcomment -%}
+        {%- assign sl_i_url = sl_i.url | default: '' -%}
+        {%- if sl_i.starter -%}{%- assign sl_i_url = sl.starter_url | default: '' -%}{%- endif -%}
+        {%- if sl_i_url != '' -%}
+          {%- assign sl_i_off = false -%}
+          {%- if sl_i_url contains '://' -%}{%- assign sl_i_off = true -%}{%- endif -%}
+          {%- unless sl_i_off -%}{%- assign sl_i_url = sl_i_url | relative_url -%}{%- endunless -%}
+      <li class="sc-start-item">
+        <h3 class="sc-start-title">
+          {% if sl_i.icon %}{% include icon.html name=sl_i.icon size='sm' class='text-brand-primary' %}{% endif %}
+          <a href="{{ sl_i_url }}">{{ sl_i.title }} {% if sl_i_off %}{% include icon.html name='external-link' size='xs' %}{% else %}{% include icon.html name='arrow-right' size='sm' %}{% endif %}</a>
+        </h3>
+        <p class="sc-start-body">{{ sl_i.body }}</p>
+      </li>
+        {%- endif -%}
+      {%- endfor -%}
+    </ul>
+  </div>
+</section>
+{% endif %}

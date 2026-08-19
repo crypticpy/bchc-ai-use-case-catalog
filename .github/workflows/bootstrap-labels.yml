@@ -1,0 +1,122 @@
+name: Bootstrap labels
+
+# One-time setup helper. Run it from the Actions tab ("Run workflow") after
+# creating a repository from this template. Issue forms only apply labels that
+# already exist, and the content workflows are triggered by these labels.
+#
+# It also prints a short preflight to the run summary, because the two settings
+# the automation depends on are clicks in Settings that no workflow can see from
+# the outside and no README step reliably survives.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      # Reading the Pages configuration in the preflight below.
+      pages: read
+      # Reading _data/site.yml in the preflight below.
+      contents: read
+    steps:
+      - name: Create the labels the automation filters on
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          create() { gh label create "$1" --color "$2" --description "$3" --force; }
+          create "content:new-entry"          "1D4E89" "Submission from the entry form; automation opens a pull request"
+          create "content:new-event"          "1B8A7A" "Cohort event page request"
+          create "content:schedule"           "1B8A7A" "Cohort schedule update"
+          create "content:event-attachments"  "1B8A7A" "Attach materials to a cohort event"
+          create "content:new-year"           "1B8A7A" "Scaffold a new cohort year"
+          create "content:site-config"        "5B3E96" "Apply a site configuration from the /setup/ wizard (maintainers only)"
+          # Not a content: label — nobody applies this one by hand. The monthly
+          # verification sweep (verification-sweep.yml) applies it to the one
+          # rolling issue it keeps open, so maintainers can find or mute it.
+          create "verification"               "8250DF" "Entries due to be re-confirmed with their contact"
+          # Review-tier labels for the pull requests the entry scaffolder opens
+          # (new-entry.yml). `review:intake` goes on every scaffolded pull
+          # request; `review:data-governance` when an answer matches a field's
+          # `escalate_on` list in _data/schema.yml. Reviewers move the rest by
+          # hand as the entry passes through the tiers on the governance page.
+          create "review:intake"              "6E40C9" "Awaiting intake triage: complete, contact reachable, nothing that looks like PII/PHI"
+          create "review:committee"           "6E40C9" "With the governance committee for substantive review"
+          create "review:partner"             "6E40C9" "Referred to a partner reviewer (identifiable data, clinical decision support, public-facing)"
+          create "review:data-governance"     "A371F7" "An answer asks for closer review — set by the scaffolder from the schema's escalate_on"
+          create "review:revisions-requested" "D4A72C" "Sent back to the submitter with specific changes; edit the issue or reply on the pull request"
+          create "review:declined"            "9E6A03" "Not published, with a rationale on the pull request; the submitter may appeal"
+          echo "Labels are ready."
+
+      - name: Preflight the repository settings
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const settings = `https://github.com/${owner}/${repo}/settings`;
+            const rows = [['Labels', '✅', 'Created or refreshed by the step above.']];
+
+            // Pages: the source has to be "GitHub Actions", not a branch.
+            try {
+              const { data: pages } = await github.rest.repos.getPages({ owner, repo });
+              rows.push(
+                pages.build_type === 'workflow'
+                  ? ['Pages source', '✅', 'GitHub Actions.']
+                  : ['Pages source', '⚠️', `Set to "${pages.build_type}" — change it to GitHub Actions at ${settings}/pages`]
+              );
+            } catch (error) {
+              rows.push([
+                'Pages source',
+                '⚠️',
+                error.status === 404
+                  ? `Pages is not enabled. Turn it on, source "GitHub Actions", at ${settings}/pages`
+                  : `Could not read the Pages settings (${error.status}). Check ${settings}/pages`,
+              ]);
+            }
+
+            // A fork that never ran the wizard still carries the template's own
+            // `github.repository`, and every "Submit", "Edit this page" and
+            // "Report an issue" link on the site then points at someone else's
+            // repository. Nothing else notices; the links just quietly go
+            // somewhere wrong.
+            const setup = `https://github.com/${owner}/${repo}/issues/new?template=apply-setup.yml`;
+            try {
+              const { data: file } = await github.rest.repos.getContent({ owner, repo, path: '_data/site.yml' });
+              const text = Buffer.from(file.content, 'base64').toString('utf8');
+              // The one top-level `repository:` line, matched rather than parsed:
+              // github-script has no YAML parser and this is a preflight hint.
+              const declared = /^\s{2}repository:\s*["']?([^"'\s#]+)/m.exec(text)?.[1] ?? '';
+              rows.push(
+                declared.toLowerCase() === `${owner}/${repo}`.toLowerCase()
+                  ? ['Site configuration', '✅', `_data/site.yml points at ${declared}.`]
+                  : [
+                      'Site configuration',
+                      '⚠️',
+                      `_data/site.yml still says "${declared || 'nothing'}" — the submit and edit links will go there. Fix it at ${setup}`,
+                    ]
+              );
+            } catch (error) {
+              rows.push(['Site configuration', '⚠️', `Could not read _data/site.yml (${error.status}). Configure the site at ${setup}`]);
+            }
+
+            // GITHUB_TOKEN cannot be granted `administration: read`, so this one
+            // is a pointer rather than a verdict. It is still the setting that
+            // most often silently breaks the "Create pull request" step.
+            rows.push([
+              'Actions may open pull requests',
+              'ℹ️',
+              `Confirm "Allow GitHub Actions to create and approve pull requests" at ${settings}/actions`,
+            ]);
+
+            await core.summary
+              .addHeading('Catalog preflight', 3)
+              .addTable([
+                [{ data: 'Setting', header: true }, { data: '', header: true }, { data: 'What to do', header: true }],
+                ...rows,
+              ])
+              .addLink('Full launch guide', `https://github.com/${owner}/${repo}/blob/HEAD/docs/launch.md`)
+              .write();

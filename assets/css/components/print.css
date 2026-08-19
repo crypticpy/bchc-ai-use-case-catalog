@@ -1,0 +1,131 @@
+/* Print: turn an entry page or a comparison into a decision brief.
+ *
+ * The output of an evaluation is a document in someone else's inbox or a committee
+ * packet, so the printed page is a real deliverable and not an afterthought. What
+ * survives the print is the argument — title, facts, the field-by-field table, the
+ * write-up and who to call. What goes is every control that cannot be operated on
+ * paper: site chrome, filters, the tray, "copy link", the toolbar.
+ *
+ * Two rules earn their place beyond hiding things:
+ *   - every link prints its own URL, because a printed link that hides its href is
+ *     a dead reference;
+ *   - a `.print-stamp` (_includes/print-stamp.html, server-rendered) says where the
+ *     page came from and when, so a photocopy three meetings later can still be
+ *     traced back. It needs no JavaScript.
+ *
+ * Surface-specific print rules that belong to one component stay with it —
+ * entry.css keeps the fact strip whole across a page break.
+ */
+@layer components {
+  .print-stamp { @apply hidden; }
+
+  @media print {
+    @page {
+      margin: 16mm 14mm;
+    }
+
+    /* Ink, not screen. `!important` because `bg-surface-base` on <body> is a
+       utility, and utilities outrank this layer whatever order it is written in.
+       The text keeps its brand colours: they are already print-legible, and
+       flattening them to black loses the heading hierarchy the brief reads by. */
+    body {
+      background: #fff !important;
+    }
+
+    /* Site chrome and every control that does nothing on paper. */
+    [data-component="site-header"],
+    body > .flex > footer,
+    nav[aria-label="Breadcrumb"],
+    .compare-tray,
+    .compare-slot,
+    .compare-no-print,
+    [data-compare-status],
+    .filter-bar,
+    .filter-sheet,
+    [data-filter-status] {
+      display: none !important;
+    }
+
+    /* "Related" is a browse affordance: three more things to read is the opposite
+       of what a decision brief is for. Matched on the heading it labels, so no
+       print-only class has to be threaded through _includes/related-entries.html. */
+    section[aria-labelledby="related-heading"],
+    /* "Share & provenance" is copy-link, suggest-an-edit and report-an-issue —
+       all `entry-no-print` already, which left the card and its heading printing
+       as an empty box. The card goes with its contents. */
+    section[aria-labelledby="rail-share-heading"] {
+      display: none !important;
+    }
+
+    /* The skip link is the first thing in the source and would print as a stray
+       line above the title. */
+    a[href="#main-content"] {
+      display: none !important;
+    }
+
+    main {
+      padding: 0 !important;
+    }
+
+    /* A printed link that hides its href is a dead reference, so every external
+       link spells its own out. In-page anchors, `mailto:` (the address is the
+       text) and links whose text already IS the URL are left alone. */
+    a[href^="http"]:not(.compare-link--bare)::after {
+      content: " (" attr(href) ")";
+      font-size: 0.85em;
+      font-weight: 400;
+      word-break: break-all;
+    }
+
+    /* On screen a resource link shows its host under the label, because "the URL,
+       but readable" is what tells you whether the link leaves the organization.
+       In print the rule above already spells the whole href out, so the host is
+       the same information twice — once truncated. Drop the shorter copy. */
+    .link-host {
+      display: none !important;
+    }
+
+    /* Headings keep their first lines with the block they introduce. */
+    h1,
+    h2,
+    h3 {
+      break-after: avoid;
+    }
+
+    /* The comparison is the brief: it must not lose its head row across a break,
+       and three columns have to fit the paper. */
+    .compare-table-wrap {
+      overflow: visible !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .compare-table {
+      min-width: 0 !important;
+      font-size: 9pt;
+    }
+
+    .compare-table thead {
+      display: table-header-group;
+    }
+
+    .compare-row,
+    .compare-group {
+      break-inside: avoid;
+    }
+
+    .compare-head-summary {
+      -webkit-line-clamp: 2;
+    }
+
+    /* Provenance, printed once at the end of the document. */
+    .print-stamp {
+      display: block;
+      margin-top: 12mm;
+      border-top: 1px solid #999;
+      padding-top: 3mm;
+      font-size: 8pt;
+      color: #444;
+    }
+  }
+}

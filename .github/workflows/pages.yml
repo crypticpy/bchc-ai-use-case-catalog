@@ -1,0 +1,307 @@
+# Builds the site and publishes it to GitHub Pages on every push to main.
+#
+# One `jekyll build`, with one exception: the template's own deployment is a
+# showcase — a landing page at the root and a complete live example of every
+# preset under /examples/<preset-id>/ (docs/showcase-plan.md). It is opt-in:
+# it runs only when the repository variable CATALOG_SHOWCASE is `true` AND
+# `_data/site.yml` still says `demo: true`. A fork never sets the variable, so
+# a fork never gets it — not even in the window between turning Pages on and
+# running `npm run eject:samples` (which writes `demo: false` and ends the
+# showcase on the template's own repository too).
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Each job declares exactly the scopes it needs; `pages: write` and
+# `id-token: write` belong to the deploy job alone.
+permissions: {}
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  # `updated` is the date an entry's text last changed — the entry page shows
+  # it, "Recently updated" sorts by it, the feed and the staleness notice read
+  # it. Edits reach main from many directions and nobody bumps a date by hand,
+  # so the deploy that publishes a change stamps it: for every entry file this
+  # push *modified* (not added — a new entry has `published`) that is not
+  # sample content, scripts/stamp_updated.mjs sets `updated:` to today unless
+  # it already says today or later, and the job commits that back. The build
+  # job then checks out the stamped commit, so the deployed page carries the
+  # date. The commit message carries `[skip ci]`, so it starts no second run
+  # even when pushed with CONTENT_BOT_TOKEN (GITHUB_TOKEN pushes never trigger
+  # workflows anyway); if one ever did start, the stamps are already current
+  # and the job's own `if` stands it down.
+  #
+  # Never a reason for a deploy to fail: the job is continue-on-error, and a
+  # push refused by branch protection is reported in the run summary with what
+  # to do about it (allow the Actions app to bypass, or set CONTENT_BOT_TOKEN,
+  # or stamp by hand — see docs/admin-guide.md).
+  stamp:
+    if: >-
+      github.event_name == 'push' &&
+      !startsWith(github.event.head_commit.message, 'chore(entries): stamp updated')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    continue-on-error: true
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The diff needs the commit the push started from.
+          fetch-depth: 0
+          # The push below needs credentials; the checkout keeps them on purpose.
+          # zizmor: ignore[artipacked]
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Stamp `updated` on the entries this push edited
+        id: stamp
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: node scripts/stamp_updated.mjs "$BEFORE" "$AFTER"
+
+      - name: Commit the stamps
+        id: push
+        if: steps.stamp.outputs.count != '' && steps.stamp.outputs.count != '0'
+        env:
+          COUNT: ${{ steps.stamp.outputs.count }}
+          STAMPED: ${{ steps.stamp.outputs.stamped }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Only the entry files the script named — never a stray change.
+          printf '%s\n' "$STAMPED" | xargs -d '\n' git add --
+          noun="entry"; [ "$COUNT" = "1" ] || noun="entries"
+          git commit -q -m "chore(entries): stamp updated on $COUNT $noun [skip ci]" -m "$STAMPED"
+          if git push origin "HEAD:${GITHUB_REF_NAME}" 2>/tmp/push-error.txt; then
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Stamped \`updated\` on $COUNT $noun"
+              echo
+              # One bullet per stamped file; the backticks are markdown.
+              # shellcheck disable=SC2016
+              printf '%s\n' "$STAMPED" | sed 's/.*/- `&`/'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Could not push the \`updated\` stamps"
+              echo
+              echo "$COUNT $noun changed in this push and would have been stamped \`updated: $(date -u +%F)\`, but the push back to \`${GITHUB_REF_NAME}\` was refused — usually branch protection. Either let the GitHub Actions app bypass the rule, set \`CONTENT_BOT_TOKEN\`, or set the date by hand. The site deployed as pushed."
+              echo
+              echo '```'
+              cat /tmp/push-error.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+  build:
+    # Runs whether or not the stamp job ran, failed, or was skipped: it only
+    # decides which commit to build.
+    needs: stamp
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.stamp.outputs.sha || github.sha }}
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Regenerate schema-derived files
+        run: node scripts/generate.mjs
+
+      - name: Build CSS
+        run: npm run build:css
+
+      - name: Resolve site URL
+        id: site
+        run: |
+          set -euo pipefail
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          # Work out where the site will be served from:
+          #  - a CNAME file means a custom domain at the root,
+          #  - a <user>.github.io repository is served from the domain root,
+          #  - anything else lives under /<repo-name>/.
+          if [[ -f CNAME ]]; then
+            site_url="https://$(tr -d '[:space:]' < CNAME)"
+            baseurl=""
+          elif [[ "$repo_name" == *.github.io ]]; then
+            site_url="https://${repo_name}"
+            baseurl=""
+          else
+            site_url="https://${owner}.github.io"
+            baseurl="/$repo_name"
+          fi
+          # An explicit url in _config.yml always wins.
+          configured_url="$(ruby -ryaml -e 'puts YAML.load_file("_config.yml")["url"].to_s')"
+          if [[ -n "$configured_url" ]]; then site_url="$configured_url"; fi
+          printf 'url: "%s"\nbaseurl: "%s"\n' "$site_url" "$baseurl" > _config.ci.yml
+          {
+            echo "url=$site_url"
+            echo "baseurl=$baseurl"
+          } >> "$GITHUB_OUTPUT"
+          echo "Building with url='${site_url}' baseurl='${baseurl}'"
+
+      # Demo content is what makes this deployment the showcase (see the header
+      # comment). `demo` is read from _data/site.yml the same way the url is
+      # read from _config.yml above, so nothing has to be kept in step here.
+      - name: Decide whether to build the showcase
+        id: showcase
+        env:
+          CATALOG_SHOWCASE: ${{ vars.CATALOG_SHOWCASE }}
+        run: |
+          set -euo pipefail
+          demo="$(ruby -ryaml -e 'puts YAML.load_file("_data/site.yml")["demo"] == true')"
+          build=false
+          if [[ "$demo" == "true" && "$CATALOG_SHOWCASE" == "true" ]]; then build=true; fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "Showcase: $build (demo=$demo, CATALOG_SHOWCASE='${CATALOG_SHOWCASE}')"
+
+      - name: Smoke check configuration
+        env:
+          JEKYLL_ENV: production
+        run: bundle exec jekyll doctor --config _config.yml,_config.ci.yml
+
+      - name: Build Jekyll site
+        if: steps.showcase.outputs.build != 'true'
+        env:
+          JEKYLL_ENV: production
+        run: bundle exec jekyll build --destination _site --config _config.yml,_config.ci.yml
+
+      # The landing into _site and every example into _site/examples/<id>, each
+      # a full build of this repository with that preset overlaid.
+      - name: Build the showcase
+        if: steps.showcase.outputs.build == 'true'
+        env:
+          JEKYLL_ENV: production
+          SITE_URL: ${{ steps.site.outputs.url }}
+          SITE_BASEURL: ${{ steps.site.outputs.baseurl }}
+        run: node scripts/build_showcase.mjs --destination _site --url "$SITE_URL" --baseurl "$SITE_BASEURL"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+  # A contributor opens an issue, a bot says a pull request is open, and then
+  # nothing — their entry goes live and they are never told. For a catalog that
+  # runs on peer contribution that message is the whole retention mechanism, so
+  # it is sent from the deploy that actually published the page.
+  announce:
+    needs: deploy
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    # Never let a courtesy comment turn a successful deploy red.
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the entry path from the schema
+        id: entry-path
+        run: |
+          set -euo pipefail
+          echo "value=$(ruby -ryaml -e 'puts((YAML.load_file("_data/schema.yml")["entry"] || {})["path"] || "catalog")')" >> "$GITHUB_OUTPUT"
+
+      - name: Tell the submitter their entry is live
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+          ENTRY_PATH: ${{ steps.entry-path.outputs.value }}
+        with:
+          script: |
+            const pageUrl = process.env.PAGE_URL;
+            if (!pageUrl) return;
+            const { owner, repo } = context.repo;
+
+            // Which pull request this push merged, and which entry it added.
+            const { data: pulls } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner, repo, commit_sha: context.sha,
+            });
+            const entryPath = process.env.ENTRY_PATH;
+            const filePattern = new RegExp(`^${entryPath}/([^/]+)/index\\.md$`);
+
+            for (const pull of pulls) {
+              if (!pull.merged_at) continue;
+              // The scaffolder writes "Closes #N" into the body it generates,
+              // so that is where the submitter's issue number lives.
+              const closes = /(?:^|\s)(?:closes|fixes|resolves)\s+#(\d+)/i.exec(pull.body || '');
+              if (!closes) continue;
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner, repo, pull_number: pull.number, per_page: 100,
+              });
+              const added = files
+                .filter((file) => file.status === 'added')
+                .map((file) => filePattern.exec(file.filename))
+                .find(Boolean);
+              if (!added) continue;
+
+              const url = `${pageUrl.replace(/\/$/, '')}/${entryPath}/${added[1]}/`;
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: Number(closes[1]),
+                body: `Your entry is now live at ${url}\n\nThank you for contributing it.`,
+              });
+            }

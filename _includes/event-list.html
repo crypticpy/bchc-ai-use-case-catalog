@@ -1,0 +1,36 @@
+{%- comment -%}
+Agenda-style event list. Usage: {% include event-list.html events=list limit=5 compact=true %}
+Expects normalized events (site.data.events_all) or raw cohort events (name/date/time/location).
+Local assigns are prefixed `el_`.
+{%- endcomment -%}
+{%- assign el_events = include.events -%}
+{%- assign el_limit = include.limit | default: 100 -%}
+<ol class="divide-y divide-brand-line">
+  {% for ev in el_events limit: el_limit %}
+    {% assign el_href = ev.page_url | default: ev.url %}
+    <li class="flex gap-4 py-4 {% if ev.past %}opacity-70{% endif %}">
+      <div class="flex w-14 shrink-0 flex-col items-center rounded-xl border border-brand-line bg-surface-card py-2 text-center" aria-hidden="true">
+        <span class="text-[10px] font-bold uppercase tracking-wide text-brand-primary">{{ ev.date | date: '%b' }}</span>
+        <span class="font-heading text-2xl font-bold leading-none text-brand-primary-dark">{{ ev.date | date: '%-d' }}</span>
+        <span class="text-[10px] text-brand-muted">{{ ev.date | date: '%Y' }}</span>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          {% if el_href %}
+            <a class="font-semibold text-brand-primary-dark hover:text-brand-primary hover:underline" href="{% if el_href contains '://' %}{{ el_href }}{% else %}{{ el_href | relative_url }}{% endif %}" {% if el_href contains '://' %}target="_blank" rel="noopener noreferrer"{% endif %}>{{ ev.name }}{% if el_href contains '://' %}<span class="sr-only"> (opens in a new tab)</span>{% endif %}</a>
+          {% else %}
+            <span class="font-semibold text-brand-primary-dark">{{ ev.name }}</span>
+          {% endif %}
+          {% if ev.type %}{% include badge.html label=ev.type tone='secondary' size='sm' %}{% endif %}
+          {% if ev.cohort %}{% assign el_cl = 'Cohort ' | append: ev.cohort %}{% include badge.html label=el_cl tone='neutral' size='sm' %}{% endif %}
+        </div>
+        <p class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-brand-muted">
+          <span class="inline-flex items-center gap-1">{% include icon.html name='calendar' size='xs' %}<time datetime="{{ ev.date }}">{{ ev.date | date: '%A, %B %-d' }}</time>{% if ev.end_date and ev.end_date != ev.date %} – {{ ev.end_date | date: '%B %-d' }}{% endif %}</span>
+          {% if ev.time %}<span class="inline-flex items-center gap-1">{% include icon.html name='clock' size='xs' %}{{ ev.time }}</span>{% endif %}
+          {% if ev.location %}<span class="inline-flex items-center gap-1">{% include icon.html name='location-pin' size='xs' %}{{ ev.location }}</span>{% endif %}
+        </p>
+        {% unless include.compact %}{% if ev.description %}<p class="mt-2 text-sm text-brand-ink">{{ ev.description }}</p>{% endif %}{% endunless %}
+      </div>
+    </li>
+  {% endfor %}
+</ol>

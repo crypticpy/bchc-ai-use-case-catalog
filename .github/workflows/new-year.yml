@@ -1,0 +1,135 @@
+name: Scaffold new cohort year
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Cohort year to scaffold (YYYY)"
+        required: true
+        type: string
+
+# Set the repository variable SUBMISSIONS_OPEN to `false` to accept issues from
+# members and collaborators only; leaving it unset keeps them open.
+#
+# The jobs below declare exactly the scopes they need; nothing is granted by default.
+permissions: {}
+
+# One run per issue (or per manually-dispatched year): editing an issue three
+# times in a minute must not leave three jobs force-pushing the same branch
+# at each other.
+concurrency:
+  group: new-year-${{ github.event.issue.number || inputs.year || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  scaffold:
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.issue.state == 'open'
+          && contains(github.event.issue.labels.*.name, 'content:new-year')
+          && (vars.SUBMISSIONS_OPEN != 'false'
+              || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      # Dispatching validate.yml/quality.yml onto the generated branch.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # create-pull-request pushes with its own `token:`, so the checkout
+          # does not need to leave credentials in .git/config.
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Read the cohort year from the issue
+        if: github.event_name == 'issues'
+        id: extract
+        run: node scripts/extract_event_fields.mjs
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.3"
+
+      - name: Resolve the year
+        id: year
+        env:
+          DISPATCH_YEAR: ${{ inputs.year }}
+          ISSUE_YEAR: ${{ steps.extract.outputs.cohort_year }}
+        run: |
+          set -euo pipefail
+          year="${DISPATCH_YEAR:-$ISSUE_YEAR}"
+          if ! echo "$year" | grep -Eq '^[0-9]{4}$'; then
+            echo "Could not read a four-digit cohort year (got '$year')." >&2
+            exit 1
+          fi
+          echo "value=$year" >> "$GITHUB_OUTPUT"
+
+      - name: Scaffold cohort
+        run: ruby scripts/scaffold_year.rb
+        env:
+          COHORT_YEAR: ${{ steps.year.outputs.value }}
+          COHORT_INTRO: ${{ steps.extract.outputs.intro }}
+
+      - name: Create pull request
+        id: cpr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          # With CONTENT_BOT_TOKEN the pull request has a real author and the
+          # normal `pull_request` triggers fire; without it the step below
+          # dispatches the checks by hand.
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: cohort/${{ steps.year.outputs.value }}
+          commit-message: "chore: scaffold cohort ${{ steps.year.outputs.value }}"
+          title: "Scaffold cohort ${{ steps.year.outputs.value }}"
+          body: |
+            Scaffolds `cohorts/${{ steps.year.outputs.value }}/` and `_data/cohorts/${{ steps.year.outputs.value }}.yml`.
+
+            ### Maintainer checklist
+            - [ ] Replace the placeholder intro on the cohort landing page
+            - [ ] Replace the placeholder events with the real schedule
+            - [ ] Merge to publish
+          labels: content:new-year
+          delete-branch: true
+
+      # A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows; GitHub parks them behind "Approve and run". `workflow_dispatch`
+      # is the documented exception, and its check runs bind to the branch head
+      # SHA — the pull request's head SHA — so they appear in its Checks tab.
+      # See .github/workflows/new-entry.yml for the long version.
+      - name: Run the content checks on the new branch
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.cpr.outputs.pull-request-branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done

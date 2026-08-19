@@ -1,0 +1,160 @@
+{%- comment -%}
+One sidebar card for a schema group with `placement: rail` — "Reuse", "Contact",
+or any other group the entry page hands it. Renders every field of that group
+that has a value and has not already been shown elsewhere on the page:
+
+  url fields    skipped — they are the primary buttons in the page header
+  links fields  a compact icon + label + host list (this is where "Other
+                resources" belongs, not 3,000px down the body)
+  email + text  a person card: name line, any further text fields of the group
+                as muted lines beneath it (a title, a role — the business-card
+                shape), then a mailto link (detected by `type: email`, never by
+                key) carrying a ready-written subject and opening line, plus an
+                optional "Ask in the open" link that starts a GitHub Discussion
+                instead (site.yml `contact.ask_in_open`)
+  everything else  a label/value list
+
+Emits nothing when nothing is left, so the rail never shows a labelled void.
+
+Usage:
+  {% include reuse-card.html fields=ent_fields entry=page group='reuse' title='Reuse' icon='rocket' shown=ent_shown %}
+    fields  schema.fields
+    entry   the entry page object
+    group   group key from schema.groups
+    title   card heading (defaults to the group key)
+    icon    optional icon name shown beside the heading
+    shown   optional "|key|key|" string of field keys already rendered elsewhere
+    id      optional element id for the <section> (defaults to "rail-<group>")
+
+Local assigns are prefixed `rc_` so nothing leaks into the caller's scope.
+{%- endcomment -%}
+{%- assign rc_fields = include.fields | fields_in_group: include.group -%}
+{%- assign rc_entry = include.entry -%}
+{%- assign rc_shown = include.shown | default: '' -%}
+{%- capture rc_default_id -%}rail-{{ include.group }}{%- endcapture -%}
+{%- assign rc_id = include.id | default: rc_default_id -%}
+
+{%- comment -%}
+A person card needs an email field with a value; the name is the first text
+field of the same group that also has one, and every later text field with a
+value (a title, a role) is a descriptor line under the name. All of them are
+then skipped by the list, so `rc_person_keys` is the "|key|key|" set the list
+consults.
+{%- endcomment -%}
+{%- assign rc_email_key = '' -%}
+{%- assign rc_name_key = '' -%}
+{%- assign rc_person_keys = '|' -%}
+{%- for rc_f in rc_fields -%}
+  {%- assign rc_k = '|' | append: rc_f.key | append: '|' -%}
+  {%- if rc_shown contains rc_k -%}{%- continue -%}{%- endif -%}
+  {%- assign rc_v = rc_entry[rc_f.key] -%}
+  {%- if rc_v == nil or rc_v == '' -%}{%- continue -%}{%- endif -%}
+  {%- if rc_f.type == 'email' and rc_email_key == '' -%}{%- assign rc_email_key = rc_f.key -%}{%- endif -%}
+  {%- if rc_f.type == 'text' -%}
+    {%- if rc_name_key == '' -%}{%- assign rc_name_key = rc_f.key -%}{%- endif -%}
+    {%- assign rc_person_keys = rc_person_keys | append: rc_f.key | append: '|' -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if rc_email_key == '' -%}{%- assign rc_name_key = '' -%}{%- assign rc_person_keys = '|' -%}{%- endif -%}
+
+{%- capture rc_body -%}
+  {%- comment -%} 1. Person block, when this group holds a name + an email. {%- endcomment -%}
+  {%- if rc_email_key != '' -%}
+    {%- assign rc_email = rc_entry[rc_email_key] -%}
+    {%- assign rc_email_f = rc_fields | where: 'key', rc_email_key | first -%}
+    {%- comment -%}
+    The contact is a colleague doing this as a favour, not a support desk. A bare
+    mailto: hands them a blank window and a subject line the sender has to invent,
+    which is how they end up answering "Hi — question" three times a week without
+    knowing which of their projects is being asked about. Pre-filling the subject
+    and the first line costs the reader nothing and tells the recipient, before
+    they open it, which entry this is and where the sender found it.
+
+    Percent-encoded through `query_encode` (ERB::Util.url_encode): an unescaped
+    "&" or "#" in a title truncates the body, and a raw space breaks the URL in
+    some clients. The literal newlines in the capture become %0A.
+    {%- endcomment -%}
+    {%- assign rc_site_name = site.data.site.name | default: site.title -%}
+    {%- capture rc_mail_subject -%}Question about: {{ rc_entry.title }}{%- endcapture -%}
+    {%- capture rc_mail_body -%}
+I found your entry "{{ rc_entry.title }}" in the {{ rc_site_name }} and wanted to ask about it:
+
+{{ rc_entry.url | absolute_url }}
+{%- endcapture -%}
+    <div class="rail-person">
+      {%- if rc_name_key != '' -%}
+      <p class="text-sm font-semibold text-brand-ink">{{ rc_entry[rc_name_key] | escape }}</p>
+        {%- for rc_f in rc_fields -%}
+          {%- if rc_f.type != 'text' or rc_f.key == rc_name_key -%}{%- continue -%}{%- endif -%}
+          {%- assign rc_k = '|' | append: rc_f.key | append: '|' -%}
+          {%- unless rc_person_keys contains rc_k -%}{%- continue -%}{%- endunless -%}
+      <p class="text-xs text-brand-muted">{{ rc_entry[rc_f.key] | escape }}<span class="sr-only"> ({{ rc_f.label | escape }})</span></p>
+        {%- endfor -%}
+      {%- endif -%}
+      <a class="rail-link" href="mailto:{{ rc_email | escape }}?subject={{ rc_mail_subject | query_encode }}&amp;body={{ rc_mail_body | query_encode }}">{% include icon.html name='mail' size='sm' class='shrink-0 text-brand-primary' %}<span class="min-w-0 break-all">{{ rc_email | escape }}</span><span class="sr-only"> ({{ rc_email_f.label | escape }})</span></a>
+      {%- comment -%}
+      A second door, off by default only in the sense that a site with no
+      repository or with Discussions disabled must not advertise it. The private
+      mail thread answers one person; the same question asked in the open answers
+      everyone who searches it later, which is the whole premise of the catalog.
+      {%- endcomment -%}
+      {%- assign rc_repo = site.data.site.github.repository -%}
+      {%- if site.data.site.contact.ask_in_open and rc_repo and rc_repo != '' -%}
+        <a class="rail-link" href="https://github.com/{{ rc_repo }}/discussions/new?category=q-a&amp;title={{ rc_mail_subject | query_encode }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='chat' size='sm' class='shrink-0 text-brand-primary' %}<span class="min-w-0">Ask in the open<span class="block text-xs font-normal text-brand-muted">so the answer helps the next person</span></span><span class="sr-only"> (opens a discussion in a new tab)</span></a>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+
+  {%- comment -%} 2. Link lists, compact: icon, label, host. {%- endcomment -%}
+  {%- for rc_f in rc_fields -%}
+    {%- if rc_f.type != 'links' -%}{%- continue -%}{%- endif -%}
+    {%- assign rc_k = '|' | append: rc_f.key | append: '|' -%}
+    {%- if rc_shown contains rc_k -%}{%- continue -%}{%- endif -%}
+    {%- assign rc_links = rc_entry[rc_f.key] -%}
+    {%- unless rc_links.first -%}{%- continue -%}{%- endunless -%}
+    <div>
+      <p class="rail-term">{{ rc_f.label | escape }}</p>
+      <ul class="mt-1.5 space-y-1" role="list">
+        {%- for rc_l in rc_links -%}
+          {%- assign rc_url = rc_l.url | default: rc_l -%}
+          {%- assign rc_label = rc_l.label | default: rc_url -%}
+          {%- if rc_url == nil or rc_url == '' -%}{%- continue -%}{%- endif -%}
+          <li>
+            <a class="rail-link" href="{{ rc_url | escape }}" target="_blank" rel="noopener noreferrer">
+              {% include icon.html name='link' size='sm' class='mt-0.5 shrink-0 text-brand-primary' %}
+              <span class="min-w-0"><span class="block leading-snug">{{ rc_label | escape }}</span><span class="link-host block truncate text-xs text-brand-muted">{{ rc_url | link_host | escape }}</span></span>
+              <span class="sr-only"> (opens in a new tab)</span>
+            </a>
+          </li>
+        {%- endfor -%}
+      </ul>
+    </div>
+  {%- endfor -%}
+
+  {%- comment -%} 3. Everything else in the group, as a label/value list. {%- endcomment -%}
+  {%- capture rc_rows -%}
+    {%- for rc_f in rc_fields -%}
+      {%- assign rc_k = '|' | append: rc_f.key | append: '|' -%}
+      {%- if rc_shown contains rc_k -%}{%- continue -%}{%- endif -%}
+      {%- comment -%} url fields are the header buttons; the blocks above own the rest. {%- endcomment -%}
+      {%- if rc_f.type == 'markdown' or rc_f.type == 'links' or rc_f.type == 'url' -%}{%- continue -%}{%- endif -%}
+      {%- if rc_f.key == rc_email_key or rc_person_keys contains rc_k -%}{%- continue -%}{%- endif -%}
+      {%- assign rc_v = rc_entry[rc_f.key] -%}
+      {%- if rc_v == nil or rc_v == '' or rc_v == empty -%}{%- continue -%}{%- endif -%}
+      <div>
+        <dt class="rail-term">{{ rc_f.label | escape }}</dt>
+        <dd class="rail-def">{% include field-value.html field=rc_f value=rc_v %}</dd>
+      </div>
+    {%- endfor -%}
+  {%- endcapture -%}
+  {%- assign rc_rows = rc_rows | strip -%}
+  {%- if rc_rows != '' -%}<dl class="rail-list">{{ rc_rows }}</dl>{%- endif -%}
+{%- endcapture -%}
+
+{%- assign rc_body = rc_body | strip -%}
+{%- if rc_body != '' -%}
+<section class="rail-card" aria-labelledby="{{ rc_id }}-heading" id="{{ rc_id }}">
+  <h2 class="rail-title flex items-center gap-1.5" id="{{ rc_id }}-heading">{%- if include.icon -%}{% include icon.html name=include.icon size='xs' %}{%- endif -%}{{ include.title | default: include.group | escape }}</h2>
+  <div class="mt-3 space-y-3">{{ rc_body }}</div>
+</section>
+{%- endif -%}

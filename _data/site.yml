@@ -1,0 +1,120 @@
+# ---------------------------------------------------------------------------
+# Site configuration
+# Edit this file (or run `npm run setup` / open /setup/ on the deployed site)
+# to configure branding, contact details, and which modules are turned on.
+# ---------------------------------------------------------------------------
+
+name: "AI Use Case Catalog"
+tagline: "Shared AI solutions from big-city health departments"
+description: "A shared catalog of AI use cases, tools, and lessons learned from Big Cities Health Coalition member health departments."
+
+organization:
+  name: "Big Cities Health Coalition"
+  short_name: "BCHC"
+  url: "https://www.bigcitieshealth.org"
+  contact_email: "info@bigcitieshealth.org"
+
+# Logo shown in the header/footer. Provide an image path (SVG/PNG under assets/images)
+# or leave `image` blank to show a text mark built from `text`.
+logo:
+  image: ""
+  text: "BCHC"
+
+# GitHub repository that hosts this site, as "owner/repo".
+# Used to build the "Submit" form links, "Edit this page" links, and issue URLs.
+github:
+  repository: "crypticpy/bchc-template"
+  branch: "main"
+
+# Demo mode. `true` puts a banner on every page saying the content is the
+# template's sample data. `npm run eject:samples` removes that content and sets
+# this to false; delete the line once the catalog is yours.
+# `demo_starter_url` (optional) is a copy of the template that has already been
+# through the launch guide — the banner offers it as "what a fresh copy looks
+# like on day one". Only used while `demo` is true; leave blank to omit the link.
+demo: true
+demo_starter_url: "https://crypticpy.github.io/bchc-catalog-starter/"
+
+# Modules: turn site sections on or off. Navigation, home page blocks and
+# workflows adapt automatically.
+modules:
+  catalog: true      # Browsable, filterable catalog of entries (the core)
+  submit: true       # Public "Submit an entry" web form -> GitHub issue -> PR
+  carousel: true     # Featured entries carousel on the home page
+  stats: true        # Headline numbers on the home page
+  events: false      # Events calendar (agenda list) from _data/events.yml
+  cohorts: false     # Cohort / program-year pages with timelines & materials
+  resources: false   # Curated resource library from _data/resources.yml
+  governance: true   # The governance & policies page (/governance/) from _data/governance.yml
+
+# Home page copy
+hero:
+  eyebrow: "Big Cities Health Coalition · AI Community of Practice"
+  title: "What health departments are building with AI"
+  lead: "Browse real solutions from member cities — source code, cloud deployments, vendor implementations and write-ups — and share your own so others can learn, reuse and adapt."
+  primary_cta:
+    label: "Browse the catalog"
+    url: "/catalog/"
+    module: catalog # optional: hide the button while this module is off
+  secondary_cta:
+    label: "Share your use case"
+    url: "/submit/"
+    module: submit
+
+home:
+  featured_count: 6         # entries in the carousel (featured: true first, then newest)
+  recent_count: 6           # entries in the "Recently added" grid
+  hero_latest_count: 3      # newest entries listed beside the hero on wide screens (0 hides the panel)
+  highlights:               # optional 3-up value propositions — a title and one sentence each (leave empty to hide)
+    - title: "Start from what already works"
+      body: "Every entry links to code, deployments or vendor details so your team can evaluate and adapt quickly."
+    - title: "Honest notes on what it took"
+      body: "Entries capture data sources, tools, staffing and lessons learned — not just the demo."
+    - title: "One form, one review, then it's live"
+      body: "A short form opens a GitHub issue. A maintainer reviews it in a pull request and the entry publishes when it merges."
+
+# Submission form settings (module: submit)
+submit:
+  intro: "Share an AI use case, tool or project with the coalition. Submissions open a GitHub issue for the maintainers to review; nothing is published until it is approved."
+  turnaround: "Intake checks it within about five business days and the Governance Committee reviews it within about ten more; you keep ownership of anything you share."   # the last step of "what happens next" — make it a promise you can keep
+  review_note: "Please do not include protected health information, credentials or non-public data. Link out to repositories and documents rather than pasting sensitive content."
+  fallback_email: "info@bigcitieshealth.org"   # "Email it instead" button; leave blank (and clear organization.contact_email) to drop the button
+
+# Catalog behaviour (module: catalog)
+catalog:
+  # How long an entry may go unconfirmed before the page says so. An entry is
+  # "confirmed" on the newest of its `verified`, `updated` and `published` dates,
+  # so a brand new catalog shows no notices at all. A year is the default because
+  # it is long enough not to nag over a quiet quarter and short enough to catch a
+  # vendor change or a contact who has moved on. Raise it for a slow-moving
+  # catalog; the monthly verification sweep uses the same number.
+  verify_after_days: 365
+
+# How readers are invited to reach an entry's contact
+contact:
+  # Add an "Ask in the open" link beside the contact email that starts a GitHub
+  # Discussion instead of a private thread, so the answer is there for the next
+  # person who asks. Requires Discussions to be enabled on `github.repository`
+  # with a "Q&A" category — set this to false if it is not.
+  ask_in_open: true
+
+# Footer
+footer:
+  about: "A collaborative catalog maintained by the coalition's AI community of practice. Content is contributed by member health departments and reviewed before publication."
+  links:
+    - label: "Big Cities Health Coalition"
+      url: "https://www.bigcitieshealth.org"
+    - label: "Submit an entry"
+      url: "/submit/"
+      module: submit
+    - label: "Maintainer guide"
+      url: "https://github.com/crypticpy/bchc-template/blob/main/docs/admin-guide.md"
+  copyright: "Big Cities Health Coalition"
+  # One-sentence accessibility statement for the footer. When the governance
+  # module is on it links to the full statement at /governance/#accessibility.
+  # Leave blank to omit the line.
+  accessibility: "This site is built to WCAG 2.1 AA and tested on every build; if something does not work for you, tell us and it will be treated as a defect."
+
+# Optional analytics snippet id (leave blank to disable). Example: Plausible domain.
+analytics:
+  plausible_domain: ""

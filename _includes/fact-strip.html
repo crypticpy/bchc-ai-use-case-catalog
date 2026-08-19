@@ -1,0 +1,82 @@
+{%- comment -%}
+"Is this reusable for us?" — the at-a-glance strip at the top of an entry page.
+
+Renders every field whose effective card slot is `icon` (the signal fields), then
+every `card: fact` field (the ones that belong here and NOT on a catalog card),
+plus any `card: meta` field that has not already been shown in the page header.
+Values carry their `option_meta` icon and `warn` tone.
+Facts with no value are skipped; the whole strip disappears when nothing is left.
+
+Each fact shows at most `cap` values and trails a "+n" counter — the chip idiom
+from entry-card.html — naming the hidden values to a screen reader. The cap is 3,
+not the cards' 2: this is the page's authoritative signal list, and at rail-narrowed
+widths a trailing "+n" wraps onto a line of its own, so a lower cap would hide a
+fact without buying back a row. The strip is a wrapping band of content-sized
+facts (CSS: .fact-strip), so nothing is padded to match a neighbour.
+
+`option_meta.description` follows the strip as ONE collapsed disclosure covering
+every value the entry actually carries — a `title` per value reached a hovering
+mouse only, and on a labelled element it double-announces.
+
+Usage:
+  {% include fact-strip.html fields=ent_fields entry=page shown=ent_shown cap=3 %}
+    fields  schema.fields
+    entry   the entry page object
+    shown   optional "|key|key|" string of field keys already rendered elsewhere
+    cap     optional max values shown per fact before the "+n" (default 3)
+
+Local assigns are prefixed `fs_` so nothing leaks into the caller's scope.
+{%- endcomment -%}
+{%- assign fs_fields = include.fields -%}
+{%- assign fs_entry = include.entry -%}
+{%- assign fs_shown = include.shown | default: '' -%}
+{%- assign fs_cap = include.cap | default: 3 -%}
+{%- assign fs_icon_fields = fs_fields | card_fields: 'icon' -%}
+{%- assign fs_fact_fields = fs_fields | card_fields: 'fact' -%}
+{%- assign fs_meta_fields = fs_fields | card_fields: 'meta' -%}
+{%- assign fs_candidates = fs_icon_fields | concat: fs_fact_fields | concat: fs_meta_fields -%}
+{%- assign fs_gloss = '' -%}
+
+{%- capture fs_items -%}
+  {%- for fs_f in fs_candidates -%}
+    {%- assign fs_key = '|' | append: fs_f.key | append: '|' -%}
+    {%- if fs_shown contains fs_key -%}{%- continue -%}{%- endif -%}
+    {%- assign fs_values = fs_entry[fs_f.key] | as_list -%}
+    {%- if fs_values.size == 0 -%}{%- continue -%}{%- endif -%}
+    <div class="fact">
+      <dt class="fact-label">{{ fs_f.label | escape }}</dt>
+      <dd class="fact-value">
+        {%- for fs_v in fs_values limit: fs_cap -%}
+          {%- assign fs_om = fs_f | option_meta: fs_v -%}
+          <span class="{% if fs_om.tone == 'warn' %}fact-item-warn{% else %}fact-item{% endif %}">{%- if fs_om.icon != '' -%}{% include icon.html name=fs_om.icon size='sm' %}{%- endif -%}<span class="min-w-0">{{ fs_v | escape }}</span></span>
+        {%- endfor -%}
+        {%- if fs_values.size > fs_cap -%}
+          {%- assign fs_more = fs_values.size | minus: fs_cap -%}
+          {%- capture fs_rest -%}{% for fs_r in fs_values offset: fs_cap %}{{ fs_r }}{% unless forloop.last %}, {% endunless %}{% endfor %}{%- endcapture -%}
+          <span class="chip-neutral"><span aria-hidden="true">+{{ fs_more }}</span><span class="sr-only">{{ fs_rest | escape }}</span></span>
+        {%- endif -%}
+      </dd>
+    </div>
+    {%- comment -%} Every value, not just the `cap` visible ones: the disclosure is the
+    only place the taxonomy explains itself, so a value hidden behind "+n" still earns
+    its sentence. Assignments inside a capture still run; only output is captured. {%- endcomment -%}
+    {%- for fs_gv in fs_values -%}
+      {%- assign fs_gom = fs_f | option_meta: fs_gv -%}
+      {%- if fs_gom.description != '' -%}
+        {%- capture fs_grow -%}<dt>{{ fs_gv | escape }}</dt><dd>{{ fs_gom.description | escape }}</dd>{%- endcapture -%}
+        {%- assign fs_gloss = fs_gloss | append: fs_grow -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endfor -%}
+{%- endcapture -%}
+
+{%- assign fs_items = fs_items | strip -%}
+{%- if fs_items != '' -%}
+<dl class="fact-strip">{{ fs_items }}</dl>
+{%- if fs_gloss != '' -%}
+<details class="facet-glossary">
+  <summary>What do these mean?</summary>
+  <dl>{{ fs_gloss }}</dl>
+</details>
+{%- endif -%}
+{%- endif -%}

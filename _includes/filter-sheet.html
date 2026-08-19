@@ -1,0 +1,46 @@
+{%- comment -%}
+Mobile (< lg) filter affordance: a sticky bottom bar that opens a full-height
+dialog with the same groups as the desktop rail.
+
+Usage: {% include filter-sheet.html entries=entries %}
+Params: entries (required) — passed through to filter-groups.html.
+
+Markup contract (assets/js/filters.js):
+  [data-sheet-open]          trigger; contains [data-filter-count-badge]
+  [data-filter-sheet]        the <dialog>; opened with showModal() (focus trap + Esc are the
+                             platform's), non-modal `open` attribute as the fallback
+  [data-sheet-close]         header close button
+  [data-sheet-apply]         footer "Show n <schema plural>" (closes the sheet;
+                             filters.js keeps [data-entry-count]/[data-entry-count-label] in sync)
+  [data-filter-clear]        footer "Clear", carrying data-filter-clear-persist so
+                             filters.js disables it rather than hiding it (the footer
+                             is a fixed two-button row)
+
+Local assigns are prefixed `fs_`.
+{%- endcomment -%}
+{%- assign fs_plural = site.data.schema.entry.plural | default: 'Entries' | downcase -%}
+{%- assign fs_singular = site.data.schema.entry.singular | default: 'Entry' | downcase -%}
+{%- assign fs_count = include.entries | size -%}
+<div class="filter-bar" data-filter-bar-mobile>
+  <button type="button" class="btn-secondary" data-sheet-open aria-haspopup="dialog" aria-expanded="false" aria-controls="filter-sheet">
+    {% include icon.html name='filter' size='sm' %} Filters<span data-filter-count-badge></span>
+  </button>
+</div>
+
+{%- comment -%} A real <dialog>: the top layer, the focus trap, the ESC handler, `inert` on
+everything behind it and focus restoration on close are all the platform's, so filter-sheet.js
+only has to open it. Do not add `hidden` — `dialog:not([open])` already hides it, and the two
+attributes disagree the moment showModal() runs. {%- endcomment -%}
+<dialog class="filter-sheet" id="filter-sheet" aria-labelledby="filter-sheet-title" data-filter-sheet>
+  <div class="filter-sheet-head">
+    <h2 id="filter-sheet-title" class="card-title">Filter {{ fs_plural }}</h2>
+    <button type="button" class="icon-btn" data-sheet-close aria-label="Close filters">{% include icon.html name='close' size='md' %}</button>
+  </div>
+  <div class="filter-sheet-body">
+    {% include filter-groups.html entries=include.entries context="sheet" %}
+  </div>
+  <div class="filter-sheet-foot">
+    <button type="button" class="btn-secondary flex-1" data-filter-clear data-filter-clear-persist>Clear</button>
+    <button type="button" class="btn-primary flex-1" data-sheet-apply><span>Show <span data-entry-count>{{ fs_count }}</span> <span data-entry-count-label>{% if fs_count == 1 %}{{ fs_singular }}{% else %}{{ fs_plural }}{% endif %}</span></span></button>
+  </div>
+</dialog>

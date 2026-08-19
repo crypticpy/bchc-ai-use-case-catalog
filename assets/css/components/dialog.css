@@ -1,0 +1,55 @@
+/* <dialog> defaults.
+ The element arrives with a UA stylesheet built for a small centred alert box, and every
+ one of those defaults is wrong for a full-bleed sheet. This file neutralises them once so
+ each dialog surface (currently only .filter-sheet, in catalog.css) can style itself with
+ ordinary utilities.
+
+ Deliberately outside `@layer components`: Tailwind's purge keeps a component rule only when
+ one of its *classes* is a live candidate, and every selector here but the last is element-
+ or attribute-only. Unlayered rules are emitted verbatim at this import's position, which is
+ before catalog.css — specificity, not order, is what settles the display rule below. */
+/* Author styles beat UA styles at any specificity, so the moment a dialog carries a
+   display utility — `.filter-sheet` is `@apply flex` — the UA's
+   `dialog:not([open]) { display: none }` loses and the closed sheet paints over the page.
+   Restating it here as an author rule fixes that: `dialog:not([open])` is 0,1,1, above the
+   single class it has to outrank. Anything that needs a closed dialog to stay laid out
+   (there is nothing today) must raise its own specificity deliberately. */
+dialog:not([open]) {
+  display: none;
+}
+
+dialog {
+  /* `dialog:modal` caps itself at calc(100% - 6px - 2em) in each axis, which crops a
+     full-bleed sheet by a few pixels on every side. */
+  max-width: none;
+  max-height: none;
+  /* The UA sizes a dialog `fit-content` in both axes and centres it with `margin: auto`.
+     That silently defeats `inset-0`: the box keeps its content height and the auto margins
+     centre it, so a sheet taller than the viewport hangs off both ends instead of filling
+     it and scrolling internally. Sizing goes back to the utilities on the element. */
+  width: auto;
+  height: auto;
+  margin: 0;
+  /* A 1em padding and a solid border are the alert-box defaults; surfaces draw their own. */
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+}
+
+/* The scrim behind a modal dialog. Invisible under the full-bleed filter sheet, but it is
+   what stops the page showing through any dialog that is not full-bleed, and it is the
+   only thing that renders while a sheet animates in. */
+dialog::backdrop {
+  background-color: rgb(0 0 0 / 0.45);
+}
+
+/* Scroll lock. `overflow: hidden` on <html> rather than <body> because iOS Safari keeps
+   scrolling the viewport when only <body> is locked. The class is set by the dialog's own
+   module (assets/js/filter-sheet.js) on open and cleared on the `close` event, so ESC and
+   a form submission release it too. A class, not `:has(dialog[open])`, so the lock is
+   explicit and does not depend on a selector Safari only learned in 15.4. */
+html.is-dialog-open,
+html.is-dialog-open body {
+  overflow: hidden;
+}

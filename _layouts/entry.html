@@ -1,0 +1,329 @@
+---
+layout: default
+scripts:
+  - /assets/js/gallery.js
+  - /assets/js/entry.js
+---
+{%- comment -%}
+Entry detail page. Every block is driven by _data/schema.yml — no field key is
+named here. Which block a field lands in comes from its `card` slot, `type` and
+`group`:
+
+  header      title, summary, `card: line`, `card: badge`, `card: meta`, `url` fields
+  fact strip  `card: icon` and `card: fact` fields (+ any `card: meta` field the
+              header did not use), under a staleness notice when the entry is old
+  gallery     `images` and `file` fields
+  rail        every group with `placement: rail`, then the TOC and provenance
+  sections    every remaining group, in schema `groups` order, as a <dl>
+
+Blocks are captured in claim order at the top of the file and printed further
+down in reading order. `ent_shown` accumulates the keys already rendered
+("|a|b|") so no field appears twice and empty blocks disappear instead of
+leaving a labelled void. All assigns are prefixed `ent_`.
+{%- endcomment -%}
+{%- assign ent_schema = site.data.schema -%}
+{%- assign ent_cfg = site.data.site -%}
+{%- assign ent_fields = ent_schema.fields -%}
+{%- assign ent_plural = ent_schema.entry.plural | default: 'Entries' -%}
+{%- assign ent_singular = ent_schema.entry.singular | default: 'Entry' -%}
+{%- assign ent_path = ent_schema.entry.path | default: 'catalog' -%}
+{%- assign ent_catalog_url = '/' | append: ent_path | append: '/' -%}
+{%- capture ent_crumbs -%}{{ ent_plural }}|{{ ent_catalog_url }};;{{ page.title }}{%- endcapture -%}
+
+{%- comment -%}
+Groups split by their schema `placement` (rail | main, default main): the rail
+ones become sidebar cards, the rest become body sections. `groups_for` first, so
+a group with no populated field never claims space in either place.
+{%- endcomment -%}
+{%- assign ent_all_groups = ent_schema.groups | groups_for: ent_fields -%}
+{%- assign ent_rail_groups = ent_all_groups | groups_placed: 'rail' -%}
+{%- assign ent_groups = ent_all_groups | groups_placed: 'main' -%}
+
+{%- comment -%} 1. Engine keys the page furniture renders itself (schema contract §4). {%- endcomment -%}
+{%- assign ent_shown = '|title|slug|summary|published|updated|verified|thumbnail|featured|' -%}
+{%- for ent_f in ent_fields -%}
+  {%- if ent_f.type == 'markdown' or ent_f.type == 'image' -%}
+    {%- assign ent_shown = ent_shown | append: ent_f.key | append: '|' -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- comment -%} 2. Header slots. {%- endcomment -%}
+{%- assign ent_badge_fields = ent_fields | card_fields: 'badge' -%}
+{%- assign ent_meta_fields = ent_fields | card_fields: 'meta' -%}
+{%- assign ent_line_fields = ent_fields | card_fields: 'line' -%}
+{%- assign ent_url_fields = ent_fields | where: 'type', 'url' | sort_by_weight -%}
+{%- assign ent_header_fields = ent_badge_fields | concat: ent_meta_fields | concat: ent_line_fields | concat: ent_url_fields -%}
+{%- for ent_f in ent_header_fields -%}
+  {%- assign ent_shown = ent_shown | append: ent_f.key | append: '|' -%}
+{%- endfor -%}
+
+{%- comment -%} 3. Fact strip: the `card: icon` signal fields plus the `card: fact` ones. {%- endcomment -%}
+{%- capture ent_facts -%}{% include fact-strip.html fields=ent_fields entry=page shown=ent_shown %}{%- endcapture -%}
+{%- assign ent_facts = ent_facts | strip -%}
+{%- for ent_f in ent_fields -%}
+  {%- assign ent_slot = ent_f | card_slot -%}
+  {%- if ent_slot == 'icon' or ent_slot == 'fact' -%}{%- assign ent_shown = ent_shown | append: ent_f.key | append: '|' -%}{%- endif -%}
+{%- endfor -%}
+
+{%- comment -%}
+3b. Verification. `verified` is a reserved key a maintainer sets when they have
+re-confirmed the facts with the contact; when it is absent the newest of
+`updated` / `published` stands in, so a fresh fork shows no notices at all.
+Past `catalog.verify_after_days` (365 by default) the page says so once, quietly,
+above the fact strip — the point is to let a reader discount an old entry, not to
+condemn it, so there is no colour and no icon of alarm.
+{%- endcomment -%}
+{%- assign ent_verified_key = ent_schema.entry.verified_key | default: 'verified' -%}
+{%- assign ent_updated_key = ent_schema.entry.updated_key | default: 'updated' -%}
+{%- capture ent_date_keys -%}{{ ent_verified_key }},{{ ent_updated_key }},published{%- endcapture -%}
+{%- assign ent_verify_days = ent_cfg.catalog.verify_after_days | default: 365 -%}
+{%- assign ent_check = page | verification: site.time, ent_verify_days, ent_date_keys -%}
+
+{%- comment -%} Where "ask the contact" points: the first rail group holding an
+`email` field with a value. Found by type, never by group key, so a renamed
+schema keeps the link. {%- endcomment -%}
+{%- assign ent_contact_anchor = '' -%}
+{%- for ent_cg in ent_rail_groups -%}
+  {%- if ent_contact_anchor != '' -%}{%- break -%}{%- endif -%}
+  {%- assign ent_cgf = ent_fields | fields_in_group: ent_cg.key -%}
+  {%- for ent_cf in ent_cgf -%}
+    {%- if ent_cf.type != 'email' -%}{%- continue -%}{%- endif -%}
+    {%- assign ent_cv = page[ent_cf.key] -%}
+    {%- if ent_cv and ent_cv != '' -%}{%- assign ent_contact_anchor = '#rail-' | append: ent_cg.key -%}{%- break -%}{%- endif -%}
+  {%- endfor -%}
+{%- endfor -%}
+
+{%- assign ent_deprecated = page | deprecated_entry: ent_schema -%}
+{%- capture ent_stale_notice -%}
+  {%- if ent_deprecated -%}
+    {%- comment -%} Deprecated (schema `entry.status_key` / `deprecated_value`) replaces
+    the staleness note: it says more, and it says it first. {%- endcomment -%}
+    <aside class="entry-stale entry-stale--warn">
+      {% include icon.html name='warning' size='sm' class='mt-0.5 shrink-0' %}
+      <p><strong>This {{ ent_schema.entry.singular | downcase }} is deprecated.</strong> It is kept for the record — the tool, its costs or its contact may no longer be current. {% if ent_contact_anchor != '' %}<a href="{{ ent_contact_anchor }}">Ask the contact</a>{% else %}Ask the contact{% endif %} before building on it.</p>
+    </aside>
+  {%- elsif ent_check.stale -%}
+    {%- if ent_check.key == ent_verified_key -%}
+      {%- capture ent_stale_lead -%}Last verified {{ ent_check.date | date: '%B %Y' }}{%- endcapture -%}
+    {%- elsif ent_check.key == ent_updated_key -%}
+      {%- capture ent_stale_lead -%}Last updated {{ ent_check.date | date: '%B %Y' }} and not verified since{%- endcapture -%}
+    {%- else -%}
+      {%- capture ent_stale_lead -%}Published {{ ent_check.date | date: '%B %Y' }} and not confirmed since{%- endcapture -%}
+    {%- endif -%}
+    <aside class="entry-stale">
+      {% include icon.html name='clock' size='sm' class='mt-0.5 shrink-0' %}
+      <p>{{ ent_stale_lead }}. Details, costs and contacts may have changed — {% if ent_contact_anchor != '' %}<a href="{{ ent_contact_anchor }}">ask the contact</a>{% else %}ask the contact{% endif %} before relying on this.</p>
+    </aside>
+  {%- endif -%}
+{%- endcapture -%}
+{%- assign ent_stale_notice = ent_stale_notice | strip -%}
+
+{%- comment -%}
+3c. Shared-element view transition. The catalog card the reader just clicked named
+its image `card-<slug>` and its title `title-<slug>` (_includes/entry-card.html,
+opt-in per caller); matching those two names here is what turns the page-wide
+cross-fade in assets/css/components/transitions.css into the image and the heading
+travelling to their new places. Only the FIRST media block claims the name — an
+entry with both screenshots and a deck renders two, and a duplicate name aborts the
+transition rather than degrading it. Same expression as the card's `data-entry-id`
+so the two can never drift.
+
+Nothing to do for reduced motion: transitions.css starts no transition at all under
+`prefers-reduced-motion: reduce`, which leaves these names inert.
+{%- endcomment -%}
+{%- assign ent_vt_id = page.slug | default: page.title | slugify -%}
+
+{%- comment -%} 4. Media: image galleries and downloadable files. {%- endcomment -%}
+{%- assign ent_media_seen = false -%}
+{%- capture ent_media -%}
+  {%- for ent_f in ent_fields -%}
+    {%- if ent_f.type != 'images' and ent_f.type != 'file' -%}{%- continue -%}{%- endif -%}
+    {%- assign ent_shown = ent_shown | append: ent_f.key | append: '|' -%}
+    {%- assign ent_v = page[ent_f.key] -%}
+    {%- if ent_v == nil or ent_v == '' or ent_v == empty -%}{%- continue -%}{%- endif -%}
+    {%- assign ent_vt_media = '' -%}
+    {%- unless ent_media_seen -%}
+      {%- capture ent_vt_media -%} style="view-transition-name: card-{{ ent_vt_id }}"{%- endcapture -%}
+      {%- assign ent_media_seen = true -%}
+    {%- endunless -%}
+    <div class="{% if ent_f.type == 'file' %}max-w-md{% endif %}"{{ ent_vt_media }}>{% include gallery.html field=ent_f entry=page %}</div>
+  {%- endfor -%}
+{%- endcapture -%}
+{%- assign ent_media = ent_media | strip -%}
+
+{%- comment -%} 5. Rail cards — one per `placement: rail` group. {%- endcomment -%}
+{%- capture ent_rail_cards -%}
+  {%- for ent_g in ent_rail_groups -%}
+    {% include reuse-card.html fields=ent_fields entry=page group=ent_g.key title=ent_g.title icon=ent_g.icon shown=ent_shown %}
+  {%- endfor -%}
+{%- endcapture -%}
+
+{%- comment -%}
+5b. "Adopted by" — the other side of a `links_entries` field. A field carrying
+that schema hint holds slugs of entries this one was adapted from; the entry
+those slugs point at is the last to know it was reused, so the card is built by
+looking outward from here: every live entry whose list names this slug. Driven
+by the hint, never by a key, so a renamed or a second such field still works.
+Deprecated adopters do not count (`live_entries`), a slug is listed once however
+many fields name it, and nothing renders at zero.
+{%- endcomment -%}
+{%- assign ent_adopted_count = 0 -%}
+{%- capture ent_adopted -%}
+  {%- assign ent_ad_seen = '|' -%}
+  {%- assign ent_ad_pool = site.pages | where: 'layout', 'entry' | live_entries: ent_schema -%}
+  {%- for ent_ad_f in ent_fields -%}
+    {%- unless ent_ad_f.links_entries -%}{%- continue -%}{%- endunless -%}
+    {%- for ent_ad_e in ent_ad_pool -%}
+      {%- if ent_ad_e.slug == page.slug -%}{%- continue -%}{%- endif -%}
+      {%- assign ent_ad_key = '|' | append: ent_ad_e.slug | append: '|' -%}
+      {%- if ent_ad_seen contains ent_ad_key -%}{%- continue -%}{%- endif -%}
+      {%- assign ent_ad_v = ent_ad_e[ent_ad_f.key] -%}
+      {%- unless ent_ad_v contains page.slug -%}{%- continue -%}{%- endunless -%}
+      {%- assign ent_ad_seen = ent_ad_seen | append: ent_ad_e.slug | append: '|' -%}
+      {%- assign ent_adopted_count = ent_adopted_count | plus: 1 -%}
+      <li><a class="rail-link" href="{{ ent_ad_e.url | relative_url | escape }}">{% include icon.html name='arrow-right' size='sm' class='mt-0.5 shrink-0 text-brand-primary' %}<span class="min-w-0">{{ ent_ad_e.title | escape }}</span></a></li>
+    {%- endfor -%}
+  {%- endfor -%}
+{%- endcapture -%}
+{%- assign ent_adopted = ent_adopted | strip -%}
+
+{%- comment -%} 6. Body sections, one per `placement: main` group. {%- endcomment -%}
+{%- assign ent_section_index = '' -%}
+{%- capture ent_sections -%}
+  {%- for ent_g in ent_groups -%}
+    {%- assign ent_gf = ent_fields | fields_in_group: ent_g.key -%}
+    {%- capture ent_rows -%}
+      {%- for ent_f in ent_gf -%}
+        {%- assign ent_k = '|' | append: ent_f.key | append: '|' -%}
+        {%- if ent_shown contains ent_k -%}{%- continue -%}{%- endif -%}
+        {%- assign ent_v = page[ent_f.key] -%}
+        {%- if ent_v == nil or ent_v == '' or ent_v == empty -%}{%- continue -%}{%- endif -%}
+        <div class="grid gap-1 py-3 sm:grid-cols-[11rem_minmax(0,1fr)] sm:gap-4">
+          <dt class="text-sm font-semibold text-brand-muted">{{ ent_f.label | escape }}</dt>
+          <dd class="min-w-0 text-sm text-brand-ink">{% include field-value.html field=ent_f value=ent_v %}</dd>
+        </div>
+      {%- endfor -%}
+    {%- endcapture -%}
+    {%- assign ent_rows = ent_rows | strip -%}
+    {%- if ent_rows != '' -%}
+      {%- assign ent_section_index = ent_section_index | append: 'section-' | append: ent_g.key | append: '|' | append: ent_g.title | append: ';;' -%}
+      <section class="scroll-mt-24" id="section-{{ ent_g.key }}" aria-labelledby="section-{{ ent_g.key }}-heading">
+        <h2 class="font-heading text-2xl font-semibold leading-tight text-brand-primary-dark" id="section-{{ ent_g.key }}-heading">{{ ent_g.title | escape }}</h2>
+        <dl class="mt-2 divide-y divide-brand-line">{{ ent_rows }}</dl>
+      </section>
+    {%- endif -%}
+  {%- endfor -%}
+{%- endcapture -%}
+
+{%- comment -%} 7. Eyebrow: the `card: meta` values joined with a middot. {%- endcomment -%}
+{%- assign ent_meta_bits = '' -%}
+{%- for ent_f in ent_meta_fields -%}
+  {%- assign ent_v = page[ent_f.key] | as_list | join: ', ' -%}
+  {%- if ent_v != '' -%}{%- assign ent_meta_bits = ent_meta_bits | append: ent_v | append: ' · ' -%}{%- endif -%}
+{%- endfor -%}
+{%- assign ent_eyebrow = ent_meta_bits | split: ' · ' | join: ' · ' -%}
+
+{%- comment -%}
+The page is one grid at >= 1024px: column 1 holds the header, the fact strip /
+media and then the body; column 2 holds the rail, placed in row 1 so the reuse
+and contact cards sit beside the title instead of below the whole header block
+(design-brief.md → Entry page). Rows are placed explicitly and the vertical
+rhythm stays on margins (no row gap), so a missing fact strip or gallery leaves
+no empty band. Below 1024px the grid is off and the DOM order rules: header,
+facts, rail, body.
+{%- endcomment -%}
+<article class="lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-x-12">
+  <header class="space-y-5 lg:col-start-1 lg:row-start-1">
+    {% include breadcrumbs.html items=ent_crumbs %}
+
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+      {%- if ent_eyebrow != '' -%}<p class="eyebrow">{{ ent_eyebrow | escape }}</p>{%- endif -%}
+      {%- for ent_f in ent_badge_fields -%}
+        {%- assign ent_v = page[ent_f.key] -%}
+        {%- if ent_v and ent_v != '' -%}{% include field-value.html field=ent_f value=ent_v %}{%- endif -%}
+      {%- endfor -%}
+      {%- if page.featured -%}{% include badge.html label='Featured' tone='featured' size='md' icon='star' %}{%- endif -%}
+    </div>
+
+    <h1 class="page-title measure-display" style="view-transition-name: title-{{ ent_vt_id }}">{{ page.title | escape }}</h1>
+
+    {%- for ent_f in ent_line_fields -%}
+      {%- assign ent_v = page[ent_f.key] -%}
+      {%- if ent_v and ent_v != '' -%}
+        <p class="measure-display flex items-start gap-2 text-lg font-semibold leading-snug text-brand-ink">{% include icon.html name=ent_f.icon size='md' class='mt-0.5 text-brand-primary' %}<span><span class="sr-only">{{ ent_f.label | escape }}: </span>{{ ent_v | escape }}</span></p>
+      {%- endif -%}
+    {%- endfor -%}
+
+    {%- if page.summary -%}<p class="measure-display text-base leading-relaxed text-brand-muted">{{ page.summary | escape }}</p>{%- endif -%}
+
+    <p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-brand-muted">
+      {%- if page.published -%}<span class="inline-flex items-center gap-1.5">{% include icon.html name='calendar' size='sm' %}Published {{ page.published | date: '%B %-d, %Y' }}</span>{%- endif -%}
+      {%- if page.updated -%}<span class="inline-flex items-center gap-1.5">{% include icon.html name='clock' size='sm' %}Updated {{ page.updated | date: '%B %-d, %Y' }}</span>{%- endif -%}
+      {%- assign ent_verified_on = page[ent_verified_key] -%}
+      {%- if ent_verified_on and ent_verified_on != '' -%}<span class="inline-flex items-center gap-1.5">{% include icon.html name='check-circle' size='sm' %}Verified {{ ent_verified_on | date: '%B %-d, %Y' }}</span>{%- endif -%}
+    </p>
+
+    {%- capture ent_actions -%}
+      {%- assign ent_action_index = 0 -%}
+      {%- for ent_f in ent_url_fields -%}
+        {%- assign ent_v = page[ent_f.key] -%}
+        {%- if ent_v == nil or ent_v == '' -%}{%- continue -%}{%- endif -%}
+        {%- if ent_action_index == 0 -%}{%- assign ent_btn = 'btn-primary' -%}{%- else -%}{%- assign ent_btn = 'btn-secondary' -%}{%- endif -%}
+        {%- assign ent_action_index = ent_action_index | plus: 1 -%}
+        {%- assign ent_action_icon = ent_f.icon | default: 'external-link' -%}
+        <a class="{{ ent_btn }}" href="{{ ent_v | escape }}" target="_blank" rel="noopener noreferrer">{% include icon.html name=ent_action_icon size='sm' %}{{ ent_f.label | escape }}<span class="btn-host hidden text-xs font-normal sm:inline">{{ ent_v | link_host | escape }}</span><span class="sr-only"> (opens in a new tab)</span>{% include icon.html name='external-link' size='xs' %}</a>
+      {%- endfor -%}
+    {%- endcapture -%}
+    {%- assign ent_actions = ent_actions | strip -%}
+    {%- if ent_actions != '' -%}
+    <div class="entry-no-print flex flex-wrap gap-3">{{ ent_actions }}</div>
+    {%- endif -%}
+  </header>
+
+  {%- if ent_stale_notice != '' or ent_facts != '' or ent_media != '' -%}
+  <div class="mt-8 space-y-8 lg:col-start-1 lg:row-start-2">
+    {%- comment -%} The notice belongs TO the strip — it qualifies every fact in
+    it — so the two share a tight block inside the page's 2rem rhythm. {%- endcomment -%}
+    {%- if ent_stale_notice != '' or ent_facts != '' -%}
+    <div class="space-y-3">{{ ent_stale_notice }}{{ ent_facts }}</div>
+    {%- endif -%}
+    {%- if ent_media != '' -%}<div class="space-y-6">{{ ent_media }}</div>{%- endif -%}
+  </div>
+  {%- endif -%}
+
+  {%- comment -%} The rail precedes the body in the DOM so a small screen reads
+  the key details (contents, reuse, contact) before the long body; at >= 1024px
+  it is placed in column 2 from row 1, beside the header. {%- endcomment -%}
+  <aside class="entry-rail mt-10 space-y-6 lg:col-start-2 lg:row-start-1 lg:row-span-3 lg:mt-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:self-start lg:overflow-y-auto lg:pb-2" aria-label="About this {{ ent_singular | downcase | escape }}">
+    {%- comment -%} Shown at every width: on a phone the rail sits above the
+    body, so this is the in-page navigation for a long entry. {%- endcomment -%}
+    {% include toc.html content=content sections=ent_section_index %}
+    {{ ent_rail_cards }}
+    {%- if ent_adopted != '' -%}
+    <section class="rail-card" aria-labelledby="rail-adopted-heading" id="rail-adopted">
+      <h2 class="rail-title flex items-center gap-1.5" id="rail-adopted-heading">{% include icon.html name='share' size='xs' %}Adopted by {{ ent_adopted_count }}</h2>
+      <ul class="mt-3 space-y-2" role="list">{{ ent_adopted }}</ul>
+    </section>
+    {%- endif -%}
+    <section class="rail-card" aria-labelledby="rail-share-heading">
+      <h2 class="rail-title" id="rail-share-heading">Share &amp; provenance</h2>
+      <button type="button" class="btn-secondary btn-sm entry-no-print mt-3 w-full" data-share-link hidden>{% include icon.html name='share' size='sm' %}Share</button>
+      <button type="button" class="btn-secondary btn-sm entry-no-print mt-3 w-full" data-copy-link hidden>{% include icon.html name='copy' size='sm' %}Copy link</button>
+      <p class="mt-2 text-xs text-brand-muted" data-copy-status role="status"></p>
+      {%- if ent_cfg.github.repository and ent_cfg.github.repository != '' -%}
+      <ul class="entry-no-print mt-3 space-y-2 text-sm" role="list">
+        <li><a class="inline-flex items-center gap-1.5 text-brand-primary hover:underline" href="https://github.com/{{ ent_cfg.github.repository }}/edit/{{ ent_cfg.github.branch | default: 'main' }}/{{ page.path | escape }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='edit' size='sm' %}Suggest an edit<span class="sr-only"> (opens in a new tab)</span></a></li>
+        <li><a class="inline-flex items-center gap-1.5 text-brand-primary hover:underline" href="https://github.com/{{ ent_cfg.github.repository }}/issues/new?title={{ 'Update: ' | append: page.title | query_encode }}&amp;body={{ 'Requested change for ' | append: page.url | append: ':%0A%0A' }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='flag' size='sm' %}Report an issue<span class="sr-only"> (opens in a new tab)</span></a></li>
+      </ul>
+      {%- endif -%}
+    </section>
+  </aside>
+
+  <div class="mt-10 min-w-0 space-y-10 lg:col-start-1 lg:row-start-3">
+    <div class="prose-body">{{ content }}</div>
+    {{ ent_sections }}
+  </div>
+</article>
+
+{% include related-entries.html entry=page title='Related' limit=3 %}
+{% include print-stamp.html %}

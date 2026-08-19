@@ -1,0 +1,61 @@
+# Jekyll configuration.
+# Most site-specific settings live in _data/site.yml (branding, modules, labels),
+# _data/theme.yml (colors, fonts) and _data/schema.yml (the entry content model).
+# Keep this file to build mechanics. `title`/`description` here are fallbacks for
+# SEO tags; the setup wizard keeps them in sync with _data/site.yml.
+
+title: "AI Use Case Catalog"
+description: "A shared catalog of AI use cases, tools, and lessons learned from Big Cities Health Coalition member health departments."
+url: ""
+baseurl: ""
+theme: null
+timezone: "America/Chicago"
+markdown: kramdown
+permalink: pretty
+future: false
+
+exclude:
+  - node_modules
+  - vendor
+  - README.md
+  - ARCHITECTURE.md
+  - CONTRIBUTING.md
+  - CODE_OF_CONDUCT.md
+  - CHANGELOG.md
+  - SECURITY.md
+  - CLAUDE.md
+  - AGENTS.md
+  - LICENSE
+  - package-lock.json
+  - package.json
+  - tailwind.config.js
+  - postcss.config.js
+  - eslint.config.js
+  - quality
+  - assets/css/tailwind.css
+  - scripts
+  - test
+  - docs
+  - Gemfile
+  - Gemfile.lock
+  - .ruby-version
+
+# If you change entry.path in _data/schema.yml, change the first scope's path
+# here to match — this is what gives every entry the `entry` layout.
+defaults:
+  - scope:
+      path: "catalog"
+    values:
+      layout: entry
+  - scope:
+      path: "cohorts"
+    values:
+      layout: cohort
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-include-cache
+
+sass:
+  style: compressed

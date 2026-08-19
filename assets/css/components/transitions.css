@@ -1,0 +1,29 @@
+/* Cross-document view transitions.
+
+   The site's core loop is scan the grid → open an entry → go back, and on Pages that is two
+   full document loads: a white flash each way. `navigation: auto` replaces both flashes with
+   a crossfade of the old and new page. It is pure progressive enhancement — a browser that
+   does not know the at-rule navigates exactly as before — and it costs nothing on the
+   critical path.
+
+   Nested in `prefers-reduced-motion: no-preference` rather than switched off later, because
+   the blanket `animation-duration: 0.01ms` above would otherwise still run the transition,
+   just imperceptibly, and a snapshot animation that finishes in 0.01ms is a flash of its own.
+   Opting out at the source means no transition is ever started.
+
+   Nothing in this file sits inside an `@layer`: `@view-transition` is a top-level at-rule,
+   and Tailwind's purge keeps a layered rule only when one of its classes is a live candidate
+   — there are no classes here to keep. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+/* The default snapshot animation is 250ms ease; this puts it on the same sheet-scale token
+   every other slow transition uses, so lowering `theme.yml → motion.slow` calms this too.
+   `(*)` covers the root pair and any named group a page adds later. */
+::view-transition-group(*) {
+  animation-duration: var(--motion-slow, 240ms);
+  animation-timing-function: var(--ease-brand, cubic-bezier(0.2, 0, 0, 1));
+}

@@ -1,0 +1,74 @@
+name: "Add event details (creates PR)"
+description: "Create a detail page for a cohort event and attach materials."
+title: "Event: <year> <event-title>"
+labels:
+  - content:new-event
+body:
+  - type: input
+    id: cohort_year
+    attributes:
+      label: "Cohort Year"
+      placeholder: "2026"
+    validations:
+      required: true
+  - type: input
+    id: event_title
+    attributes:
+      label: "Event Title"
+      placeholder: "Kickoff & orientation"
+    validations:
+      required: true
+  - type: input
+    id: event_id
+    attributes:
+      label: "Event ID (optional)"
+      description: "Lowercase identifier used in the URL, e.g. `kickoff`. Leave blank to generate one from the title. Automation comments the year's existing schedule IDs for reference."
+      placeholder: "kickoff"
+    validations:
+      required: false
+  - type: input
+    id: event_date
+    attributes:
+      label: "Event Date (optional)"
+      description: "YYYY-MM-DD. Usually managed in the cohort schedule; add it here to show it on the page."
+      placeholder: "2026-01-15"
+    validations:
+      required: false
+  - type: input
+    id: event_time
+    attributes:
+      label: "Event Time (optional)"
+      placeholder: "09:00 - 11:30"
+    validations:
+      required: false
+  - type: input
+    id: event_location
+    attributes:
+      label: "Event Location (optional)"
+      placeholder: "City Hall, Council Chambers"
+    validations:
+      required: false
+  - type: textarea
+    id: event_summary
+    attributes:
+      label: "Event Summary (optional)"
+      description: "One or two sentences shown near the top of the page."
+    validations:
+      required: false
+  - type: textarea
+    id: attachments
+    attributes:
+      label: "Attachments (optional)"
+      description: "One per line, formatted as `Title | URL`."
+      placeholder: |
+        Kickoff agenda (PDF) | https://example.org/agenda.pdf
+        Directions and parking (PDF) | https://example.org/parking.pdf
+    validations:
+      required: false
+  - type: textarea
+    id: details
+    attributes:
+      label: "Event Details (Markdown, optional)"
+      description: "Logistics, directions, or preparation notes for participants."
+    validations:
+      required: false

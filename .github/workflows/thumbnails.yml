@@ -1,0 +1,143 @@
+name: Generate entry media
+
+# Two steps, one commit, because they feed each other:
+#
+# 1. Renders the first page of every PDF whose schema field is flagged
+#    `thumbnail: true` (shipped: `deck_pdf` -> deck.pdf) to <entry>/<slug>/thumb.jpg,
+#    where <entry> is _data/schema.yml's `entry.path` (default catalog/) -- see
+#    scripts/thumbnail_sources.mjs, which is the source of truth for that path.
+# 2. Writes the AVIF/WebP width variants for every image under that path --
+#    including the thumb.jpg step 1 just produced -- and records them in
+#    _data/derivatives.json, which _includes/picture.html reads. See
+#    scripts/derive_images.mjs and docs/images.md.
+#
+# The `paths:` trigger below can't read the schema (GitHub evaluates it
+# statically before checkout), so it matches any PDF or image anywhere; both
+# steps are no-ops when nothing schema-relevant changed. Images are in the list
+# so that a maintainer who drags a screenshot into a pull request by hand gets
+# the same derivatives the submission bot produces in new-entry.yml.
+#
+# Uses `pdftoppm` (poppler-utils) rather than ImageMagick: ubuntu-latest ships
+# ImageMagick 6, whose `magick` command does not exist, and its PDF delegate is
+# disabled by policy on many images. pdftoppm needs neither.
+
+on:
+  pull_request:
+    paths:
+      - "**/*.pdf"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.webp"
+  workflow_dispatch:
+
+# One run per PR: a second push while a render/commit is in flight should
+# queue behind it, not race it for the same branch push.
+concurrency:
+  group: thumbnails-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  thumbnail:
+    permissions:
+      contents: write
+      # Re-dispatching validate.yml onto the branch this job just pushed to.
+      actions: write
+    # Pull requests from forks run with a read-only token and cannot be pushed to.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          # The commit step below pushes, so the credentials have to stay.
+          # zizmor: ignore[artipacked]
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install poppler-utils
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
+
+      - name: Read entry path from schema
+        id: entry-path
+        run: |
+          echo "path=$(node -e "console.log((require('js-yaml').load(require('fs').readFileSync('_data/schema.yml', 'utf8')).entry || {}).path || 'catalog')")" >> "$GITHUB_OUTPUT"
+
+      - name: Generate thumbnails
+        run: |
+          set -euo pipefail
+          node scripts/thumbnail_sources.mjs | while IFS=$'\t' read -r source thumb; do
+            [ -n "$source" ] || continue
+            if [ ! -s "$source" ]; then
+              echo "Skipping empty placeholder at $source"
+              continue
+            fi
+            signature="$(head -c4 "$source" 2>/dev/null || true)"
+            if [ "$signature" != "%PDF" ]; then
+              echo "Skipping non-PDF file at $source (signature: $signature)"
+              continue
+            fi
+            if [ -f "$thumb" ] && [ ! "$source" -nt "$thumb" ]; then
+              continue
+            fi
+            echo "Generating thumbnail for $source"
+            # -singlefile writes "<prefix>.jpg" with no page-number suffix.
+            # -scale-to-y -1 keeps the aspect ratio of the 800px-wide render.
+            pdftoppm -jpeg -jpegopt quality=85 -scale-to-x 800 -scale-to-y -1 \
+              -f 1 -l 1 -singlefile "$source" "${thumb%.jpg}"
+          done
+
+      # Idempotent and keyed on the source's bytes and pixel size, not its mtime
+      # -- a checkout stamps every file with the checkout time, so an mtime rule
+      # would re-encode the whole catalog here on every run and commit
+      # byte-identical files back. Never fatal: with no derivatives
+      # _includes/picture.html emits the plain <img> it always did.
+      - name: Build responsive image derivatives
+        continue-on-error: true
+        run: node scripts/derive_images.mjs
+
+      - name: Commit generated media
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ENTRY_PATH: ${{ steps.entry-path.outputs.path }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A "$ENTRY_PATH"
+          # Only when it exists: a repository whose catalog has no images at all
+          # never gets a manifest, and `git add` on a missing untracked path is
+          # fatal under `set -e`.
+          if [ -e _data/derivatives.json ]; then
+            git add _data/derivatives.json
+          fi
+          if git diff --cached --quiet; then
+            echo "No thumbnail or derivative changes."
+            exit 0
+          fi
+          git commit -m "chore: update entry thumbnails and image derivatives"
+          git push origin "HEAD:refs/heads/$BRANCH"
+          # This push moves the head SHA the pull request's checks are attached
+          # to, and a GITHUB_TOKEN push does not re-trigger `pull_request` runs.
+          # Without this, a maintainer who saw green before the media commit
+          # merges a SHA nothing ever validated. Both content gates have to be
+          # re-dispatched, not just Validate: a head SHA carrying one status and
+          # not the other reads as "checked" at a glance.
+          for workflow in validate.yml quality.yml; do
+            if ! gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "Could not dispatch $workflow; approve the parked run from the Actions tab." >&2
+            fi
+          done

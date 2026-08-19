@@ -1,0 +1,35 @@
+/* The showcase example switcher: the <details> menu that replaces the demo banner's
+   sentence on an example build (_includes/demo-banner.html, assets/js/example-switcher.js).
+
+   Two shapes, one markup. Narrow: the menu is in the flow, stacked under the summary, so
+   opening it pushes the page down and nothing is hidden off-screen on a phone. From `sm`
+   it is a popover pinned to the summary's right edge — the banner is one line there, and a
+   menu that moved the whole page down every time someone glanced at it would be worse than
+   the strip it lives in. `.example-switcher` is the positioning context in both.
+
+   The chevron's rotation is the only motion; the global prefers-reduced-motion rule in
+   base.css already zeroes its transition-duration, so it is not restated here. */
+@layer components {
+  .example-switcher { @apply relative shrink-0; }
+  /* `list-none` plus the WebKit marker rule: the disclosure triangle is replaced by the
+     chevron, which is the affordance every other menu on the site uses. */
+  .example-switcher-summary {
+    @apply flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-brand-warn/40 bg-surface-card px-3 py-1 font-semibold text-brand-ink;
+    @apply hover:border-brand-warn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2;
+  }
+  .example-switcher-summary::-webkit-details-marker { display: none; }
+  .example-switcher-chevron { @apply text-brand-muted transition-transform duration-fast ease-brand; }
+  .example-switcher[open] .example-switcher-chevron { @apply rotate-180; }
+  .example-switcher-menu { @apply mt-2 flex flex-col gap-0.5; }
+  @media (min-width: 640px) {
+    .example-switcher-menu {
+      @apply absolute right-0 top-full z-40 mt-1 w-64 rounded-card border border-brand-line bg-surface-card p-1.5 shadow-e1;
+    }
+  }
+  .example-switcher-link {
+    @apply block rounded-lg px-3 py-1.5 text-brand-ink;
+    @apply hover:bg-surface-tint hover:text-brand-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary;
+  }
+  /* The rule above "How this one is configured": the links below it leave the examples. */
+  .example-switcher-rule { @apply mt-1 border-t border-brand-line pt-1; }
+}

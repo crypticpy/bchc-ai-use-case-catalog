@@ -1,0 +1,22 @@
+{%- comment -%}
+Desktop filter rail (>= lg). Sticky left column beside the results.
+
+Usage: {% include filter-rail.html entries=entries %}
+Params: entries (required) — used for free-text facet options.
+
+Local assigns are prefixed `fr_`.
+{%- endcomment -%}
+{%- assign fr_plural = site.data.schema.entry.plural | default: 'Entries' | downcase -%}
+<div class="filter-rail" data-filter-rail>
+  {%- comment -%} The rail is DOM-first on wide screens and every facet option is
+  a tab stop, so a keyboard user who only wants the search box would otherwise
+  walk sixty-odd buttons to reach it. This lands on the results heading
+  (tabindex=-1, the same focus target the filters use), one Tab before the
+  search box. Visible only when focused, like the page's skip link. {%- endcomment -%}
+  <a class="rail-skip" href="#results-heading">Skip filters</a>
+  <div class="flex items-baseline justify-between gap-2 pb-2">
+    <h2 class="text-sm font-semibold text-brand-primary-dark">Filter {{ fr_plural }}</h2>
+    <button type="button" class="filter-showall mt-0 hidden" data-filter-clear>Clear all</button>
+  </div>
+  {% include filter-groups.html entries=include.entries context="rail" %}
+</div>

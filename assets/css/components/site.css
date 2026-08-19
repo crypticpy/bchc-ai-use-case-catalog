@@ -1,0 +1,112 @@
+/* Shared page furniture: cards/panels, bands, headings, link rows, prose.
+
+   Surfaces (docs/design-system.md → Surfaces): the page is `surface`; a card is `card`
+   raised on it by shadow-e0 — a 1px ink/6 ring drawn as a shadow plus a faint ambient —
+   rather than by a border, so a grid of cards reads as objects on a ground and not as a
+   spreadsheet of boxes; a `band` or a `panel` is `surface-tint`, a step darker than the
+   page, and carries no edge at all. forced-colors.css restores a border where the shadow
+   is dropped. */
+@layer components {
+  .card { @apply rounded-card bg-surface-card shadow-e0; }
+  .card-hover { @apply transition-[box-shadow,transform] duration-base ease-brand hover:-translate-y-px hover:shadow-e1 focus-within:shadow-e1; }
+  .card-header { @apply border-b border-brand-line px-6 py-4; }
+  .card-title { @apply font-heading text-lg font-semibold text-brand-primary-dark; }
+  /* A full-bleed tinted section (the caller supplies the container inside). */
+  .band { @apply bg-surface-tint; }
+  /* A tinted panel: sidebar cards, the fact strip, the home CTA. */
+  .panel { @apply rounded-card bg-surface-tint; }
+  .eyebrow { @apply text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-brand-primary; }
+  .eyebrow-muted { @apply eyebrow text-brand-muted; }
+  .eyebrow-on-dark { @apply eyebrow text-brand-on-dark/80; }
+  /* Page H1: one size everywhere (32px -> 38px) so pages read as one family. Fluid rather
+     than a 640px step, so the heading never jumps mid-resize; `balance` stops it leaving a
+     single orphaned word on the last line. */
+  .page-title { @apply font-heading font-semibold leading-tight text-brand-primary-dark; font-size: clamp(2rem, 1.72rem + 1.4vw, 2.375rem); text-wrap: balance; }
+  .page-title-on-dark { @apply page-title text-white; }
+  /* Headings that receive focus from a script (step change, filter results): a quiet
+     dashed outline hugging the text instead of the control ring, which on a block
+     element draws a column-wide box. */
+  .focus-target { @apply w-fit rounded-hairline focus-visible:outline-dashed focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-primary/60 focus-visible:ring-0 focus-visible:ring-offset-0; }
+  .section-title { @apply font-heading text-[1.75rem] font-semibold leading-tight text-brand-primary-dark; text-wrap: balance; }
+  .section-lead { @apply text-sm text-brand-muted; }
+  /* Eyebrow + title + one line of lead, the header every home section opens with;
+     `measure-display` keeps the lead from running the full container width. */
+  .section-head { @apply measure-display; }
+  .section-head .section-lead { @apply mt-2 text-base leading-6; }
+  .section-head .eyebrow + .section-title { @apply mt-2; }
+  .link-row { @apply flex items-center justify-between gap-3 rounded-xl border border-brand-line bg-surface-card px-4 py-3 text-sm font-semibold text-brand-ink transition-colors duration-fast hover:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2; }
+  /* Home hero. The ground is `primary-dark` (the solid colour is the fallback and what
+     forced-colors keeps) with a diagonal drift toward `primary` and a soft glow behind
+     the right column, so the block has depth without a photograph. The ::before layer
+     is a dot grid in `on-dark` at 12%, masked so it only surfaces toward the top right,
+     under the Latest panel — texture where the eye rests, none behind the copy. Every
+     colour is a theme token, so a re-themed fork keeps the effect. */
+  .hero {
+    @apply relative isolate overflow-hidden bg-brand-primary-dark text-brand-on-dark;
+    background-image:
+      radial-gradient(52rem 26rem at 88% -20%, rgb(var(--c-primary) / 0.55), transparent 62%),
+      linear-gradient(128deg, rgb(var(--c-primary-dark)) 0%, rgb(var(--c-primary-dark)) 45%, rgb(var(--c-primary) / 0.55) 140%);
+  }
+  .hero::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 -z-10;
+    background-image: radial-gradient(rgb(var(--c-on-dark) / 0.14) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    -webkit-mask-image: linear-gradient(112deg, transparent 38%, #000 100%);
+    mask-image: linear-gradient(112deg, transparent 38%, #000 100%);
+  }
+  /* The footer is the hero's ground mirrored — glow bottom-left, no dot grid — so the
+     page closes the way it opened. */
+  .site-footer {
+    @apply bg-brand-primary-dark text-brand-on-dark;
+    background-image:
+      radial-gradient(48rem 24rem at 8% 120%, rgb(var(--c-primary) / 0.45), transparent 62%),
+      linear-gradient(308deg, rgb(var(--c-primary-dark)) 0%, rgb(var(--c-primary-dark)) 50%, rgb(var(--c-primary) / 0.45) 140%);
+  }
+  .hero-title { @apply font-heading font-semibold leading-[1.08] tracking-[-0.01em] text-white; font-size: clamp(2.25rem, 1.75rem + 2vw, 3rem); text-wrap: balance; }
+  /* Home hero stat line: separators are decorative pseudo-elements, so they are
+     never read out and never audited as low-contrast text. */
+  .hero-stat::before { content: "\00b7"; @apply mx-1.5 text-brand-on-dark/60; }
+  /* Home hero, right column at lg+: the newest entries as a quiet list on the dark
+     ground. Ink is white or on-dark (>= 4.5:1 on primary-dark); the row separator is
+     a 10% white hairline, never text. The panel is glass — a 6% white fill, blurred
+     backdrop, a 1px white/15 edge and a 1px inner highlight — so the hero's glow and
+     dot grid show through it softly rather than stopping at its border. */
+  .hero-latest { @apply rounded-card bg-white/[0.06] p-6 ring-1 ring-inset ring-white/15; }
+  /* Hero search: one pill. The input carries the shape; the button is inset at its right
+     end (inset-y-1.5 / right-1.5) so field and action read as a single control. */
+  .hero-search { @apply relative; }
+  .hero-search-input { @apply h-12 w-full rounded-full border border-brand-line bg-surface-card pl-11 pr-28 text-base text-brand-ink placeholder:text-brand-muted focus:border-brand-primary focus:outline-none focus:ring-4 focus:ring-white/40; }
+  .hero-search-btn { @apply btn-primary absolute inset-y-1.5 right-1.5 !min-h-0 !py-0 px-4 focus-visible:ring-offset-0; }
+  .hero-latest-item { @apply py-3 first:pt-0 last:pb-0; }
+  .hero-latest-link { @apply -mx-2 flex flex-col gap-1 rounded-lg px-2 py-1 transition-colors duration-fast ease-brand hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand-primary-dark; }
+  .hero-latest-title { @apply line-clamp-2 font-heading text-base font-semibold leading-5 text-white; }
+  .hero-latest-meta { @apply flex min-w-0 items-center gap-2 text-xs text-brand-on-dark/80; }
+  .hero-latest-meta > span { @apply min-w-0 truncate; }
+  .hero-latest-meta > time { @apply shrink-0 whitespace-nowrap; }
+  .hero-latest-meta > * + *::before { content: "\00b7"; @apply mr-2; }
+  /* Home "about this catalog" strip: three short claims set as text over a hairline,
+     not three cards — a card asks to be opened and these have nowhere to go. */
+  .value-props { @apply grid gap-8 border-t border-brand-line pt-10 md:grid-cols-3 md:gap-10; }
+  .value-prop-title { @apply mt-3 font-heading text-xl font-semibold leading-snug text-brand-primary-dark; }
+  .value-prop-body { @apply mt-2 text-sm leading-6 text-brand-muted; }
+  /* Home closing call to action: a tinted panel with a faint primary→secondary wash and
+     a 1px primary/10 edge — the one place on the light half of the page the two brand
+     hues meet, and quiet enough that the button stays the loudest thing in it. */
+  .cta-panel {
+    @apply panel relative overflow-hidden ring-1 ring-inset ring-brand-primary/10;
+    background-image: linear-gradient(112deg, rgb(var(--c-primary) / 0.07), transparent 55%, rgb(var(--c-secondary) / 0.07));
+  }
+  /* No `prose-slate` and no `max-w-prose`: both set properties `prose` already sets, and
+     @apply emits in stylesheet order rather than in the order written, so slate's
+     --tw-prose-* block and prose's own 65ch measure won every time. The brand palette and
+     the measure live in tailwind.config.js's typography() block; test/styles/prose.test.mjs
+     guards it. See "Composing with @apply" in docs/design-system.md. */
+  .prose-body { @apply prose prose-headings:font-heading prose-headings:scroll-mt-24; }
+  /* Last line of a paragraph never left as a single short word. Progressive: ignored
+     where unsupported, and it never changes the measure. */
+  .prose-body p { text-wrap: pretty; }
+  /* The display measure: headings and lead copy read wider than 16px body text. */
+  .measure-display { max-width: var(--measure-display); }
+  .sr-only-focusable:not(:focus):not(:active) { @apply sr-only; }
+}

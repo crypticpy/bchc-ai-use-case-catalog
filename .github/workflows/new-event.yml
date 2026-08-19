@@ -1,0 +1,158 @@
+name: New event from issue
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+
+# Set the repository variable SUBMISSIONS_OPEN to `false` to accept issues from
+# members and collaborators only; leaving it unset keeps them open.
+#
+# Optional secret CONTENT_BOT_TOKEN: see .github/workflows/new-entry.yml and
+# docs/admin-guide.md § One-time repository setup.
+#
+# The jobs below declare exactly the scopes they need; nothing is granted by default.
+permissions: {}
+
+# One run per issue: editing an issue three times in a minute must not leave
+# three jobs force-pushing the same branch at each other.
+concurrency:
+  group: new-event-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  scaffold:
+    # `state == 'open'` matters: editing a closed, already-handled issue would
+    # otherwise force-push its branch again and try to edit a merged pull request.
+    if: >-
+      github.event.issue.state == 'open'
+      && contains(github.event.issue.labels.*.name, 'content:new-event')
+      && (vars.SUBMISSIONS_OPEN != 'false'
+          || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      # Dispatching validate.yml/quality.yml onto the generated branch.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # create-pull-request pushes with its own `token:`, so the checkout
+          # does not need to leave credentials in .git/config.
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: List the events already scheduled for this year
+        id: list
+        run: node scripts/list_events_for_year.mjs
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+
+      - name: Comment with the existing schedule for reference
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          LIST_YEAR: ${{ steps.list.outputs.year }}
+          LIST_EVENTS: ${{ steps.list.outputs.events_md }}
+        with:
+          script: |
+            const body = [
+              `### Events currently scheduled for ${process.env.LIST_YEAR}`,
+              '',
+              process.env.LIST_EVENTS,
+              '',
+              'Leave **Event ID** blank to generate one from the title, or reuse an ID above to match the schedule.'
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Scaffold event page
+        id: scaffold
+        continue-on-error: true
+        run: node scripts/new_event_from_issue.mjs
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+
+      - name: Report the failure on the issue
+        if: steps.scaffold.outcome == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          STEP_ERROR: ${{ steps.scaffold.outputs.error }}
+        with:
+          script: |
+            const detail = process.env.STEP_ERROR || 'The step failed; see the workflow logs for details.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'This event could not be turned into a pull request yet.',
+                '',
+                '> ' + detail.split('\n').join('\n> '),
+                '',
+                'Edit this issue to fix the problem and the automation will try again. If the message above does not tell you what to change, comment here and a maintainer will help.'
+              ].join('\n')
+            });
+            core.setFailed(detail);
+
+      - name: Create pull request
+        if: steps.scaffold.outcome == 'success'
+        id: cpr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          # With CONTENT_BOT_TOKEN the pull request has a real author and the
+          # normal `pull_request` triggers fire; without it the step below
+          # dispatches the checks by hand.
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.scaffold.outputs.branch }}
+          commit-message: "feat: add event ${{ steps.scaffold.outputs.slug }}"
+          title: "Add event: ${{ steps.scaffold.outputs.year }} ${{ steps.scaffold.outputs.slug }}"
+          body: |
+            Generated from issue #${{ github.event.issue.number }}.
+
+            Closes #${{ github.event.issue.number }}
+          labels: content:new-event
+          delete-branch: true
+
+      # A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows; GitHub parks them behind "Approve and run". `workflow_dispatch`
+      # is the documented exception, and its check runs bind to the branch head
+      # SHA — the pull request's head SHA — so they appear in its Checks tab.
+      # See .github/workflows/new-entry.yml for the long version.
+      - name: Run the content checks on the new branch
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.cpr.outputs.pull-request-branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done

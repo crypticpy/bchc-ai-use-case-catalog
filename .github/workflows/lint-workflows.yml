@@ -1,0 +1,53 @@
+name: Lint workflows
+
+# Every workflow in this directory: expression-heavy `if:` conditions, minimal
+# `permissions` blocks and a documented rule that untrusted issue text only ever
+# reaches a step through `env:` — all of it enforced by review alone until now.
+# (No count here on purpose: this line said "eleven" for two workflows longer
+# than it was true.)
+#
+#   actionlint  parses every workflow, type-checks the expressions, and runs
+#               shellcheck over each `run:` script.
+#   zizmor      audits them for Actions-specific security problems: template
+#               injection sinks, over-broad permissions, credential persistence.
+#               That is exactly the property SECURITY.md promises.
+#
+# Both are pinned. A finding that is deliberate is suppressed at the line it
+# concerns (`# zizmor: ignore[rule]`, `# shellcheck disable=SCxxxx`) with a
+# comment saying why, so the reason travels with the code.
+
+on:
+  pull_request:
+    paths:
+      - ".github/**"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+        run: |
+          set -euo pipefail
+          curl -sSfL --retry 3 \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            -o actionlint.tar.gz
+          tar -xzf actionlint.tar.gz actionlint
+          ./actionlint -color
+
+      - name: Run zizmor
+        # `medium` is the level at which the findings are still actionable;
+        # anything deliberate carries an inline `# zizmor: ignore[...]`.
+        run: pipx run zizmor==1.29.0 --min-severity medium .github/workflows/

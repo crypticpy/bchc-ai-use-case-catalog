@@ -1,0 +1,22 @@
+_site/
+node_modules/
+vendor/
+assets/css/site.css
+assets/js/lunr.min.js
+assets/js/configurator/defaults.generated.js
+_includes/icon.html
+.github/ISSUE_TEMPLATE/new-entry.yml
+# Written by scripts/derive_images.mjs, in CI as well as by hand; reformatting it
+# here would make every bot commit fail the check it just passed.
+_data/derivatives.json
+package-lock.json
+catalog/
+docs/
+*.md
+*.yml
+*.html
+# Component CSS keeps one selector per line with its full @apply token list (see docs/design-system.md).
+assets/css/
+
+# Liquid template that emits JSON — it is not parseable JSON at rest.
+entries.json

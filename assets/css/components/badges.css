@@ -1,0 +1,102 @@
+/*
+ * Badges, chips and signal glyphs.
+ * - .badge      : categorical label (solution type, stage). Tones are semantic only.
+ * - .chip       : ONE taxonomy family per card (area of work) — hairline, ink text, secondary dot.
+ * - .chip-neutral: overflow "+n" and de-emphasised lists — same hairline as .chip, no dot.
+ * - .signal     : at-a-glance glyph + short text; monochrome, `warn` only for caution.
+ * Never colour-only: every badge/chip/signal carries visible or sr-only text.
+ *
+ * A badge is always `class="badge"` plus `data-tone="…"`, never a composed
+ * `badge-<tone>` class. Two reasons:
+ *   1. The tone comes from content (`_data/schema.yml → option_meta[].tone`), so the
+ *      class name was composed at render time and Tailwind's scanner could not see it —
+ *      it needed a `safelist` regex, which is now gone. A rule in @layer components
+ *      survives purge iff one of its *classes* is a live candidate, and `badge` is a
+ *      literal in the markup, so the whole `[data-tone]` table survives on its own.
+ *   2. An unrecognised tone used to render as bare inline text (no pill, no ring, no
+ *      truncation) because `.badge-teal` exists nowhere. Now the base class always
+ *      lands and an unknown tone falls through to the neutral defaults below —
+ *      _includes/badge.html also normalises it, so the two guards are independent.
+ * A tone is three custom properties and an alpha, not a re-composition of the base.
+ */
+@layer components {
+  .badge {
+    @apply inline-flex max-w-full items-center gap-1 truncate rounded-pill px-2.5 py-0.5 text-[11px] font-semibold leading-4 ring-1 ring-inset;
+    background-color: rgb(var(--tone-bg, var(--c-ink)) / var(--tone-bg-a, 0.05));
+    color: rgb(var(--tone-fg, var(--c-ink)));
+    --tw-ring-color: rgb(var(--tone-ring, var(--c-line)) / var(--tone-ring-a, 1));
+  }
+  .badge[data-tone="primary"] {
+    --tone-bg: var(--c-primary); --tone-bg-a: 0.1;
+    --tone-fg: var(--c-primary-dark);
+    --tone-ring: var(--c-primary); --tone-ring-a: 0.2;
+  }
+  .badge[data-tone="secondary"] {
+    --tone-bg: var(--c-secondary); --tone-bg-a: 0.1;
+    --tone-fg: var(--c-ink);
+    --tone-ring: var(--c-secondary); --tone-ring-a: 0.25;
+  }
+  /* Solid, not a tint: "Featured" is the one badge that has to sit over a photograph
+     (the card's media band) and still hold >= 4.5:1, and one definition means the
+     style guide shows the badge the catalog actually renders. */
+  .badge[data-tone="accent"] {
+    --tone-bg: var(--c-accent); --tone-bg-a: 1;
+    --tone-fg: var(--c-ink);
+    --tone-ring: var(--c-accent); --tone-ring-a: 1;
+  }
+  /* "Featured": the card's one editorial mark. An ink pill like `on-dark` — it also has
+     to sit over a screenshot — with the star alone in `accent`, so a row of three
+     featured cards shows three small warm points, not three orange bars. Bound to the
+     `featured` front-matter flag in _includes/entry-card.html and the entry header;
+     schema option tones cannot pick it (badge.html only passes tones from its list). */
+  .badge[data-tone="featured"] {
+    --tone-bg: var(--c-ink); --tone-bg-a: 1;
+    --tone-fg: 255 255 255;
+    --tone-ring: var(--c-accent); --tone-ring-a: 1;
+  }
+  .badge[data-tone="featured"] svg,
+  .badge[data-tone="featured"] .badge-star { color: rgb(var(--c-accent)); }
+  /* Neutral is the fall-through: ink/5 ground, ink text, a plain line ring — the
+     same values the base rule defaults to, restated so the tone is greppable. */
+  .badge[data-tone="neutral"] {
+    --tone-bg: var(--c-ink); --tone-bg-a: 0.05;
+    --tone-fg: var(--c-ink);
+    --tone-ring: var(--c-line); --tone-ring-a: 1;
+  }
+  /* The warn tint is painted over an opaque card ground so warn-on-tint keeps
+     4.69:1 wherever the badge lands (a bare warn/5 drops to 4.38:1 on surface).
+     The tint is a gradient over the card colour rather than a --tone-bg alpha,
+     because the alpha alone would composite against whatever is behind it. */
+  .badge[data-tone="warn"] {
+    --tone-bg: var(--c-card); --tone-bg-a: 1;
+    --tone-fg: var(--c-warn);
+    --tone-ring: var(--c-warn); --tone-ring-a: 0.3;
+    background-image: linear-gradient(rgb(var(--c-warn) / 0.05), rgb(var(--c-warn) / 0.05));
+  }
+  /* Over the media band a white/15 fill left the label at ~2:1 on a light photo;
+     a fully opaque ink ground holds >= 10.7:1 whatever the picture underneath is.
+     Opaque, not ink/80 with a backdrop blur: a contrast checker cannot compute a
+     ratio through a translucent layer over a photo, so it reports a hard error —
+     and a reader on a pale screenshot really was reading a washed-out label. */
+  .badge[data-tone="on-dark"] {
+    --tone-bg: var(--c-ink); --tone-bg-a: 1;
+    --tone-fg: 255 255 255;
+    --tone-ring: 255 255 255; --tone-ring-a: 0.3;
+  }
+  .badge-md { @apply px-3 py-1 text-xs leading-4; }
+  .badge-lg { @apply px-4 py-1.5 text-sm leading-5; }
+
+  .chip { @apply inline-flex max-w-full items-center gap-1.5 truncate rounded-pill border border-brand-line bg-surface-card px-2.5 py-0.5 text-xs font-medium leading-5 text-brand-ink; }
+  .chip::before { content: ""; @apply inline-block h-1.5 w-1.5 shrink-0 rounded-pill bg-brand-secondary; }
+  .chip-plain { @apply chip; }
+  .chip-plain::before { content: none; }
+  .chip-warn { @apply chip-plain border-brand-warn/40 text-brand-warn; }
+  /* Hairline like .chip (minus the taxonomy dot) so overflow counters read as the
+     same family as the chips they follow, not as a second filled chip style. */
+  .chip-neutral { @apply inline-flex items-center rounded-pill border border-brand-line bg-transparent px-2.5 py-0.5 text-xs font-medium leading-5 text-brand-muted; }
+
+  .signal { @apply inline-flex min-w-0 items-center gap-1 text-xs font-medium leading-4 text-brand-muted; }
+  .signal-warn { @apply signal text-brand-warn; }
+  .signal-primary { @apply signal text-brand-primary; }
+  .signal-strip { @apply flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-brand-line pt-3; }
+}

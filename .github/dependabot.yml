@@ -1,0 +1,30 @@
+# Keeps the toolchain current. Grouped so a maintainer sees at most three
+# small pull requests a week instead of a dozen.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
+    ignore:
+      # Tailwind 4 raises the browser floor past what a public-sector audience
+      # can be assumed to have; see "Browser support" in docs/design-system.md.
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      bundler:
+        patterns: ["*"]

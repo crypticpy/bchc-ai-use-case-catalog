@@ -1,0 +1,72 @@
+{%- comment -%}
+Compact entry row — one <li> for a <ul role="list"> (entry page "Related", any
+dense list). Same interface and data attributes as entry-card.html, minus the
+media band and the summary: title link · chip family · signal strip · meta.
+
+Usage: {% include entry-row.html entry=entry %}
+Params: entry (required).
+
+Local assigns are prefixed `er_`.
+{%- endcomment -%}
+{%- assign er_entry = include.entry -%}
+{%- assign er_fields = site.data.schema.fields -%}
+{%- assign er_facets = er_fields | facet_fields -%}
+{%- assign er_metas = er_fields | card_fields: 'meta' -%}
+{%- assign er_chip_field = er_fields | card_fields: 'chip' | first -%}
+{%- comment -%} Same staleness contract as entry-card.html — see the note there. {%- endcomment -%}
+{%- assign er_verify_days = site.data.site.catalog.verify_after_days | default: 365 -%}
+{%- assign er_check = er_entry | verification: site.time, er_verify_days -%}
+{%- assign er_deprecated = er_entry | deprecated_entry: site.data.schema -%}
+
+<li class="entry-row"
+  data-entry
+  data-entry-id="{{ er_entry.slug | default: er_entry.title | slugify }}"
+  data-entry-title="{{ er_entry.title | escape }}"
+  data-entry-date="{{ er_entry.published | date: '%Y-%m-%d' | escape }}"
+  {% if er_entry.updated %}data-entry-updated="{{ er_entry.updated | date: '%Y-%m-%d' | escape }}" {% endif %}
+  {%- if er_entry.verified %} data-entry-verified="{{ er_entry.verified | date: '%Y-%m-%d' | escape }}"{% endif %}
+  {%- if er_check.stale %} data-entry-stale="{{ er_check.days }}"{% endif %}
+  {%- if er_deprecated %} data-entry-deprecated{% endif %}
+  {%- for er_f in er_metas %}{% if er_f.type == 'text' or er_f.type == 'select' %} data-sort-{{ er_f.key | replace: '_', '-' }}="{{ er_entry[er_f.key] | escape }}"{% endif %}{% endfor %}
+  {%- for er_f in er_facets %} data-facet-{{ er_f.key | replace: '_', '-' }}="{{ er_entry[er_f.key] | facet_values | escape }}"{% endfor %}>
+
+  <h3 class="entry-row-title line-clamp-2"><a href="{{ er_entry.url | relative_url | escape }}">{{ er_entry.title | escape }}</a></h3>
+
+  {%- capture er_meta_line -%}
+    {%- assign er_seg = 0 -%}
+    {%- for er_f in er_metas -%}
+      {%- if er_seg >= 2 -%}{%- break -%}{%- endif -%}
+      {%- assign er_vals = er_entry[er_f.key] | as_list -%}
+      {%- if er_vals.size > 0 -%}
+        {%- assign er_raw = er_vals | first -%}
+        {%- comment -%} Same anatomy as entry-card.html: full value to the screen reader, truncated short form to the eye, no `title`. {%- endcomment -%}
+        <span class="entry-meta-seg{% if er_f.type == 'text' %} entry-meta-seg--text{% endif %}"><span class="sr-only">{{ er_f.label | escape }}: {{ er_raw | escape }}</span><span aria-hidden="true">{{ er_f | option_short: er_raw | escape }}</span></span>
+        {%- assign er_seg = er_seg | plus: 1 -%}
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endcapture -%}
+  {%- assign er_meta_line = er_meta_line | strip -%}
+  {%- if er_meta_line != '' -%}<p class="entry-meta"><span class="entry-meta-segs">{{ er_meta_line }}</span></p>{%- endif -%}
+
+  {%- if er_chip_field -%}
+    {%- assign er_chips = er_entry[er_chip_field.key] | as_list -%}
+    {%- if er_chips.size > 0 -%}
+      <ul class="entry-chips" aria-label="{{ er_chip_field.label | escape }}">
+        {%- for er_v in er_chips limit: 2 -%}
+          <li><span class="chip"><span class="sr-only">{{ er_v | escape }}</span><span aria-hidden="true">{{ er_chip_field | option_short: er_v | escape }}</span></span></li>
+        {%- endfor -%}
+        {%- if er_chips.size > 2 -%}
+          {%- assign er_chip_more = er_chips.size | minus: 2 -%}
+          <li><span class="chip-neutral">+{{ er_chip_more }}<span class="sr-only"> more {{ er_chip_field.label | downcase | escape }}</span></span></li>
+        {%- endif -%}
+      </ul>
+    {%- endif -%}
+  {%- endif -%}
+
+  {% include signal-strip.html entry=er_entry class='signal-strip !border-t-0 !pt-1' %}
+  {%- if er_deprecated -%}
+    <p class="entry-stale-note entry-stale-note--warn">{% include icon.html name='warning' size='xs' class='shrink-0' %}<span>Deprecated — kept for the record</span></p>
+  {%- elsif er_check.stale -%}
+    <p class="entry-stale-note">{% include icon.html name='clock' size='xs' class='shrink-0' %}<span>Last confirmed {{ er_check.date | date: '%b %Y' }}</span></p>
+  {%- endif -%}
+</li>

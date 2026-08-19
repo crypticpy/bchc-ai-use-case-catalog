@@ -1,0 +1,120 @@
+{%- comment -%}
+Grouped facet controls. Shared verbatim by the desktop rail and the mobile sheet,
+so both drive the same state in assets/js/filters.js.
+
+Usage: {% include filter-groups.html entries=entries context="rail" %}
+Params:
+  entries  the entry pages in scope (free-text / list facets take their options from these)
+  context  "rail" | "sheet" — prefixes every id so the two copies never collide
+
+Markup contract (assets/js/filters.js):
+  <div data-filter-group="<group key>">
+    <button data-group-toggle aria-expanded aria-controls="<ctx>-grp-<key>">
+    <div id="<ctx>-grp-<key>" data-group-panel>
+      <fieldset><legend>…</legend>
+        <button class="filter-pill" data-filter-key="<key-with-hyphens>"
+                data-filter-mode="single|multi" data-filter-value="<slug>"
+                data-filter-label="<value>" data-filter-group-label="<field label>"
+                data-filter-terms="<value>|<short>|<description>|<alias>|…"
+                aria-pressed="false">
+          <span>short label</span><span class="filter-count" data-filter-count aria-hidden="true"></span><span class="sr-only" data-filter-count-sr></span>
+        </button>
+        … pills past the 8th carry data-overflow and hidden …
+        <button data-show-all data-more="N">Show all N</button>
+      <details class="facet-glossary">  ← only when an option has a description
+
+`data-filter-terms` is what makes the search box vocabulary-aware: assets/js/search.js
+matches a typed query against it and offers the FILTER, which is a better answer than
+a text hit because it is exhaustive. The strings are the option itself, its
+`option_meta.short` and `.description`, and any `aliases` for it in _data/search.yml —
+so the vocabulary has exactly one source of truth, the pill that already renders it.
+
+Local assigns are prefixed `fg_`.
+{%- endcomment -%}
+{%- assign fg_ctx = include.context | default: 'rail' -%}
+{%- assign fg_entries = include.entries -%}
+{%- assign fg_schema = site.data.schema -%}
+{%- assign fg_facets = fg_schema.fields | facet_fields -%}
+{%- assign fg_groups = fg_schema.groups | groups_for: fg_facets -%}
+{%- for fg_g in fg_groups -%}
+  {%- assign fg_gfields = fg_facets | fields_in_group: fg_g.key -%}
+  {%- if fg_gfields.size > 0 -%}
+    {%- assign fg_id = fg_ctx | append: '-grp-' | append: fg_g.key -%}
+    {%- assign fg_open = false -%}
+    {%- if forloop.first -%}{%- assign fg_open = true -%}{%- endif -%}
+    {%- assign fg_gicon = fg_g.icon | default: fg_gfields.first.icon | default: 'filter' -%}
+    <div class="filter-group" data-filter-group="{{ fg_g.key }}">
+      <h3>
+        <button type="button" class="filter-group-toggle" id="{{ fg_id }}-btn" data-group-toggle aria-expanded="{{ fg_open }}" aria-controls="{{ fg_id }}">
+          <span class="flex items-center gap-2">{% include icon.html name=fg_gicon size='sm' class='text-brand-muted' %}{{ fg_g.title }}</span>
+          <span class="filter-chevron">{% include icon.html name='chevron-down' size='sm' %}</span>
+        </button>
+      </h3>
+      <div class="filter-group-panel" id="{{ fg_id }}" role="group" aria-labelledby="{{ fg_id }}-btn" data-group-panel {% unless fg_open %}hidden{% endunless %}>
+        {%- for fg_f in fg_gfields -%}
+          {%- if fg_f.options -%}
+            {%- assign fg_options = fg_f.options -%}
+          {%- else -%}
+            {%- assign fg_options = "" | split: "" -%}
+            {%- for fg_e in fg_entries -%}
+              {%- assign fg_raw = fg_e[fg_f.key] | as_list -%}
+              {%- for fg_x in fg_raw -%}{%- assign fg_options = fg_options | push: fg_x -%}{%- endfor -%}
+            {%- endfor -%}
+            {%- assign fg_options = fg_options | uniq | sort_natural -%}
+          {%- endif -%}
+          {%- if fg_options.size > 0 -%}
+            {%- assign fg_mode = 'multi' -%}
+            {%- if fg_f.type == 'select' -%}{%- assign fg_mode = 'single' -%}{%- endif -%}
+            {%- comment -%} Search aliases for this field, and whether it has landing
+            pages to point at. Both are looked up once per field, not once per pill. {%- endcomment -%}
+            {%- assign fg_aliases = site.data.search.aliases[fg_f.key] -%}
+            {%- assign fg_landing = site.data.facet_index | where: 'key', fg_f.key | first -%}
+            <fieldset class="min-w-0">
+              <legend class="filter-legend">{{ fg_f.label }}{% if fg_mode == 'multi' %} <span class="normal-case tracking-normal">(any of)</span>{% endif %}</legend>
+              <div class="filter-options">
+                {%- for fg_opt in fg_options -%}
+                  {%- assign fg_om = fg_f | option_meta: fg_opt -%}
+                  {%- comment -%} No `title`: it reaches a hovering mouse only, and as an
+                  accessible description it is read after the name on every arrow-key pass,
+                  so the pill's name stays the clean "Pilot, 12 matches" the count wiring
+                  produces. The descriptions are in the disclosure below instead. {%- endcomment -%}
+                  {%- capture fg_terms -%}{{ fg_opt }}|{{ fg_om.short }}|{{ fg_om.description }}{% assign fg_opt_aliases = fg_aliases[fg_opt] %}{% if fg_opt_aliases %}|{{ fg_opt_aliases | join: '|' }}{% endif %}{%- endcapture -%}
+                  <button type="button" class="filter-pill{% if forloop.index > 8 %} hidden{% endif %}" {% if forloop.index > 8 %}data-overflow {% endif %}data-filter-key="{{ fg_f.key | replace: '_', '-' }}" data-filter-mode="{{ fg_mode }}" data-filter-value="{{ fg_opt | slugify }}" data-filter-label="{{ fg_opt | escape }}" data-filter-group-label="{{ fg_f.label | escape }}" data-filter-terms="{{ fg_terms | escape }}" aria-pressed="false"><span>{{ fg_om.short }}</span><span class="filter-count" data-filter-count aria-hidden="true"></span><span class="sr-only" data-filter-count-sr></span></button>
+                {%- endfor -%}
+              </div>
+              {%- if fg_options.size > 8 -%}
+                <button type="button" class="filter-showall" data-show-all data-count="{{ fg_options.size }}">Show all {{ fg_options.size }}</button>
+                {%- comment -%} A name-shaped facet with dozens of one-count values is a
+                directory, not a pill cloud. The rail keeps the pills (they still filter in
+                place) and offers the readable list beside them — but only where "Show all"
+                already admits the group is long, so twelve facets do not each grow a link.
+                Rendered only when _plugins/facet_pages.rb actually built those pages. {%- endcomment -%}
+                {%- if fg_landing and fg_ctx == 'rail' -%}
+                  {%- assign fg_entry_path = fg_schema.entry.path | default: 'catalog' -%}
+                  {%- assign fg_az = '/' | append: fg_entry_path | append: '/a-z/#' | append: fg_landing.slug -%}
+                  <a class="filter-showall ml-3" href="{{ fg_az | relative_url }}">Browse all {{ fg_f.label | downcase | escape }} →</a>
+                {%- endif -%}
+              {%- endif -%}
+              {%- comment -%} The taxonomy explains itself once per facet, to everyone:
+              collapsed so it never crowds the 272px rail, and outside .filter-options so
+              the "Show all n" reveal and the pill reordering in filters.js never see it. {%- endcomment -%}
+              {%- capture fg_gloss -%}
+                {%- for fg_opt in fg_options -%}
+                  {%- assign fg_gom = fg_f | option_meta: fg_opt -%}
+                  {%- if fg_gom.description != '' -%}<dt>{{ fg_opt | escape }}</dt><dd>{{ fg_gom.description | escape }}</dd>{%- endif -%}
+                {%- endfor -%}
+              {%- endcapture -%}
+              {%- assign fg_gloss = fg_gloss | strip -%}
+              {%- if fg_gloss != '' -%}
+                <details class="facet-glossary">
+                  <summary>What do these mean?</summary>
+                  <dl>{{ fg_gloss }}</dl>
+                </details>
+              {%- endif -%}
+            </fieldset>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  {%- endif -%}
+{%- endfor -%}

@@ -1,0 +1,8 @@
+{%- comment -%} Wordmark or logo image. Local assigns are prefixed `lg_`. {%- endcomment -%}
+{%- assign lg_cfg = site.data.site -%}
+{%- assign lg_size = include.size | default: 'h-10 w-10' -%}
+{%- if lg_cfg.logo.image and lg_cfg.logo.image != '' -%}
+  <img class="{{ lg_size }} object-contain" src="{{ lg_cfg.logo.image | relative_url }}" alt="{{ lg_cfg.organization.name | escape }} logo">
+{%- else -%}
+  <span class="inline-flex {{ lg_size }} shrink-0 items-center justify-center rounded-xl bg-brand-primary font-heading text-sm font-bold uppercase tracking-wide text-white {{ include.class }}" aria-hidden="true">{{ lg_cfg.logo.text | default: lg_cfg.organization.short_name | default: lg_cfg.name | slice: 0, 4 }}</span>
+{%- endif -%}

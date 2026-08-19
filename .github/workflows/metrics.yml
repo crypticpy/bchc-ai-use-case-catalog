@@ -1,0 +1,133 @@
+name: Catalog metrics
+
+# Once a month, count how the catalog is doing — entry-form submissions
+# opened, entry pull requests merged, distinct contributing organizations and
+# review turnaround, by quarter — write `_data/metrics.json`, commit it, and
+# deploy so the governance page's "How the catalog is doing" block is current.
+# The numbers come from this repository's own issues and pull requests through
+# two read-only REST calls (scripts/metrics.mjs); nothing is installed on the
+# site and no analytics vendor is involved.
+#
+# The commit carries `[skip ci]` and the deploy is dispatched explicitly, so it
+# behaves the same with GITHUB_TOKEN (whose pushes never start a workflow) and
+# with CONTENT_BOT_TOKEN (whose pushes would, and would then be cancelled by
+# the dispatch through the `pages` concurrency group anyway). Unchanged figures
+# mean no commit and no deploy.
+#
+# Turn the schedule off by setting the repository variable CATALOG_METRICS to
+# `false` (Settings -> Secrets and variables -> Actions -> Variables), or by
+# deleting this file; a manual run from the Actions tab always works, and its
+# "Preview only" box prints the figures in the run summary without committing
+# anything. A push refused by branch protection is reported in the run
+# summary with the ways out (allow the Actions app to bypass the rule, set
+# CONTENT_BOT_TOKEN, or run `node scripts/metrics.mjs` by hand and commit).
+
+on:
+  schedule:
+    # 07:30 UTC on the 2nd — after the verification sweep on the 1st, off the
+    # hour-zero peak where scheduled runs queue for ages.
+    - cron: "30 7 2 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview only — print the figures in the run summary, commit nothing"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: catalog-metrics
+  cancel-in-progress: false
+
+jobs:
+  metrics:
+    if: vars.CATALOG_METRICS != 'false' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      # Reading the issues and pull requests the figures are counted from.
+      issues: read
+      pull-requests: read
+      # Committing _data/metrics.json …
+      contents: write
+      # … and dispatching Build & Deploy after the commit.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The push below needs credentials; the checkout keeps them on purpose.
+          # zizmor: ignore[artipacked]
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Count submissions, publications and turnaround
+        id: metrics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/metrics.mjs --dry-run
+          else
+            node scripts/metrics.mjs
+          fi
+
+      - name: Preview the figures
+        if: inputs.dry_run == true
+        env:
+          SUMMARY: ${{ steps.metrics.outputs.summary }}
+        run: |
+          {
+            echo "### Preview — nothing committed"
+            echo
+            echo '```json'
+            printf '%s\n' "$SUMMARY"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and deploy the refreshed figures
+        if: steps.metrics.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- _data/metrics.json
+          git commit -q -m "chore(metrics): refresh _data/metrics.json [skip ci]"
+          if git push origin "HEAD:${GITHUB_REF_NAME}" 2>/tmp/push-error.txt; then
+            gh workflow run pages.yml --ref "${GITHUB_REF_NAME}"
+            {
+              echo "### Refreshed \`_data/metrics.json\` and dispatched a deploy"
+              echo
+              echo '```json'
+              cat _data/metrics.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### Could not push \`_data/metrics.json\`"
+              echo
+              echo "The figures changed but the push back to \`${GITHUB_REF_NAME}\` was refused — usually branch protection. Either let the GitHub Actions app bypass the rule, set \`CONTENT_BOT_TOKEN\`, or run \`node scripts/metrics.mjs\` locally and commit the file."
+              echo
+              echo '```'
+              cat /tmp/push-error.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Report unchanged figures
+        if: steps.metrics.outputs.changed != 'true' && inputs.dry_run != true
+        run: echo "The figures have not changed since the last run. Nothing to commit." >> "$GITHUB_STEP_SUMMARY"

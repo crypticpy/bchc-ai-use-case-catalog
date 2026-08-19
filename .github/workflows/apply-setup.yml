@@ -1,0 +1,232 @@
+name: Apply setup from issue
+
+# The "no terminal" half of the setup wizard. A maintainer pastes the files
+# /setup/ produced into an issue labelled `content:site-config`; this rebuilds
+# the derived files from them and opens a pull request.
+#
+# Trust model (see SECURITY.md): unlike the submission workflows, this one is
+# maintainers only — the pasted YAML becomes the site's configuration, so the
+# job refuses to run for anyone outside OWNER/MEMBER/COLLABORATOR. Beyond that
+# gate the same rules apply:
+#   * Issue content is NEVER interpolated into a `run:` script — it only ever
+#     reaches a step through `env:`.
+#   * `renderFiles()` returns a fixed set of six repo-relative paths, so the
+#     apply step cannot write anywhere else however the YAML is crafted.
+#   * The result is a pull request. Nothing changes until a maintainer merges.
+#
+# Optional secret CONTENT_BOT_TOKEN behaves exactly as it does in new-entry.yml:
+# with it the pull request has a real author and triggers its own checks;
+# without it this job dispatches them — see "Run the checks on the new branch".
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+
+# The job below declares exactly the scopes it needs; nothing is granted by default.
+permissions: {}
+
+# One run per issue: fixing a typo in the pasted YAML three times in a minute
+# must not leave three jobs force-pushing the same branch at each other.
+concurrency:
+  group: apply-setup-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    # `state == 'open'` matters: editing a closed, already-merged setup issue
+    # would otherwise force-push its branch again and try to edit a merged
+    # pull request.
+    if: >-
+      github.event.issue.state == 'open'
+      && contains(github.event.issue.labels.*.name, 'content:site-config')
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      # Dispatching validate.yml/quality.yml onto the generated branch.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # The push below needs credentials; the checkout keeps them on purpose.
+          # zizmor: ignore[artipacked]
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Apply the configuration
+        id: apply
+        continue-on-error: true
+        run: node scripts/apply_setup_from_issue.mjs
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+
+      - name: Report the failure on the issue
+        if: steps.apply.outcome == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          APPLY_ERROR: ${{ steps.apply.outputs.error }}
+        with:
+          script: |
+            const detail = process.env.APPLY_ERROR || 'The apply step failed; see the workflow logs for details.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'This configuration could not be applied yet.',
+                '',
+                '> ' + detail.split('\n').join('\n> '),
+                '',
+                'Edit this issue to fix it and the automation will try again. Re-copying the files from the /setup/ review step is usually quicker than editing the YAML by hand.'
+              ].join('\n')
+            });
+            core.setFailed(detail);
+
+      # Keeps the wizard's own defaults and the contact links in step with the
+      # newly written _data/*.yml, which is what `generate.mjs --check` gates on
+      # in CI. Running it here means the pull request is already green.
+      - name: Regenerate derived files
+        if: steps.apply.outcome == 'success'
+        run: node scripts/generate.mjs
+
+      - name: Commit the configuration on a new branch
+        id: commit
+        if: steps.apply.outcome == 'success'
+        env:
+          BRANCH: ${{ steps.apply.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # `git add -A` is safe only because this step is gated on the apply
+          # step having succeeded: removing the demo content deletes whole
+          # directories, so a half-finished run would otherwise be committed as
+          # if it were whole.
+          git add -A
+          if git diff --cached --quiet; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            echo "The configuration matches what is already committed." >&2
+            exit 0
+          fi
+          git commit -m "chore: configure site from issue"
+          # The branch is machine-generated and named after this issue, so an
+          # `issues: edited` re-run replaces its contents rather than merging.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        id: pr
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.apply.outputs.branch }}
+          PR_TITLE: ${{ steps.apply.outputs.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          SUMMARY: ${{ steps.apply.outputs.summary }}
+        run: |
+          set -euo pipefail
+          # Everything between the braces is literal markdown; a backtick here is
+          # a code span, not a command substitution.
+          # shellcheck disable=SC2016
+          {
+            printf 'Applied from issue #%s.\n\n' "$ISSUE_NUMBER"
+            printf 'Closes #%s\n\n' "$ISSUE_NUMBER"
+            printf '%s\n\n' "$SUMMARY"
+            printf '### Maintainer checklist\n\n'
+            printf -- '- [ ] The site name, tagline and organization read the way you want them on every page\n'
+            printf -- '- [ ] The modules that are on are the ones you intend to maintain\n'
+            printf -- '- [ ] The entry fields match what contributors will actually be asked for\n'
+            printf -- '- [ ] **Validate Content** is green on the latest commit\n'
+            printf -- '- [ ] Merge, then check the deployed site\n'
+          } > /tmp/pr-body.md
+
+          # An `issues: edited` re-run reuses the pull request that already
+          # points at this branch instead of failing.
+          url="$(gh pr view "$BRANCH" --json url --jq .url 2>/dev/null || true)"
+          if [ -n "$url" ]; then
+            gh pr edit "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md
+            echo "url=" >> "$GITHUB_OUTPUT"
+          else
+            url="$(gh pr create \
+              --base "${GITHUB_REF_NAME}" \
+              --head "$BRANCH" \
+              --title "$PR_TITLE" \
+              --body-file /tmp/pr-body.md)"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows — GitHub parks them behind "Approve and run", and a maintainer
+      # reads "waiting for approval" as "still running". `workflow_dispatch` is
+      # the documented exception; see new-entry.yml for the full reasoning.
+      - name: Run the checks on the new branch
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.apply.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              # Never fail the job over this: the pull request exists either way,
+              # and a maintainer can approve the parked runs by hand.
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Link the pull request from the issue
+        if: steps.pr.outputs.url != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Your configuration is now a pull request:',
+                '',
+                process.env.PR_URL,
+                '',
+                'Review the diff, then merge to apply it. To change an answer, edit this issue — the automation will redo the pull request.'
+              ].join('\n')
+            });
+
+      - name: Say nothing changed
+        if: steps.commit.outputs.created == 'false'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: 'The pasted configuration matches what is already committed, so there is nothing to open a pull request for. The site is already set up this way.'
+            });

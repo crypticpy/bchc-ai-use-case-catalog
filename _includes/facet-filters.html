@@ -1,0 +1,20 @@
+{%- comment -%}
+Backwards-compatible wrapper. `_layouts/catalog.html` composes the pieces itself
+(rail beside results); layouts that just want "filters above the grid" — e.g.
+`_layouts/cohort.html` — keep calling this and get the results header, a stacked
+version of the rail groups, and the mobile sheet.
+
+Usage: {% include facet-filters.html entries=entries %}
+Params: entries (required).
+
+The caller still owns [data-entry-grid], [data-entry-count],
+[data-entry-count-label] and [data-empty-state]; assets/js/filters.js finds them
+anywhere on the page.
+
+Local assigns are prefixed `ff_`.
+{%- endcomment -%}
+{% include results-header.html entries=include.entries %}
+<div class="card mb-6 hidden px-5 py-2 lg:grid lg:grid-cols-2 lg:gap-x-8" data-filter-rail>
+  {% include filter-groups.html entries=include.entries context="rail" %}
+</div>
+{% include filter-sheet.html entries=include.entries %}

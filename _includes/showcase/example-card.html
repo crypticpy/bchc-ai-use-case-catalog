@@ -1,0 +1,102 @@
+{%- comment -%}
+One card in the showcase landing's "four examples" set.
+
+Usage (assign the hashes first — include params cannot use bracket access):
+  {% include showcase/example-card.html example=ex preset=p copy=c index=n %}
+
+Params:
+  example  {id, name, path} from `site.showcase.examples` (or a preset object,
+           which carries the same three keys) — the only required one. `path`
+           has no trailing slash by contract, so the link below adds one and
+           the visitor is not redirected on the way in.
+  preset   the matching object from `_data/showcase_presets.json`: modules,
+           field_count, facet_count, entry_plural, theme. May be nil.
+  copy     the matching block from `_data/showcase.yml` → examples: headline,
+           blurb, screenshot, alt. May be nil.
+  index    1-based position, used only to give the first card eager loading.
+
+The card id is `example-<id>`: the example switcher on every example site links
+here with "How this one is configured", so the id is a public contract.
+
+The screenshot is rendered only when the file is really in the build
+(`static_file`); without one the slot is a framed placeholder in this example's
+own colours, so the page is complete before its screenshots exist.
+
+Local assigns are prefixed `xc_`.
+{%- endcomment -%}
+{%- assign xc_ex = include.example -%}
+{%- assign xc_preset = include.preset -%}
+{%- assign xc_copy = include.copy -%}
+{%- assign xc_name = xc_ex.name | default: xc_preset.name | default: xc_ex.id -%}
+{%- assign xc_path = xc_ex.path | default: xc_preset.path -%}
+{%- assign xc_theme = xc_preset.theme -%}
+{%- assign xc_labels = site.data.showcase.module_labels -%}
+{%- assign xc_shot = xc_copy.screenshot | default: '' -%}
+{%- assign xc_shot_found = false -%}
+{%- if xc_shot != '' -%}{%- assign xc_shot_found = xc_shot | static_file -%}{%- endif -%}
+{%- assign xc_eager = false -%}
+{%- if include.index == 1 -%}{%- assign xc_eager = true -%}{%- endif -%}
+{%- assign xc_style = '' -%}
+{%- if xc_theme -%}
+  {%- assign xc_style = '--sc-1: ' | append: xc_theme.primary | append: '; --sc-2: ' | append: xc_theme.secondary | append: '; --sc-3: ' | append: xc_theme.accent | append: ';' -%}
+{%- endif -%}
+<li class="sc-example" id="example-{{ xc_ex.id }}"{% if xc_style != '' %} style="{{ xc_style | escape }}"{% endif %}>
+  {%- comment -%} The preset's three theme colours as a signature rule. Decorative:
+  the palette is already visible in the screenshot below it and in the example itself. {%- endcomment -%}
+  {% if xc_theme %}<p class="sc-swatch" aria-hidden="true"><span></span><span></span><span></span></p>{% endif %}
+
+  {% if xc_shot_found %}
+  <div class="sc-shot">
+    {% include picture.html src=xc_shot alt=xc_copy.alt class="h-full w-full object-cover object-top" sizes="(min-width: 1024px) 36rem, 92vw" eager=xc_eager %}
+  </div>
+  {% else %}
+  {%- comment -%} No screenshot yet: an abstraction of a page — a coloured header band and
+  three cards — framed like the real one, so the card keeps its proportions and the row
+  stays level. The shapes are decoration; the note is the only text. {%- endcomment -%}
+  <div class="sc-shot sc-shot-empty">
+    <div class="sc-shot-band" aria-hidden="true"></div>
+    <div class="sc-shot-cards" aria-hidden="true"><span></span><span></span><span></span></div>
+    <p class="sc-shot-note">Screenshot coming</p>
+  </div>
+  {% endif %}
+
+  <div class="sc-example-body">
+    {%- comment -%} The heading is the example's canonical name, not the authored headline:
+    it is what the switcher, the wizard's preset list and this page all call it, and it is
+    what a reader hears when they navigate the page by heading. {%- endcomment -%}
+    <h3 class="sc-example-title">{{ xc_name }}</h3>
+    {% if xc_copy.headline %}<p class="sc-example-headline">{{ xc_copy.headline }}</p>{% endif %}
+    {% if xc_copy.blurb %}<p class="sc-example-blurb">{{ xc_copy.blurb }}</p>{% endif %}
+
+    {% if xc_preset %}
+    <dl class="sc-facts">
+      <div>
+        <dt>Entries are called</dt>
+        <dd>{{ xc_preset.entry_plural | default: 'Entries' }}</dd>
+      </div>
+      <div>
+        <dt>Content model</dt>
+        <dd><span class="tabular-nums">{{ xc_preset.field_count }}</span> fields · <span class="tabular-nums">{{ xc_preset.facet_count }}</span> filters</dd>
+      </div>
+      {% if xc_preset.modules and xc_preset.modules.size > 0 %}
+      <div class="sc-facts-wide">
+        <dt>Turned on</dt>
+        <dd>
+          <ul role="list" class="sc-modules">
+            {%- for xc_m in xc_preset.modules -%}
+              {%- assign xc_m_label = xc_labels[xc_m] | default: xc_m -%}
+              <li>{{ xc_m_label }}</li>
+            {%- endfor -%}
+          </ul>
+        </dd>
+      </div>
+      {% endif %}
+    </dl>
+    {% endif %}
+
+    {%- comment -%} The only link in the card, so it may stretch over the whole of it; its
+    text carries the example's name, which is what a screen reader announces from a link
+    list. {%- endcomment -%}
+    <a class="sc-example-cta" href="{{ xc_path }}/">Open the {{ xc_name }} example {% include icon.html name='arrow-right' size='sm' %}</a>
+  </div>
+</li>

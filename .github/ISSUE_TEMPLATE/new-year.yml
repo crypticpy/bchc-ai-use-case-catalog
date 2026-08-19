@@ -1,0 +1,35 @@
+name: "Start a new cohort year"
+description: "Scaffold the landing page and schedule file for a new program year."
+title: "[Cohort] <year>"
+labels:
+  - content:new-year
+body:
+  - type: markdown
+    attributes:
+      value: "Automation opens a pull request with a placeholder landing page and schedule; nothing is published until it is merged."
+  - type: input
+    id: cohort_year
+    attributes:
+      label: "Cohort Year"
+      description: "Four-digit year, e.g. 2026."
+      placeholder: "2026"
+    validations:
+      required: true
+  - type: textarea
+    id: intro
+    attributes:
+      label: "Intro Paragraph"
+      description: "Short description shown at the top of the cohort landing page."
+      placeholder: "A six-month program pairing teams with coaches to ship one production project."
+    validations:
+      required: false
+  - type: textarea
+    id: notable_events
+    attributes:
+      label: "Notable Events"
+      description: "Optional. List key milestones with date and location — a maintainer will move these into the schedule."
+      placeholder: |
+        Kickoff — 2026-01-15 — City Hall
+        Closing showcase — 2026-11-10 — Central Library
+    validations:
+      required: false

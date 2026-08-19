@@ -1,0 +1,28 @@
+/*
+ * Tailwind entry point. Component classes live in ./components/*.css (one file
+ * per surface) and are imported here in layer order. Build: `npm run build:css`.
+ * Design tokens come from _data/theme.yml via _includes/theme.html (CSS vars).
+ * See docs/design-system.md.
+ */
+@import "tailwindcss/base";
+@import "./components/base.css";
+@import "tailwindcss/components";
+@import "./components/buttons.css";
+@import "./components/badges.css";
+@import "./components/forms.css";
+@import "./components/dialog.css";
+@import "./components/transitions.css";
+@import "./components/catalog.css";
+@import "./components/entry.css";
+@import "./components/media.css";
+@import "./components/site.css";
+@import "./components/example-switcher.css";
+@import "./components/setup.css";
+@import "./components/compare.css";
+@import "./components/governance.css";
+@import "./components/showcase.css";
+@import "./components/print.css";
+@import "tailwindcss/utilities";
+@import "./components/utilities.css";
+/* Last: it corrects the layers above it and must outrank all of them. */
+@import "./components/forced-colors.css";

@@ -1,0 +1,41 @@
+name: "Update event attachments (creates PR)"
+description: "Add or replace the linked materials on an existing event page."
+title: "Event attachments: <year> <event-id>"
+labels:
+  - content:event-attachments
+body:
+  - type: input
+    id: cohort_year
+    attributes:
+      label: "Cohort Year"
+      placeholder: "2026"
+    validations:
+      required: true
+  - type: input
+    id: event_id
+    attributes:
+      label: "Event ID"
+      description: "The identifier used in the event URL, e.g. `kickoff`. Enter `help` and automation will comment with the available IDs for that year."
+      placeholder: "kickoff"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: "Update Mode"
+      description: "Replace the existing list, or keep it and add to it."
+      options:
+        - REPLACE (overwrite the existing attachments)
+        - APPEND (keep the existing attachments and add these)
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: "Attachments"
+      description: "One per line, formatted as `Title | URL`."
+      placeholder: |
+        Agenda (PDF) | https://example.org/agenda.pdf
+        Slides (PDF) | https://example.org/slides.pdf
+    validations:
+      required: true

@@ -1,0 +1,208 @@
+{%- comment -%}
+Catalog card. One <li> for a <ul role="list" data-entry-grid>.
+
+Usage: {% include entry-card.html entry=entry %}
+Params: entry (required); eager (optional; true = the media image loads eagerly —
+        pass it for the first row of a grid so the LCP image is not lazy-loaded);
+        fetchpriority (optional; true = fetchpriority="high" on the media image —
+        pass it for the ONE card that holds the page's LCP candidate);
+        transition (optional; true = this card's image and title claim
+        `view-transition-name`s that _layouts/entry.html matches, so opening the
+        entry morphs them into the hero and the <h1> instead of cross-fading the
+        whole page — see the note above the `ec_vt_*` assigns for why it is opt-in).
+
+Everything on the card comes from `_data/schema.yml` presentation hints, resolved by
+_plugins/schema_filters.rb — no field key is named here. Slot caps are enforced by
+this template (design-brief.md → Catalog card):
+  media    16:7 band, rendered only when entry-thumb.html resolves a real image
+  badge    "Featured" + the first `card: badge` field (over the image, or inline
+           at the start of the meta line when there is no image)
+  meta     <= 2 segments from `card: meta` fields in weight order, joined with ·,
+           on exactly ONE line — the lead segment truncates and carries its full
+           value in a sibling sr-only span
+  title    h3, the ONLY link on the card; its ::after covers the whole card
+  line     the first `card: line` field (icon + one semibold line)
+  summary  2-line clamp
+  chip     ONE family: the first `card: chip` field, 2 chips + "+n"
+           (3 chips on an imageless card, which has the vertical room)
+  icon     signal strip: `card: icon` fields in weight order, <= 2 values per
+           field and <= 4 items in total INCLUDING the single trailing "+n"
+           that counts every value the strip could not show
+
+Data attributes consumed by assets/js/filters.js:
+  data-entry, data-entry-id, data-entry-title, data-entry-date, data-entry-updated,
+  data-entry-verified, data-entry-stale (the latter only when the entry is stale),
+  data-entry-deprecated (only when the schema's review status says so),
+  data-facet-<key-with-hyphens>="slug,slug" (every facet field),
+  data-sort-<key-with-hyphens> (text/select meta fields, for the sort menu)
+
+Local assigns are prefixed `ec_`.
+{%- endcomment -%}
+{%- assign ec_entry = include.entry -%}
+{%- assign ec_fields = site.data.schema.fields -%}
+{%- assign ec_facets = ec_fields | facet_fields -%}
+{%- assign ec_metas = ec_fields | card_fields: 'meta' -%}
+{%- assign ec_badge_field = ec_fields | card_fields: 'badge' | first -%}
+{%- assign ec_line_field = ec_fields | card_fields: 'line' | first -%}
+{%- assign ec_chip_field = ec_fields | card_fields: 'chip' | first -%}
+
+{%- capture ec_thumb -%}{% include entry-thumb.html entry=ec_entry eager=include.eager fetchpriority=include.fetchpriority %}{%- endcapture -%}
+{%- assign ec_thumb = ec_thumb | strip -%}
+{%- assign ec_has_image = false -%}
+{%- if ec_thumb != '' -%}{%- assign ec_has_image = true -%}{%- endif -%}
+
+{%- comment -%} Staleness: the newest of `verified`/`updated`/`published` measured
+against the site's window (_plugins/schema_filters.rb -> verification). Emitted as a
+data attribute so assets/js/lib/entry-order.js can demote unconfirmed entries without
+re-deriving dates in JS, and shown as one quiet line in the foot. {%- endcomment -%}
+{%- assign ec_verify_days = site.data.site.catalog.verify_after_days | default: 365 -%}
+{%- assign ec_check = ec_entry | verification: site.time, ec_verify_days -%}
+{%- comment -%} Deprecated (schema `entry.status_key` / `deprecated_value`): the same
+contract — a data attribute for entry-order.js, which sorts these after stale ones,
+and one line in the foot. The card is not dimmed: a deprecated entry is still the
+best account of that project anyone wrote down. {%- endcomment -%}
+{%- assign ec_deprecated = ec_entry | deprecated_entry: site.data.schema -%}
+
+{%- assign ec_id = ec_entry.slug | default: ec_entry.title | slugify -%}
+
+{%- comment -%} Shared-element view transition, OPT-IN rather than automatic.
+
+A `view-transition-name` has to be unique among the elements a document actually
+renders, and a duplicate does not degrade — it aborts the whole transition, so one
+careless page would silently switch the effect off everywhere. Two pages here render
+the same entry twice: the home page (a featured entry is usually also a recent one)
+and the styleguide (the same entry as a card and as a row). Neither can be fixed from
+inside this template, and only the caller knows whether its list is one-per-entry, so
+the caller says so. `_layouts/catalog.html` does; anything rendering a second copy
+simply leaves the param off and gets today's plain cross-fade.
+
+`.hidden` (the class filters.js toggles) is `display: none`, so a filtered-out card
+has no box, is never captured, and cannot collide with anything — the names only have
+to be unique among the cards actually on screen.
+
+Slugify only emits `[a-z0-9-]`, and the prefix guarantees the result is a valid
+custom-ident even for an entry whose slug starts with a digit. {%- endcomment -%}
+{%- assign ec_vt_media = '' -%}
+{%- assign ec_vt_title = '' -%}
+{%- if include.transition -%}
+  {%- capture ec_vt_media -%} style="view-transition-name: card-{{ ec_id }}"{%- endcapture -%}
+  {%- capture ec_vt_title -%} style="view-transition-name: title-{{ ec_id }}"{%- endcapture -%}
+{%- endif -%}
+
+{%- comment -%} Badge slot: the first `card: badge` field's value. {%- endcomment -%}
+{%- assign ec_badge_value = '' -%}
+{%- if ec_badge_field -%}
+  {%- assign ec_badge_values = ec_entry[ec_badge_field.key] | as_list -%}
+  {%- if ec_badge_values.size > 0 -%}{%- assign ec_badge_value = ec_badge_values | first -%}{%- endif -%}
+{%- endif -%}
+
+<li class="entry-card card-hover{% unless ec_has_image %} entry-card--text{% endunless %}"
+  data-entry
+  data-entry-id="{{ ec_id }}"
+  data-entry-title="{{ ec_entry.title | escape }}"
+  data-entry-date="{{ ec_entry.published | date: '%Y-%m-%d' }}"
+  {% if ec_entry.updated %}data-entry-updated="{{ ec_entry.updated | date: '%Y-%m-%d' }}" {% endif %}
+  {%- if ec_entry.verified %} data-entry-verified="{{ ec_entry.verified | date: '%Y-%m-%d' }}"{% endif %}
+  {%- if ec_check.stale %} data-entry-stale="{{ ec_check.days }}"{% endif %}
+  {%- if ec_deprecated %} data-entry-deprecated{% endif %}
+  {%- for ec_f in ec_metas %}{% if ec_f.type == 'text' or ec_f.type == 'select' %} data-sort-{{ ec_f.key | replace: '_', '-' }}="{{ ec_entry[ec_f.key] | escape }}"{% endif %}{% endfor %}
+  {%- for ec_f in ec_facets %} data-facet-{{ ec_f.key | replace: '_', '-' }}="{{ ec_entry[ec_f.key] | facet_values }}"{% endfor %}>
+
+  {%- if ec_has_image -%}
+    <div class="entry-media"{{ ec_vt_media }}>
+      {{ ec_thumb }}
+      <div class="entry-badges">
+        {%- if ec_entry.featured -%}{% include badge.html label='Featured' tone='featured' icon='star' %}{%- endif -%}
+        {%- if ec_badge_value != '' -%}
+          {%- assign ec_bm = ec_badge_field | option_meta: ec_badge_value -%}
+          {% include badge.html label=ec_bm.short tone='on-dark' icon=ec_bm.icon %}
+        {%- endif -%}
+      </div>
+    </div>
+  {%- endif -%}
+
+  <div class="entry-body">
+    {%- capture ec_meta_line -%}
+      {%- assign ec_seg = 0 -%}
+      {%- for ec_f in ec_metas -%}
+        {%- if ec_seg >= 2 -%}{%- break -%}{%- endif -%}
+        {%- assign ec_vals = ec_entry[ec_f.key] | as_list -%}
+        {%- if ec_vals.size > 0 -%}
+          {%- assign ec_raw = ec_vals | first -%}
+          {%- assign ec_text = ec_f | option_short: ec_raw -%}
+          {%- comment -%} The full value goes to the screen reader and the truncated short form to the eye. A `title` would carry it to a hovering mouse only, and would double-announce. {%- endcomment -%}
+          <span class="entry-meta-seg{% if ec_f.type == 'text' %} entry-meta-seg--text{% endif %}"><span class="sr-only">{{ ec_f.label | escape }}: {{ ec_raw | escape }}</span><span aria-hidden="true">{{ ec_text | escape }}</span></span>
+          {%- assign ec_seg = ec_seg | plus: 1 -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endcapture -%}
+    {%- assign ec_meta_line = ec_meta_line | strip -%}
+    {%- assign ec_inline_badges = false -%}
+    {%- unless ec_has_image -%}
+      {%- if ec_entry.featured or ec_badge_value != '' -%}{%- assign ec_inline_badges = true -%}{%- endif -%}
+    {%- endunless -%}
+    {%- if ec_meta_line != '' or ec_inline_badges -%}
+      <p class="entry-meta">
+        {%- if ec_inline_badges -%}
+          <span class="entry-meta-badges">
+            {%- if ec_entry.featured -%}{% include badge.html label='Featured' tone='featured' icon='star' %}{%- endif -%}
+            {%- if ec_badge_value != '' -%}
+              {%- assign ec_bm2 = ec_badge_field | option_meta: ec_badge_value -%}
+              {% include badge.html label=ec_bm2.short tone='primary' icon=ec_bm2.icon %}
+            {%- endif -%}
+          </span>
+        {%- endif -%}
+        {%- if ec_meta_line != '' -%}<span class="entry-meta-segs">{{ ec_meta_line }}</span>{%- endif -%}
+      </p>
+    {%- endif -%}
+
+    <h3 class="entry-title line-clamp-2"{{ ec_vt_title }}><a href="{{ ec_entry.url | relative_url }}">{{ ec_entry.title | escape }}</a></h3>
+
+    {%- if ec_line_field -%}
+      {%- assign ec_line_value = ec_entry[ec_line_field.key] -%}
+      {%- if ec_line_value and ec_line_value != '' -%}
+        <p class="entry-line">{% include icon.html name=ec_line_field.icon size='sm' class='mt-0.5 text-brand-primary' %}<span><span class="sr-only">{{ ec_line_field.label | escape }}: </span>{{ ec_line_value | escape }}</span></p>
+      {%- endif -%}
+    {%- endif -%}
+
+    {%- if ec_entry.summary and ec_entry.summary != '' -%}
+      <p class="entry-summary">{{ ec_entry.summary | escape }}</p>
+    {%- endif -%}
+    {%- comment -%} Filled by search.js with the section + sentence that matched the
+    query; stays hidden (and takes no space) until a search is active. {%- endcomment -%}
+    <p class="entry-match text-xs text-brand-muted" data-match-slot hidden></p>
+
+    {%- if ec_chip_field -%}
+      {%- assign ec_chips = ec_entry[ec_chip_field.key] | as_list -%}
+      {%- comment -%} An imageless card has the room for a third chip. {%- endcomment -%}
+      {%- assign ec_chip_cap = 2 -%}
+      {%- unless ec_has_image -%}{%- assign ec_chip_cap = 3 -%}{%- endunless -%}
+      {%- if ec_chips.size > 0 -%}
+        <ul class="entry-chips" aria-label="{{ ec_chip_field.label | escape }}">
+          {%- for ec_v in ec_chips limit: ec_chip_cap -%}
+            <li><span class="chip"><span class="sr-only">{{ ec_v | escape }}</span><span aria-hidden="true">{{ ec_chip_field | option_short: ec_v | escape }}</span></span></li>
+          {%- endfor -%}
+          {%- if ec_chips.size > ec_chip_cap -%}
+            {%- assign ec_chip_more = ec_chips.size | minus: ec_chip_cap -%}
+            <li><span class="chip-neutral"><span aria-hidden="true">+{{ ec_chip_more }}</span><span class="sr-only">{{ ec_chip_more }} more {{ ec_chip_field.label | downcase }}</span></span></li>
+          {%- endif -%}
+        </ul>
+      {%- endif -%}
+    {%- endif -%}
+  </div>
+
+  {%- capture ec_signals -%}{% include signal-strip.html entry=ec_entry %}{%- endcapture -%}
+  {%- assign ec_signals = ec_signals | strip -%}
+  {%- if ec_signals != '' or ec_check.stale or ec_deprecated -%}
+    <div class="entry-foot">
+      {{- ec_signals -}}
+      {%- comment -%} Below the signals, not above: the card still has to sell the entry,
+      and a date that qualifies its facts belongs after the facts it qualifies. {%- endcomment -%}
+      {%- if ec_deprecated -%}
+        <p class="entry-stale-note entry-stale-note--warn">{% include icon.html name='warning' size='xs' class='shrink-0' %}<span>Deprecated — kept for the record</span></p>
+      {%- elsif ec_check.stale -%}
+        <p class="entry-stale-note">{% include icon.html name='clock' size='xs' class='shrink-0' %}<span>Last confirmed {{ ec_check.date | date: '%b %Y' }}</span></p>
+      {%- endif -%}
+    </div>
+  {%- endif -%}
+</li>

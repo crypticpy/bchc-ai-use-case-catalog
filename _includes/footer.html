@@ -1,0 +1,76 @@
+{%- comment -%} Site footer. Local assigns are prefixed `ft_`. {%- endcomment -%}
+{%- assign ft_cfg = site.data.site -%}
+{%- comment -%} `.site-footer` mirrors the hero's ground (site.css) so the page closes the way it opened. {%- endcomment -%}
+<footer class="site-footer mt-20">
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div class="grid gap-10 md:grid-cols-3">
+      <div class="flex flex-col gap-4 md:col-span-1">
+        <div class="flex items-center gap-3">
+          {% include logo.html size="h-12 w-12" %}
+          <div class="flex flex-col">
+            <span class="eyebrow-on-dark">{{ ft_cfg.organization.name }}</span>
+            <span class="font-heading text-lg font-semibold">{{ ft_cfg.name }}</span>
+          </div>
+        </div>
+        {% if ft_cfg.footer.about %}<p class="text-sm text-brand-on-dark/80">{{ ft_cfg.footer.about }}</p>{% endif %}
+      </div>
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-on-dark/80">Explore</h2>
+        <ul class="mt-4 space-y-2 text-sm text-brand-on-dark/85">
+          {% for item in site.data.navigation %}
+            {% if item.module %}{% assign ft_enabled = ft_cfg.modules[item.module] %}{% unless ft_enabled %}{% continue %}{% endunless %}{% endif %}
+            <li><a class="transition hover:text-white hover:underline" href="{{ item.url | relative_url }}">{{ item.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-brand-on-dark/80">Links</h2>
+        <ul class="mt-4 space-y-2 text-sm text-brand-on-dark/85">
+          {% for link in ft_cfg.footer.links %}
+            {% if link.module %}{% assign ft_link_enabled = ft_cfg.modules[link.module] %}{% unless ft_link_enabled %}{% continue %}{% endunless %}{% endif %}
+            {% if link.url contains '://' %}
+              <li><a class="transition hover:text-white hover:underline" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}<span class="sr-only"> (opens in a new tab)</span></a></li>
+            {% else %}
+              <li><a class="transition hover:text-white hover:underline" href="{{ link.url | relative_url }}">{{ link.label }}</a></li>
+            {% endif %}
+          {% endfor %}
+          {% if ft_cfg.github.repository and ft_cfg.github.repository != '' %}
+            <li><a class="transition hover:text-white hover:underline" href="https://github.com/{{ ft_cfg.github.repository }}" target="_blank" rel="noopener noreferrer">Source on GitHub<span class="sr-only"> (opens in a new tab)</span></a></li>
+          {% endif %}
+        </ul>
+        {% if ft_cfg.organization.contact_email and ft_cfg.organization.contact_email != '' %}
+          <a class="btn-on-dark mt-6" href="mailto:{{ ft_cfg.organization.contact_email }}">{% include icon.html name='mail' size='sm' %} {{ ft_cfg.organization.contact_email }}</a>
+        {% endif %}
+      </div>
+    </div>
+    {%- comment -%}
+    The accessibility statement is one sentence here and a section on the
+    governance page. `footer.accessibility` is optional copy; when the
+    governance module is on and _data/governance.yml has a policy with
+    `id: accessibility` it links to that section, otherwise it stands alone.
+    The feed link is the visible twin of the <link rel="alternate"> in head.html,
+    for the reader who wants to subscribe and would never look at the source —
+    and it is guarded by the same emptiness test, because
+    _plugins/catalog_feed.rb writes no feed for a catalog with no entries.
+    {%- endcomment -%}
+    {%- assign ft_a11y = ft_cfg.footer.accessibility | default: '' -%}
+    {%- assign ft_a11y_policy = site.data.governance.policies | where: 'id', 'accessibility' | first -%}
+    {%- assign ft_entry_pages = site.data.entry_pages -%}
+    {%- unless ft_entry_pages -%}{%- assign ft_entry_pages = site.pages | where: 'layout', 'entry' -%}{%- endunless -%}
+    {%- assign ft_entry_count = ft_entry_pages | size -%}
+    {%- assign ft_entry_path = site.data.schema.entry.path | default: 'catalog' -%}
+    {%- assign ft_feed = '/' | append: ft_entry_path | append: '/feed.xml' -%}
+    <div class="mt-10 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-brand-on-dark/70">
+      {%- if ft_a11y != '' -%}
+      <p>{{ ft_a11y }}{% if ft_cfg.modules.governance and ft_a11y_policy %} <a class="underline underline-offset-2 hover:text-white" href="{{ '/governance/#accessibility' | relative_url }}">Read the accessibility statement</a>.{% endif %}</p>
+      {%- endif -%}
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p>&copy; {{ 'now' | date: '%Y' }} {{ ft_cfg.footer.copyright | default: ft_cfg.organization.name }}</p>
+        <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {%- if ft_cfg.modules.catalog != false and ft_entry_count > 0 -%}<a class="inline-flex items-center gap-1 underline underline-offset-2 hover:text-white" href="{{ ft_feed | relative_url }}">{% include icon.html name='rss' size='xs' %}Feed</a><span aria-hidden="true">·</span>{%- endif -%}
+          <span>Built with an open, GitHub-managed catalog template.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>

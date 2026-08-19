@@ -1,0 +1,107 @@
+---
+layout: default
+include_filters: true
+include_search: true
+---
+{%- assign schema = site.data.schema -%}
+{%- assign cfg = site.data.site -%}
+{%- assign sort_key = schema.entry.sort | default: 'published' -%}
+{%- assign entries = site.pages | where: 'layout', 'entry' | sort: sort_key, 'first' -%}
+{%- if schema.entry.sort_order != 'asc' -%}{%- assign entries = entries | reverse -%}{%- endif -%}
+{%- comment -%} Deprecated entries (schema `entry.status_key`) come last in the served
+order so the page reads right before assets/js/lib/entry-order.js applies the same
+rule client-side; they stay in the count because they stay in the catalog. {%- endcomment -%}
+{%- assign cat_live = entries | live_entries: schema -%}
+{%- assign cat_deprecated = entries | deprecated_entries: schema -%}
+{%- assign entries = cat_live | concat: cat_deprecated -%}
+{%- assign count = entries | size -%}
+{%- assign plural = schema.entry.plural | default: 'Entries' -%}
+{%- assign singular = schema.entry.singular | default: 'Entry' -%}
+{%- capture cat_default_summary -%}Browse every published {{ singular | downcase }}.{%- endcapture -%}
+
+<div class="pb-24 lg:pb-0">
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div class="max-w-prose">
+      {%- comment -%} No title in the page's front matter is the normal case: the
+      heading, the nav label and the entry-page breadcrumb then all read the same
+      `schema.entry.plural`, so renaming the noun renames every one of them. A page
+      may still override both. {%- endcomment -%}
+      {%- assign cat_summary = page.summary | default: cat_default_summary -%}
+      <h1 class="page-title">{{ page.title | default: plural }}</h1>
+      {% if cat_summary %}<p class="mt-1 text-sm leading-6 text-brand-muted">{{ cat_summary }}</p>{% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      {%- comment -%} The route to the browse pages _plugins/facet_pages.rb generates.
+      Only rendered when they exist, so an empty catalog does not advertise them —
+      and because the rail's per-facet links are desktop-only, this is the one link
+      that reaches a phone. {%- endcomment -%}
+      {%- assign cat_entry_path = schema.entry.path | default: 'catalog' -%}
+      {%- assign cat_az_url = '/' | append: cat_entry_path | append: '/a-z/' -%}
+      {% if count > 0 %}<a class="btn-secondary btn-sm" href="{{ cat_az_url | relative_url }}">{% include icon.html name='list' size='sm' %} Browse A–Z</a>{% endif %}
+      {% if cfg.modules.submit %}<a class="btn-secondary btn-sm" href="{{ '/submit/' | relative_url }}">{% include icon.html name='plus' size='sm' %} Add {{ singular | downcase | with_article }}</a>{% endif %}
+    </div>
+  </div>
+
+  {%- comment -%} No `items-start`: the rail column has to stretch to the row's
+  height, otherwise the sticky wrapper inside it (.filter-rail) has nothing to
+  travel through and never sticks. {%- endcomment -%}
+  <div class="lg:grid lg:grid-cols-[272px_minmax(0,1fr)] lg:gap-8">
+    <div class="hidden lg:block">{% include filter-rail.html entries=entries %}</div>
+
+    <div class="min-w-0">
+      {% include results-header.html entries=entries %}
+
+      <section aria-labelledby="results-heading">
+        <ul role="list" class="entry-grid" data-entry-grid data-view="grid">
+          {%- comment -%} Only card 1 can be the LCP element, and at 390px it is the only
+          card above the fold at all: eager-loading the rest of the first row just puts
+          them on the wire ahead of the image the paint is waiting for. {%- endcomment -%}
+          {%- comment -%} `transition=true`: this grid renders each entry exactly once, so
+          its cards can safely claim the `view-transition-name`s that _layouts/entry.html
+          matches — see the note in entry-card.html for why that is the caller's call.
+          {%- endcomment -%}
+          {% for entry in entries %}{% assign cat_lcp = false %}{% if forloop.first %}{% assign cat_lcp = true %}{% endif %}{% include entry-card.html entry=entry eager=cat_lcp fetchpriority=cat_lcp transition=true %}{% endfor %}
+        </ul>
+
+        {%- comment -%} Zero results has three different causes and three different
+        answers, so the copy is written by assets/js/filters.js rather than fixed
+        here: a filter you can drop, a query you can respell, or both at once.
+        [data-empty-suggestions] is assets/js/search.js's — the tags whose
+        vocabulary the query nearly hit, which is the one recovery that finds
+        something the reader could not have found by retyping. {%- endcomment -%}
+        <div class="card hidden px-6 py-12 text-center" data-empty-state>
+          <p class="font-heading text-lg font-semibold text-brand-primary-dark" data-empty-cause>No {{ plural | downcase }} match the current filters.</p>
+          <p class="mt-1 text-sm text-brand-muted" data-empty-hint>Remove a filter to widen the search.</p>
+          <div class="mt-4 flex flex-wrap items-center justify-center gap-2 empty:mt-0" data-empty-suggestions hidden></div>
+          <div class="mt-4 flex flex-wrap justify-center gap-2" data-empty-filters></div>
+          <div class="mt-4"><button type="button" class="btn-secondary btn-sm" data-filter-clear>Clear all filters</button></div>
+        </div>
+
+        {% if count == 0 %}
+          {%- comment -%} `capture`, not `'No ' | append: plural | downcase`: a filter
+          chain applies `downcase` to the whole concatenation, which lowercases the
+          sentence's first word too ("no use cases…"). The CTA is dropped rather than
+          the panel when submissions are off — _plugins/modules.rb drops /submit/ from
+          the build, so the button would 404. {%- endcomment -%}
+          {% capture cat_empty_body %}No {{ plural | downcase }} have been published yet.{% endcapture %}
+          {% assign cat_empty_cta = '' %}
+          {% if cfg.modules.submit %}{% assign cat_empty_cta = '/submit/' %}{% endif %}
+          {% include empty-state.html icon='sparkles' title='Coming soon' body=cat_empty_body cta_url=cat_empty_cta cta_label='Be the first to submit' %}
+        {% endif %}
+      </section>
+    </div>
+  </div>
+</div>
+
+{% include filter-sheet.html entries=entries %}
+
+{%- comment -%} The compare tray. An ES module (it imports ./lib/compare-table.js), so
+it needs its own tag rather than default.html's `scripts:` list, which emits classic
+deferred scripts. It injects the per-card toggles itself: _includes/entry-card.html
+knows nothing about compare. {%- endcomment -%}
+<script type="module" src="{{ '/assets/js/compare.js' | relative_url }}"></script>
+
+{%- comment -%} `strip`: a page whose body is only a Liquid comment still hands the
+layout a newline, which would otherwise open an empty, spaced block. {%- endcomment -%}
+{% assign cat_content = content | strip %}
+{% if cat_content != '' %}<div class="prose-body mt-12">{{ cat_content }}</div>{% endif %}

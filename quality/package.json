@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "type": "commonjs",
+  "description": "Marks this directory as CommonJS: pa11y-ci and Lighthouse CI require() their config files, and the repo root is an ES-module package. `devDependencies` is the single place the quality toolchain's versions are written — ./run.js reads them and hands them to npx, so `npm run a11y` locally and the Quality workflow on CI always run the same build. puppeteer is the exception: test/a11y/flows.test.mjs imports it rather than shelling out, so quality.yml installs this version into the root node_modules instead of running it through ./run.js.",
+  "devDependencies": {
+    "@lhci/cli": "0.15.1",
+    "pa11y-ci": "4.0.1",
+    "puppeteer": "25.5.0"
+  }
+}

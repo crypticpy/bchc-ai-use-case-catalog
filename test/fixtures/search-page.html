@@ -1,0 +1,58 @@
+<!--
+  Trimmed snapshot of the /catalog/ results header (_includes/results-header.html)
+  plus a card grid, for test/scripts/search.test.mjs.
+
+  Only the parts assets/js/search.js addresses are kept: the combobox, its
+  listbox, the three status regions, the relevance-floor button, and cards
+  carrying [data-entry-id] with the optional [data-match-slot] that lives in
+  _includes/entry-card.html, and the zero-result panel's [data-empty-suggestions].
+  Sort, view toggle and the filter pills belong to filters.js and are covered by
+  test/scripts/filter_state.test.mjs; the vocabulary bridge between the two is
+  stubbed in test/scripts/search_vocabulary.test.mjs.
+-->
+<div class="results-header" data-filters-config data-entry-plural="use cases" data-entry-singular="use case" data-relevance-label="Relevance">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+    <h2 id="results-heading" tabindex="-1" class="results-count focus-target">
+      <span data-entry-count>4</span> <span data-entry-count-label>use cases</span><span data-total-wrap class="results-total" hidden> of <span data-entry-total>4</span></span>
+    </h2>
+
+    <search class="results-header-controls relative min-w-[12rem] flex-1 basis-full sm:basis-auto sm:max-w-sm" role="search" aria-label="Search use cases">
+      <label class="sr-only" for="catalog-search">Search use cases</label>
+      <input id="catalog-search" class="search-box" type="search" role="combobox" aria-expanded="false" aria-controls="search-listbox" aria-autocomplete="list" aria-haspopup="listbox" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="Search use cases…" data-filter="search" data-search-index="/search.json">
+      <ul id="search-listbox" class="search-listbox" role="listbox" aria-label="Search suggestions" data-search-results hidden></ul>
+    </search>
+  </div>
+
+  <div class="mt-2" data-search-floor hidden>
+    <button type="button" class="filter-showall mt-0" data-search-more>Show weaker matches</button>
+  </div>
+
+  <p class="sr-only" role="status" data-filter-status></p>
+  <p class="sr-only" role="status" data-search-live></p>
+  <p class="mt-2 hidden text-xs text-brand-warn" role="status" data-search-status></p>
+</div>
+
+<div class="card hidden px-6 py-12 text-center" data-empty-state>
+  <p data-empty-cause>No use cases match the current filters.</p>
+  <p data-empty-hint>Remove a filter to widen the search.</p>
+  <div class="mt-4 flex flex-wrap items-center justify-center gap-2" data-empty-suggestions hidden></div>
+</div>
+
+<div class="entry-grid" data-catalog-grid>
+  <article class="entry-card" data-entry-id="notice-translation">
+    <h3>Notice translation</h3>
+    <p class="entry-match" data-match-slot hidden></p>
+  </article>
+  <article class="entry-card" data-entry-id="permit-tracker">
+    <h3>Permit tracker</h3>
+    <p class="entry-match" data-match-slot hidden></p>
+  </article>
+  <article class="entry-card" data-entry-id="inspection-scheduler">
+    <h3>Inspection scheduler</h3>
+    <p class="entry-match" data-match-slot hidden></p>
+  </article>
+  <article class="entry-card" data-entry-id="grant-finder">
+    <h3>Grant finder</h3>
+    <p class="entry-match" data-match-slot hidden></p>
+  </article>
+</div>

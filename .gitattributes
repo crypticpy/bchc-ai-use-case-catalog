@@ -1,0 +1,44 @@
+# Which files belong to the fork, for `git merge template/main`.
+#
+# READ THIS FIRST: `merge=ours` does nothing until the driver exists. Git
+# deliberately refuses to run a merge driver a repository has not opted into, so
+# without the line below these rules are silently inert and you get ordinary
+# conflicts in every file listed here. Run it once per clone:
+#
+#     git config merge.ours.driver true
+#
+# `scripts/upgrade_check.mjs` checks for it and says so if it is missing. The
+# full recipe — adding the template remote, what to review, what to skip — is in
+# docs/upgrading.md.
+#
+# Everything NOT listed here is template code: take the template's version.
+# Everything listed here is yours: keep yours, and read the template's diff by
+# hand if you want a change it made.
+
+# Your configuration. `npm run setup`, /setup/ and the Apply setup issue all
+# write these; the template's copies are only ever the demo's.
+_config.yml                                  merge=ours
+_data/site.yml                               merge=ours
+_data/theme.yml                              merge=ours
+_data/schema.yml                             merge=ours
+_data/navigation.yml                         merge=ours
+
+# Your content.
+_data/events.yml                             merge=ours
+_data/resources.yml                          merge=ours
+_data/cohorts/**                             merge=ours
+_data/metrics.json                           merge=ours
+catalog/**                                   merge=ours
+cohorts/**                                   merge=ours
+events/**                                    merge=ours
+resources/**                                 merge=ours
+about/**                                     merge=ours
+assets/images/**                             merge=ours
+CNAME                                        merge=ours
+README.md                                    merge=ours
+
+# Generated from the files above, so they follow your data, not the template's.
+# Regenerate rather than merge: `npm run generate`.
+.github/ISSUE_TEMPLATE/new-entry.yml         merge=ours
+.github/ISSUE_TEMPLATE/config.yml            merge=ours
+assets/js/configurator/defaults.generated.js merge=ours

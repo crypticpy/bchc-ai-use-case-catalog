@@ -1,0 +1,27 @@
+/* /setup/ wizard: the live theme preview (assets/js/configurator/theme-preview.js).
+   The preview root re-declares the theme's CSS variables inline, so every
+   production class inside it (btn-*, badge-*, entry-card, filter-pill…) picks up
+   the admin's palette; these rules only frame the miniature. */
+@layer components {
+  .theme-preview { @apply overflow-hidden rounded-2xl border border-brand-line bg-surface-base font-sans text-brand-ink; }
+  .theme-preview-header { @apply flex items-center gap-2.5 border-b border-brand-line bg-surface-card px-4 py-2.5; }
+  .theme-preview-mark { @apply inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-primary font-heading text-[10px] font-bold uppercase tracking-wide text-white; }
+  .theme-preview-hero { @apply hero px-4 py-5; }
+  .theme-preview-body { @apply grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]; }
+  .theme-preview-controls { @apply flex flex-col justify-center gap-3; }
+
+  /* Wizard action bar (assets/js/configurator/setup-page.js). `is-sticky` pins it
+     to the bottom of the viewport on the Entry model step, which runs long. */
+  .wizard-actions { @apply mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-brand-line pt-6; }
+  .wizard-actions.is-sticky { @apply sticky bottom-0 z-20 -mx-4 border-t bg-surface-base/95 px-4 pb-4 pt-4 shadow-e2 backdrop-blur sm:-mx-6 sm:px-6; }
+
+  /* Collapsible schema field rows (assets/js/configurator/steps/entry-model.js).
+     Collapsed rows show a summary line; the controls live behind the toggle. */
+  .schema-field-row { @apply px-4 py-3; }
+  .schema-field-head { @apply flex flex-wrap items-center gap-3; }
+  .schema-field-toggle { @apply flex flex-1 flex-wrap items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-brand-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary; }
+  .schema-field-name { @apply font-heading text-sm font-semibold text-brand-ink; }
+  .schema-field-caret { @apply ml-auto shrink-0 text-brand-muted transition-transform duration-120; }
+  .schema-field-caret.is-open { @apply rotate-90; }
+  .schema-field-details { @apply mt-4 border-t border-brand-line pt-4; }
+}

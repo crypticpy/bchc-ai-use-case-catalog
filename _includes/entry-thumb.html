@@ -1,0 +1,64 @@
+{%- comment -%}
+Entry image, resolved honestly — no generated placeholder.
+
+Usage: {% include entry-thumb.html entry=page img_class="rounded-md" %}
+Params: entry (required, an entry page object), img_class (extra classes on the <img>),
+        eager (optional; true = loading="eager" for above-the-fold cards, default lazy),
+        fetchpriority (optional; true = fetchpriority="high" — pass it for the ONE
+        image that is the page's LCP candidate, never for a row of them).
+
+Fallback order: explicit `thumbnail` front matter -> the first image of the first
+`images`-type schema field -> `<entry.dir>thumb.jpg` when it exists on disk -> NOTHING.
+Callers MUST treat empty output as "this entry has no picture" and omit the media
+band entirely (capture the include and check for blank), per design-brief principle 5.
+
+Presentation-only front matter, like `thumbnail`/`thumbnail_alt` and deliberately not
+in schema.yml (it describes one picture, not the entry):
+  thumbnail_focus  a CSS object-position, default "center top" — the media band is
+                   16:7 and the top is where a deck or a dashboard puts its title.
+
+Sizes come from picture.html, which serves AVIF/WebP variants when
+_data/derivatives.json has an entry for this file and falls back to the plain
+<img> when it does not. width/height come from the manifest too, so neither is
+guessed.
+
+`sizes` is measured off the built pages, not guessed, and it takes the WIDEST
+box any surface gives a card — the home page's grid is roomier than the
+catalog's, so it sets the number above 1280 (387px) and between 1024 and 1279
+(46.4vw). Below 1280 the widest single-column case is 95vw (at 639) and the
+widest two-column case is 46.9vw (at 1023). Under-stating `sizes` ships a blurry
+image; over-stating it costs a few KB, so where the two grids disagree this
+follows the wider one. Re-measure if either grid changes.
+Local assigns are prefixed `et_`.
+{%- endcomment -%}
+{%- assign et_entry = include.entry -%}
+{%- assign et_src = '' -%}
+{%- assign et_alt = et_entry.thumbnail_alt | default: et_entry.title -%}
+{%- if et_entry.thumbnail and et_entry.thumbnail != '' -%}
+  {%- assign et_src = et_entry.thumbnail -%}
+{%- endif -%}
+{%- if et_src == '' -%}
+  {%- assign et_image_fields = site.data.schema.fields | where: 'type', 'images' -%}
+  {%- for et_f in et_image_fields -%}
+    {%- if et_src == '' -%}
+      {%- assign et_first = et_entry[et_f.key] | first -%}
+      {%- if et_first -%}
+        {%- assign et_item = et_first | image_item: et_entry.title -%}
+        {%- assign et_src = et_item.src -%}
+        {%- assign et_alt = et_item.alt -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endif -%}
+{%- if et_src == '' -%}
+  {%- assign et_thumb_path = et_entry.dir | append: 'thumb.jpg' -%}
+  {%- assign et_found = et_thumb_path | static_file -%}
+  {%- if et_found -%}{%- assign et_src = et_thumb_path -%}{%- endif -%}
+{%- endif -%}
+{%- if et_src != '' -%}
+  {%- assign et_focus = et_entry.thumbnail_focus | default: 'center top' -%}
+  {%- capture et_class -%}h-full w-full object-cover {{ include.img_class }}{%- endcapture -%}
+  {%- capture et_style -%}object-position: {{ et_focus | escape }}{%- endcapture -%}
+  {%- assign et_sizes = '(min-width: 1280px) 390px, (min-width: 640px) 47vw, 95vw' -%}
+  {% include picture.html src=et_src alt=et_alt sizes=et_sizes class=et_class style=et_style eager=include.eager fetchpriority=include.fetchpriority %}
+{%- endif -%}

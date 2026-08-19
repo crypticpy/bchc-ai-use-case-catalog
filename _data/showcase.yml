@@ -1,0 +1,153 @@
+# ---------------------------------------------------------------------------
+# The showcase landing page (the template's own deployment root).
+#
+# Everything the landing says lives here; `_includes/showcase-landing.html` only
+# lays it out. The per-example *facts* — modules on, field and filter counts,
+# entry noun, theme colours — are not in this file: they are generated from
+# `assets/js/configurator/presets.js` into `_data/showcase_presets.json` at build
+# time, so "how this example is configured" cannot drift from what choosing that
+# preset in the wizard actually gives you.
+#
+# This file only renders when `site.showcase.role == 'landing'` (a build made by
+# `scripts/build_showcase.mjs`). A fork never sees it — `npm run eject:samples`
+# deletes it along with `_showcase/`.
+#
+# See docs/showcase-plan.md.
+# ---------------------------------------------------------------------------
+
+title: "The civic catalog template"
+eyebrow: "Big Cities Health Coalition · open source"
+tagline: "One repository, no server, four ways to run it."
+lead: "A catalog site that lives on GitHub Pages and is managed entirely through GitHub: someone fills in a form, a maintainer merges a pull request, the site rebuilds. The four examples below are this same repository with different settings — open any of them and click around."
+
+hero_ctas:
+  - label: "Explore the examples"
+    url: "#examples"
+    style: primary
+  - label: "Read the launch guide"
+    url: "https://github.com/crypticpy/bchc-template/blob/main/docs/launch.md"
+  - label: "Configure your own"
+    url: "/setup/"
+
+# Section headers. Titles are sentence case, like the rest of the site.
+sections:
+  examples:
+    eyebrow: "Live examples"
+    title: "Four complete sites, built from one repository"
+    lead: "Each one is a full build with its own fields, filters, colours and sample content — search, feeds and the submission form included. Nothing here is a mockup."
+  features:
+    eyebrow: "What it does"
+    title: "What you get, whichever example you start from"
+  how_it_works:
+    eyebrow: "How publishing works"
+    title: "From a form to a published page in three steps"
+    lead: "The same path for every entry, on every example. No CMS login, no database, no one editing HTML."
+  start_here:
+    eyebrow: "Start here"
+    title: "Ready to try it with your own content?"
+
+# One block per example, keyed by the id the builder uses. `screenshot` is
+# rendered only when the file exists in the build; otherwise the card shows a
+# framed placeholder in that example's colours, so the page is complete without
+# them.
+examples:
+  - id: ai-use-cases
+    headline: "A coalition-wide catalog of AI projects"
+    blurb: "The configuration this template ships with. Health departments publish what they have built, with enough detail — the data it touches, the skills it took, the licence, the running cost — for another team to judge whether it could reuse it. Filter the catalog, shortlist three entries and compare them side by side."
+    screenshot: "/assets/images/showcase/ai-use-cases-home.png"
+    alt: "The AI use case catalog example: a deep navy hero headed \"What health departments are building with AI\", with a search box, a count of ten use cases, and the three newest ones listed in a panel beside it."
+  - id: cohort-portal
+    headline: "A training program's portal, cohort by cohort"
+    blurb: "Teams publish the projects they built during a fellowship or academy, tagged by cohort year, area of work and track. The cohorts and events modules add program-year pages with timelines, session materials and a shared calendar around the gallery."
+    screenshot: "/assets/images/showcase/cohort-portal-home.png"
+    alt: "The cohort portal example: an indigo hero headed \"What our teams built with data\", with a search box for team projects, the three newest listed beside it, and tiles for browsing by track and skills practiced below."
+  - id: resource-library
+    headline: "A shelf of guides, toolkits and datasets"
+    blurb: "Shorter entries, more of them. Each resource is a link, a format, an audience and an honest note on what it takes to get access — the right shape for a curated library of things other people made and you want your staff to find."
+    screenshot: "/assets/images/showcase/resource-library-home.png"
+    alt: "The resource library example: a dark green hero headed \"Find the resource you need, fast\", with a search box, the three newest resources beside it, and tiles for browsing by resource type, audience, access and format below."
+  - id: blank
+    headline: "The smallest useful starting point"
+    blurb: "Title, summary, one category, tags, links and images — nothing you have to explain away to your first contributor. Rename the fields and this becomes a catalog of grants, datasets, policies, vendors or anything else worth listing in one place."
+    screenshot: "/assets/images/showcase/blank-home.png"
+    alt: "The blank catalog example: a slate hero headed \"A catalog of things worth sharing\", with a search box, the three newest entries beside it, and one category filter in the browse-by band below."
+
+# Human labels for the module keys in _data/site.yml, used by the "what's turned
+# on" line on each example card. A key with no label here falls back to the key.
+module_labels:
+  catalog: "Catalog"
+  submit: "Submissions"
+  carousel: "Featured carousel"
+  stats: "Stats"
+  events: "Events"
+  cohorts: "Cohorts"
+  resources: "Resources"
+  governance: "Governance"
+
+features:
+  - title: "The fields are yours"
+    icon: adjustments
+    body: "One file defines every question an entry answers, and how each answer is shown — as a card badge, a filter, a sidebar fact. The forms, the issue template, the search index and the validator all follow it."
+    link:
+      label: "The content model"
+      url: "https://github.com/crypticpy/bchc-template/blob/main/docs/content-model.md"
+  - title: "GitHub is the CMS"
+    icon: edit
+    body: "There is no admin login and no database. Contributors submit through a web form, maintainers review in a pull request, and the page history is the audit trail."
+    link:
+      label: "The maintainer guide"
+      url: "https://github.com/crypticpy/bchc-template/blob/main/docs/admin-guide.md"
+  - title: "Nothing publishes without review"
+    icon: shield-check
+    body: "Every submission arrives as a draft with your review checklist attached. Answers you flag as sensitive — protected health information, a public-facing audience — raise the review to a second pair of eyes automatically."
+  - title: "Governance on the page, not in a PDF"
+    icon: document
+    body: "How review works, who does what and the standing policies are published from one data file. A monthly job counts submissions, publications and review turnaround from the repository itself, so the numbers are not a claim."
+  - title: "Built for deciding, not just browsing"
+    icon: layers
+    body: "Cards are laid out to answer \"could my team reuse this?\" in a couple of seconds. Shortlist up to three entries, read them field by field, and print the comparison as a clean brief with the links spelled out."
+  - title: "Search, filters and feeds"
+    icon: search
+    body: "Search reads the whole write-up and names the section it matched in. Filters sit beside the results and restore from the URL, so a filtered view pastes into an email. New entries publish to an Atom feed."
+  - title: "Modules you can turn off"
+    icon: grid
+    body: "Catalog, submissions, events, cohorts, resources, governance and the home page blocks each switch on or off. Navigation and the home page adapt, and pages under a module you turned off leave the build entirely."
+  - title: "Accessibility is a build rule"
+    icon: eye
+    body: "Nothing is signalled by colour alone, every control has a visible focus ring, and the catalog still works with JavaScript off. Automated WCAG 2.1 AA and performance checks run on every change."
+  - title: "Nothing to host, nothing to patch"
+    icon: cloud
+    body: "GitHub Pages serves plain files, so there is no server to pay for, secure or migrate. Template improvements reach your copy when you choose to merge them, and your content and settings are never overwritten."
+    link:
+      label: "How upgrades work"
+      url: "https://github.com/crypticpy/bchc-template/blob/main/docs/upgrading.md"
+
+how_it_works:
+  - title: "Someone fills in a form"
+    body: "A contributor answers the questions your schema defines, on a page that previews the card their entry will produce. Screenshots are dragged straight onto it. All they need is a GitHub account."
+  - title: "Automation drafts the pull request"
+    body: "A workflow reads the submission, saves the images into the entry's folder and opens a pull request with the entry already written, the review checklist filled in, and a flag on anything that needs closer scrutiny."
+  - title: "A maintainer merges it"
+    body: "The reviewer checks the entry against your published criteria and merges. The site rebuilds and the entry is live a couple of minutes later. Corrections work the same way, from a link on the page."
+
+start_here:
+  - title: "See what day one looks like"
+    icon: rocket
+    body: "A copy of this template that has been through the launch guide: configured with the wizard, sample content removed, one real entry published. This is your site before you have added anything."
+    starter: true # takes its URL from `starter_url` below; dropped when that is blank
+  - title: "Follow the launch guide"
+    icon: book-open
+    body: "The full tutorial: create the repository, turn on the three settings GitHub needs, configure the site, clear the samples and publish a first entry end to end."
+    url: "https://github.com/crypticpy/bchc-template/blob/main/docs/launch.md"
+  - title: "Configure it in your browser"
+    icon: wand
+    body: "The setup wizard, no terminal required. Start from one of the four presets, change the names, colours and fields, and it writes the configuration files for you."
+    url: "/setup/"
+  - title: "Read the documentation"
+    icon: list
+    body: "Every guide and who it is for — maintainers reviewing submissions, contributors submitting them, and whoever is retargeting the template at a different subject."
+    url: "https://github.com/crypticpy/bchc-template/blob/main/docs/index.md"
+
+# The day-one copy of the template. Fills the empty `url` in `start_here` above;
+# leave blank to drop that item.
+starter_url: "https://crypticpy.github.io/bchc-catalog-starter/"

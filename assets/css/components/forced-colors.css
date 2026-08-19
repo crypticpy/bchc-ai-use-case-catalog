@@ -1,0 +1,93 @@
+/* Windows High Contrast Mode (`forced-colors: active`).
+   Chromium forces color / background-color / border-color / outline-color / fill / stroke
+   to the OS palette and DROPS box-shadow and CSS gradients outright. This system encodes
+   almost every "selected / current / complete" state as a brand fill, a tint or a gradient,
+   so without this file a pressed facet pill computes identically to an unpressed one and
+   the submit rail shows six identical hollow dots.
+
+   The governing rule: a selected, current or complete state must survive as a shape or as a
+   system colour, never as a brand fill. `forced-color-adjust: none` is the opt-out that lets
+   a repaint stick, and it is only ever used on a pair that is then repainted in system
+   colours — never to smuggle brand colour back in.
+
+   Verified in Chrome 148 over CDP: Emulation.setEmulatedMedia
+   { features: [{ name: 'forced-colors', value: 'active' }] }. Puppeteer's
+   emulateMediaFeatures() rejects the feature name — see docs/design-system.md.
+
+   Imported last from assets/css/tailwind.css so it outranks the utility layer it corrects. */
+@media (forced-colors: active) {
+  /* Pressed pills and the view switch: repaint with the system selection colours. */
+  .filter-pill.is-active,
+  .filter-pill[aria-pressed="true"],
+  .view-toggle[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+  }
+  .filter-pill.is-active .filter-count,
+  .filter-pill[aria-pressed="true"] .filter-count { color: HighlightText; }
+  /* ...which then needs a focus ring that is not also Highlight on Highlight. */
+  .filter-pill.is-active:focus-visible,
+  .filter-pill[aria-pressed="true"]:focus-visible,
+  .view-toggle[aria-pressed="true"]:focus-visible { outline-color: CanvasText; }
+
+  /* The focus indicator is a Tailwind `ring-*` (a box-shadow) over a transparent outline.
+     Forcing keeps the outline but eats the ring and its 2px card-coloured offset, so
+     restate the whole indicator as a real outline. */
+  :focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }
+  .entry-card:focus-within { outline: 3px solid Highlight; outline-offset: 2px; }
+
+  /* Zero-count pills: opacity survives forcing, but pair it with a border style so
+     "unavailable" reads as a state rather than as a rendering accident. */
+  .filter-pill[disabled],
+  .filter-pill.is-empty { border-style: dashed; }
+
+  /* Submit progress: three states, three shapes — empty ring, thick ring, solid disc. The
+     dot is aria-hidden by design (the state is in sr-only text alongside), so a sighted
+     High Contrast user has no fallback if the shapes collapse, and `partial` is a gradient
+     today, i.e. nothing here. The dot grows from 8 to 12px because three ring weights are
+     not separable at 8px: a 3px border on an 8px box is a filled circle, so `partial` and
+     `true` would still read the same.
+     The `[data-done]` selector is carried through so the reset matches the specificity of
+     the state rules in forms.css it is correcting (0,3,0); `data-done` is always present
+     (submit/index.md ships it as "false" and assets/js/submit.js only ever rewrites it). */
+  .progress-link[data-done] .progress-dot {
+    forced-color-adjust: none;
+    height: 0.75rem;
+    width: 0.75rem;
+    background: Canvas;
+    border-color: CanvasText;
+  }
+  .progress-link[data-done="true"] .progress-dot { background: CanvasText; }
+  .progress-link[data-done="partial"] .progress-dot { border-width: 3px; }
+
+  /* Search suggestions: the 15% tint disappears and the 4px left rule resolves to
+     CanvasText on every row, active or not. */
+  .search-option.is-active,
+  .search-option[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-left-color: HighlightText;
+  }
+  .search-option.is-active *,
+  .search-option[aria-selected="true"] * { color: HighlightText; }
+
+  /* "Current" markers whose only surviving cue is font-weight. */
+  .toc-link[aria-current="true"]::before,
+  .progress-link[aria-current="true"]::before { content: "\25b8\00a0"; }
+
+  /* The taxonomy dot is a background-color on an empty box: Canvas on Canvas. */
+  .chip::before { background: CanvasText; }
+
+  /* Cards are raised by shadow-e0 (a box-shadow ring), which forcing drops; give
+     every raised or tinted surface a real edge so the layout keeps its shapes. */
+  .card, .entry-card, .panel, .preview-panel, .progress-rail, .hero-latest { border: 1px solid CanvasText; }
+
+  /* Sticky bars are painted at 95% alpha over a backdrop-blur; forcing keeps the alpha and
+     drops the blur, so the scrolling page bleeds through a bar meant to occlude it. */
+  [data-component="site-header"],
+  .results-header,
+  .wizard-actions.is-sticky { background: Canvas; }
+}

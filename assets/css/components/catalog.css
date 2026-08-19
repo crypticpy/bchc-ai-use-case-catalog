@@ -1,0 +1,251 @@
+/* Catalog surfaces: cards, list rows, filter rail, results header, mobile sheet.
+   Owned by the catalog UI workstream (see docs/design-brief.md → Catalog card, Filter & browse).
+   Elevation: cards are E0 (a shadow ring); the sticky results header sits on surface_tint and only
+   sheets, the filter bar and the compare tray carry shadow-e2. */
+@layer components {
+  /* ---------- Grid + view switch -------------------------------------- */
+  /* The same <li> cards render as a grid or as compact rows; the only
+     difference is data-view on the <ul>, so nothing re-renders on toggle. */
+  /* items-start: a text-only card next to an image card keeps its own height instead
+     of stretching to match and leaving dead space between its chips and its foot. */
+  .entry-grid { @apply grid list-none grid-cols-1 items-start gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3; }
+  .entry-grid[data-view="list"] { @apply grid-cols-1 gap-0 border-t border-brand-line sm:grid-cols-1 xl:grid-cols-1; }
+
+  /* ---------- Card ----------------------------------------------------- */
+  /* The title link's own box is a sliver (its ::after supplies the hit area), so
+     the focus ring is drawn on the card instead — the link opts out in .entry-title a. */
+  /* shadow-e0 (a 1px ink ring drawn as a shadow) instead of a border: the card is
+     an object on the page ground, and the whole grid loses a lattice of grey lines. */
+  .entry-card { @apply relative flex h-full flex-col overflow-hidden rounded-2xl bg-surface-card shadow-e0 focus-within:ring-2 focus-within:ring-brand-primary focus-within:ring-offset-2 focus-within:ring-offset-surface-base; }
+  /* The list settles, it does not blink: assets/js/filters.js marks only the cards
+     that just joined the result set (and the empty state) `is-entering`, so a facet
+     toggle never touches the ones that survived it. Opacity only — nothing moves, so
+     prefers-reduced-motion needs no special case. (The two selectors share a rule so
+     the class in it keeps the attribute-only half out of the purge.) */
+  .entry-card, [data-empty-state] { @apply transition-opacity duration-120 ease-brand; }
+  .entry-card.is-entering, [data-empty-state].is-entering { @apply opacity-0; }
+  /* A band, not a cover shot: at 288px a 16:9 deck render is illegible, and the top
+     band is where a slide or a dashboard puts its title. No scrim — both badge tones
+     (data-tone="accent" and "on-dark") carry their own opaque ground. */
+  .entry-media { @apply relative aspect-[16/7] w-full overflow-hidden border-b border-brand-ink/5 bg-brand-ink/5; }
+  .entry-badges { @apply absolute left-3 top-3 z-10 flex flex-wrap items-center gap-1.5; }
+  .entry-body { @apply flex flex-1 flex-col gap-3 p-5 sm:p-6; }
+  /* Exactly one line: the lead segment shrinks and truncates (its full value is in a
+     sibling sr-only span and on the entry page) so the second segment never wraps and
+     the slot below it starts at the same y on every card in the row.
+     tracking-[0.06em], not the 0.12em the design brief reserves for the single page
+     eyebrow: at 0.12em an org name in a 288px card survived only 15 characters, and
+     buying three back costs nothing here — this is a two-segment run, not an eyebrow. */
+  .entry-meta { @apply flex flex-nowrap items-center gap-x-2 text-[11px] font-semibold uppercase leading-4 tracking-[0.06em] text-brand-muted; }
+  .entry-meta > * { @apply min-w-0; }
+  .entry-meta-segs { @apply flex min-w-0 flex-nowrap items-center gap-x-2; }
+  /* Badges keep their own width whatever the segments do (imageless card). */
+  .entry-meta-badges { @apply flex shrink-0 flex-wrap items-center gap-1.5; }
+  /* An inline badge (imageless card) keeps its own case and tracking. */
+  .entry-meta .badge { @apply normal-case tracking-normal; }
+  /* Kept for _includes/entry-row.html, which still emits a standalone separator. */
+  /* Segments carry their own separator so "·" can never orphan onto its own line. */
+  /* Segments truncate individually so the second one ("· Pilot") stays on the line. */
+  .entry-meta-seg { @apply max-w-[24ch] shrink-0 truncate; }
+  /* A free-text segment (the organisation name) is the one that truncates ("PRAIRIE RIDGE
+     COUNTY …"): it flexes, and is set in sentence case at medium weight, which buys back the
+     ~15% that caps + tracking cost. Select-valued segments (the stage) keep the eyebrow style. */
+  .entry-meta-seg--text { @apply min-w-[10ch] max-w-none shrink normal-case tracking-normal font-medium; }
+  .entry-meta-seg + .entry-meta-seg::before { content: "\00b7"; @apply mr-2 text-brand-line-strong; }
+  /* Reserved slots. The values are the designed heights (2 lines of the slot's own
+     leading), not observed maxima, so one row of cards shares its baselines however
+     long any single card's text is. Each min-height sits with the leading it belongs
+     to — including in the @container steps below, where the title's leading changes. */
+  /* text-wrap: balance evens the two lines the reserved 3rem slot holds, so a
+     card title never leaves one orphaned word on line two. */
+  .entry-title { @apply min-h-[3rem] font-heading text-[18px] font-semibold leading-6 text-brand-primary-dark; text-wrap: balance; }
+  .entry-title a { @apply after:absolute after:inset-0 after:content-[''] hover:text-brand-primary focus-visible:outline-none; }
+  /* The row is never clamped — the icon must stay on the first line — so the clamp
+     goes on the inner span. Two lines: an impact line is usually a figure and a
+     truncated figure is worse than a long one, but three cards deep it has to hold. */
+  .entry-line { @apply flex min-h-[2.5rem] items-start gap-1.5 text-sm font-semibold leading-5 text-brand-ink; }
+  .entry-line > span { @apply line-clamp-2; }
+  .entry-summary { @apply line-clamp-2 min-h-[3rem] text-sm leading-6 text-brand-muted; }
+  .entry-chips { @apply flex min-h-[1.75rem] list-none flex-wrap content-start gap-1.5 p-0 pt-1; }
+  .entry-foot { @apply px-5 pb-5 sm:px-6; }
+  /* No media band: the summary takes the space the picture would have used
+     (the card renders a third chip too — see _includes/entry-card.html). */
+  /* h-auto: with items-start on the grid a text-only card keeps its own height (h-full
+     on .entry-card would still resolve against the row track and stretch it). */
+  .entry-card--text { @apply h-auto; }
+  .entry-card--text .entry-summary { @apply line-clamp-4; }
+
+  /* List view: the card collapses into one row, media and summary drop out. */
+  .entry-grid[data-view="list"] .entry-card { @apply h-auto rounded-none border-0 border-b border-brand-line bg-transparent shadow-none; }
+  .entry-grid[data-view="list"] .entry-media { @apply hidden; }
+  .entry-grid[data-view="list"] .entry-summary { @apply hidden; }
+  .entry-grid[data-view="list"] .entry-body { @apply gap-1.5 px-1 py-4 sm:px-2; }
+  .entry-grid[data-view="list"] .entry-chips { @apply pt-0; }
+  .entry-grid[data-view="list"] .entry-foot { @apply px-1 pb-4 sm:px-2; }
+  .entry-grid[data-view="list"] .signal-strip { @apply border-t-0 pt-0; }
+  /* One row per entry, so there are no neighbouring cards to share baselines with:
+     the reserved slots collapse and the row keeps its compact rhythm. */
+  .entry-grid[data-view="list"] .entry-title,
+  .entry-grid[data-view="list"] .entry-line,
+  .entry-grid[data-view="list"] .entry-chips { @apply min-h-0; }
+
+  /* The card's internals scale to the CARD, not the viewport: the same component is
+     607px wide in a one-column list at 600px and 288px in the three-up grid beside
+     the 272px rail, which is why the viewport steps below get it backwards. Behind
+     @supports so browsers without container queries (pre Chrome 105 / Safari 16 /
+     Firefox 110) keep exactly today's rendering; @supports adds no specificity, so
+     source order alone is what puts these after the base rules — and the
+     [data-view="list"] rules above stay 0,2,1 and outrank all of it. */
+  @supports (container-type: inline-size) {
+    .entry-card { container-type: inline-size; container-name: card; }
+    .entry-body { @apply p-4; }
+    .entry-foot { @apply px-4 pb-4; }
+    /* One fluid ramp instead of a step at 340px: the title grew by 2px in a single
+       jump as a card crossed that width, which is visible when the rail closes and
+       three columns become two. cqi is 1% of the CARD's inline size, so this is
+       a hair under 18px in the narrowest three-up card (17.8px at 288px) and 18px —
+       the designed size — from 300px up; the 1rem floor only bites in a card
+       narrower than any layout produces.
+       The leading is a ratio and the reserved slot is 2em of it, so both track the
+       size instead of needing their own steps. */
+    .entry-title {
+      font-size: clamp(1rem, 0.9rem + 1.2cqi, 1.125rem);
+      line-height: 1.3333;
+      min-height: calc(2 * 1.3333em);
+    }
+    @container card (min-width: 340px) {
+      .entry-body { @apply p-6; }
+      .entry-foot { @apply px-6 pb-6; }
+    }
+    /* Wide enough for the one-column case: a third summary line and an org name
+       that no longer has to truncate at ~24 characters. */
+    @container card (min-width: 460px) {
+      .entry-summary { -webkit-line-clamp: 3; }
+      .entry-meta-seg { @apply max-w-[36ch]; }
+    }
+  }
+
+  /* ---------- Compact row (entry pages: "Related") --------------------- */
+  .entry-row { @apply relative flex flex-col gap-1.5 border-b border-brand-line py-4 last:border-b-0; }
+  .entry-row-title { @apply font-heading text-[17px] font-semibold leading-6 text-brand-primary-dark; }
+  .entry-row-title a { @apply after:absolute after:inset-0 after:content-[''] hover:text-brand-primary; }
+
+  /* ---------- Filter rail + groups ------------------------------------- */
+  .filter-rail { @apply lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:w-[272px] lg:overflow-y-auto lg:pb-12 lg:pr-1; }
+  /* The rail scrolls internally on tall facet sets; fade its bottom edge so a cut-off
+     pill row reads as "more below" (overlay scrollbars give no other cue). pb-12
+     above keeps the last row clear of the fade when scrolled to the end. */
+  @media (min-width: 1024px) {
+    .filter-rail { mask-image: linear-gradient(to bottom, #000 calc(100% - 2.5rem), transparent); }
+  }
+  .filter-group { @apply border-b border-brand-line py-1 last:border-b-0; }
+  .filter-group-toggle { @apply flex w-full items-center justify-between gap-2 rounded-lg py-3 text-left text-sm font-semibold text-brand-primary-dark transition-colors duration-120 ease-brand hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
+  .filter-group-toggle .filter-chevron { @apply transition-transform duration-180 ease-brand; }
+  .filter-group-toggle[aria-expanded="false"] .filter-chevron { @apply -rotate-90; }
+  .filter-group-panel { @apply space-y-5 pb-4; }
+  .filter-legend { @apply mb-2 block text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-brand-muted; }
+  .filter-options { @apply flex flex-wrap gap-1.5; }
+  /* 13px at lg, not 12: the rail is the primary way to browse and its labels are
+     read, not glanced at. The pill still fits the 272px rail two to a row. */
+  .filter-pill { @apply inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-brand-line-strong bg-surface-card px-3.5 text-sm font-medium text-brand-ink transition-colors duration-120 ease-brand hover:border-brand-primary hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card lg:min-h-[32px] lg:text-[13px]; }
+  .filter-pill.is-active, .filter-pill[aria-pressed="true"] { @apply border-brand-primary bg-brand-primary text-white hover:border-brand-primary hover:text-white; }
+  /* Zero-count options recede on three cues at once — muted ink, the faint
+     hairline instead of the strong one, and 70% opacity — because ink alone
+     read as "just another option". WCAG 1.4.3 exempts a disabled control, and
+     the pills are reordered in the DOM rather than with `order`, so tab order
+     still follows the visual order. */
+  .filter-pill[disabled], .filter-pill.is-empty { @apply border-brand-line text-brand-muted opacity-70 hover:border-brand-line hover:text-brand-muted; }
+  .filter-pill > span:first-child { @apply max-w-[13rem] truncate; }
+  .filter-count { @apply text-[11px] tabular-nums text-brand-muted; }
+  .filter-pill.is-active .filter-count, .filter-pill[aria-pressed="true"] .filter-count { @apply text-white; }
+  /* "Skip filters" at the top of the rail: sr-only until focused, then a small
+     pill in the rail's own flow so nothing shifts under the pointer. */
+  .rail-skip { @apply sr-only focus:not-sr-only focus:mb-2 focus:inline-flex focus:min-h-[32px] focus:items-center focus:rounded-full focus:bg-brand-primary focus:px-3 focus:text-xs focus:font-semibold focus:text-white focus:outline-none; }
+  .filter-showall { @apply mt-2 inline-flex min-h-[32px] items-center text-xs font-semibold text-brand-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
+  /* The taxonomy's own plain-language glossary (schema `option_meta.description`),
+     as a disclosure instead of a `title` tooltip: a tooltip reaches only a hovering
+     mouse, and on a pill it also becomes an accessible description that repeats the
+     name on every arrow-key pass. Collapsed, because it must not crowd the 272px rail. */
+  .facet-glossary > summary { @apply filter-showall cursor-pointer list-none; }
+  .facet-glossary > summary::-webkit-details-marker { display: none; }
+  .facet-glossary[open] > summary { @apply mb-1; }
+  .facet-glossary dt { @apply text-xs font-semibold text-brand-ink; }
+  .facet-glossary dd { @apply mb-2 text-xs leading-5 text-brand-muted last:mb-0; }
+
+  /* ---------- Results header ------------------------------------------- */
+  .results-header { @apply sticky top-16 z-30 -mx-4 mb-6 border-b border-brand-line bg-surface-tint/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-b-2xl lg:px-4; }
+  /* tabular-nums: "10 use cases" -> "9 use cases" must not shove the label sideways. */
+  .results-count { @apply font-heading text-lg font-semibold tabular-nums leading-6 text-brand-primary-dark; }
+  .results-total { @apply font-sans text-sm font-normal text-brand-muted; }
+  .results-select { @apply h-11 lg:h-9 rounded-full border border-brand-line-strong bg-surface-card py-0 pl-3 pr-8 text-xs font-medium text-brand-ink focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary; }
+  .active-pill { @apply inline-flex min-h-[44px] items-center gap-1 rounded-full border border-brand-primary bg-brand-primary/10 px-3 text-xs font-medium text-brand-primary-dark lg:min-h-[32px] transition-colors duration-120 hover:bg-brand-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
+  .view-toggle { @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-brand-line-strong text-brand-muted lg:min-h-[32px] lg:min-w-[32px] transition-colors duration-120 hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
+  .view-toggle[aria-pressed="true"] { @apply border-brand-primary bg-brand-primary text-white; }
+
+  /* At 400 % zoom (WCAG 1.4.10 reflow: 320 × 256 CSS px) the sticky site
+     header, sticky results bar and fixed filter bar together outgrow the
+     viewport and no result is ever visible. Below a short viewport the two
+     top bars rejoin the flow; the filter bar stays, it is the route to the
+     facets on small screens. */
+  @media (max-height: 560px) {
+    /* The doubled attribute makes this 0,2,0, above the utility `sticky` on the element. */
+    [data-component="site-header"][data-component] { position: static; }
+    .results-header { @apply static mb-4 rounded-none shadow-none; }
+  }
+
+  /* Without JavaScript the search box, the sort menu, the view switch and every
+     facet control are inert, so they are hidden rather than shipped dead. The
+     inline script in _includes/head.html adds `js` before first paint. */
+  html:not(.js) .results-header-controls, html:not(.js) .filter-rail, html:not(.js) .filter-bar { display: none; }
+
+  /* ---------- Search combobox ------------------------------------------ */
+  /* <search> is display:block in the HTML rendering spec, but a browser that
+     predates the element treats it as an unknown inline and the flex sizing
+     around the combobox collapses. Tailwind's preflight does not cover it. */
+  search { @apply block; }
+  /* The platform clear button sits where the listbox's scrollbar and the pill
+     row already are; the combobox has its own Escape-to-clear, so hide it. */
+  .search-box::-webkit-search-cancel-button { @apply hidden appearance-none; }
+  .search-box { @apply h-11 lg:h-9 w-full rounded-full border border-brand-line-strong bg-surface-card pl-9 pr-3 text-sm text-brand-ink placeholder:text-brand-muted focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary; }
+  .search-listbox { @apply absolute left-0 right-0 z-40 mt-1 max-h-72 list-none overflow-y-auto rounded-xl border border-brand-line bg-surface-card p-0 shadow-e2; }
+  .search-option { @apply flex cursor-pointer items-center justify-between gap-3 border-b border-l-4 border-brand-line border-l-transparent px-3 py-2 text-sm last:border-b-0; }
+  /* A tint alone was 1.18:1 against the neighbouring rows; the rule carries it. */
+  .search-option.is-active, .search-option[aria-selected="true"] { @apply border-l-brand-primary bg-brand-primary/15; }
+  /* A row that applies a filter is not one more document in a list of
+     documents: the standing left rule says so before the chip is read. */
+  .search-option-facet { @apply border-l-brand-primary/40 bg-brand-primary/5; }
+  .search-facet-chip { @apply inline-flex items-center rounded-pill bg-brand-primary px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white; }
+
+  /* ---------- A–Z directory + facet landing pages ---------------------- */
+  /* _layouts/facet-index.html. The jump bar is a real nav of anchors, so it
+     works with JavaScript off — which is the point of the whole page. */
+  .az-jump { @apply flex flex-wrap gap-1 border-y border-brand-line py-2; }
+  .az-jump a { @apply inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-control px-2 text-sm font-semibold tabular-nums text-brand-primary transition-colors duration-fast hover:bg-brand-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base; }
+  .az-block { @apply mt-6 grid gap-x-6 gap-y-2 sm:grid-cols-[3rem_minmax(0,1fr)]; }
+  .az-letter { @apply font-heading text-2xl font-semibold leading-none text-brand-muted; }
+  /* A facet's title is a word, not a letter, so it gets its own row rather than
+     the .az-block letter gutter, which is sized for one character. */
+  .az-facet-block { @apply mt-6 space-y-2; }
+  .az-facet-title { @apply flex items-center gap-2 font-heading text-base font-semibold text-brand-primary-dark; }
+  /* Two columns at sm, so a 40-organization directory is a page, not a scroll. */
+  .az-list { @apply m-0 list-none space-y-3 p-0 sm:columns-2 sm:gap-8 sm:space-y-0; }
+  /* break-inside: a two-line row must not be split across the column gutter. */
+  .az-list > li { @apply mb-3 break-inside-avoid text-sm leading-6; }
+  .az-list a { @apply font-medium text-brand-primary-dark hover:text-brand-primary hover:underline; }
+  .az-note { @apply mt-0.5 block text-xs leading-5 text-brand-muted; }
+  .az-tags { @apply m-0 flex list-none flex-wrap gap-1.5 p-0; }
+  .az-tags a { @apply inline-flex min-h-[36px] items-center gap-2 rounded-pill border border-brand-line-strong bg-surface-card px-3.5 text-[13px] font-medium text-brand-ink transition-colors duration-fast hover:border-brand-primary hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base; }
+  .az-count { @apply text-[11px] tabular-nums text-brand-muted; }
+
+  /* ---------- Mobile filter bar + sheet --------------------------------- */
+  .filter-bar { @apply fixed inset-x-0 bottom-0 z-30 flex items-center justify-center gap-3 border-t border-brand-line bg-surface-card px-4 py-3 shadow-e2 lg:hidden; }
+  .filter-sheet { @apply fixed inset-0 z-50 flex flex-col bg-surface-card lg:hidden; }
+  .filter-sheet-head { @apply flex items-center justify-between gap-3 border-b border-brand-line px-4 py-3; }
+  .filter-sheet-body { @apply flex-1 overflow-y-auto px-4 pb-6; }
+  .filter-sheet-foot { @apply flex items-center gap-3 border-t border-brand-line px-4 py-3 shadow-e2; }
+  /* "Clear" is disabled rather than hidden with nothing to clear (see filters.js),
+     so it needs a resting state: the shape stays, the affordances go. Disabled
+     controls are exempt from 1.4.3, but brand-muted on the card ground still
+     passes rather than the usual 40% wash. */
+  .filter-sheet-foot .btn-secondary:disabled { @apply cursor-not-allowed border-brand-line text-brand-muted hover:border-brand-line hover:bg-surface-card hover:text-brand-muted; }
+}

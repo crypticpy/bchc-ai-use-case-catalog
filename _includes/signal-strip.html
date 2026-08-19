@@ -1,0 +1,57 @@
+{%- comment -%}
+Signal strip: the `card: icon` fields of one entry as icon + short-label glyphs.
+Shared by entry-card.html and entry-row.html so both stay in step.
+
+Usage: {% include signal-strip.html entry=entry class='signal-strip' %}
+Params: entry (required); class (optional, wrapper classes — defaults to "signal-strip").
+Renders nothing when the entry has no signal values.
+
+Cap (design-brief.md → Catalog card): at most FOUR items including one trailing
+"+n". `ss_total` is every value across the icon fields; `ss_cands` is what the
+per-field cap of 2 would let through. As soon as anything has to be hidden the
+glyph budget drops to 3, and n = ss_total - glyphs shown — ONE counter for the
+whole strip rather than one per field.
+
+Local assigns are prefixed `ss_`.
+{%- endcomment -%}
+{%- assign ss_entry = include.entry -%}
+{%- assign ss_icon_fields = site.data.schema.fields | card_fields: 'icon' -%}
+{%- assign ss_class = include.class | default: 'signal-strip' -%}
+{%- assign ss_total = 0 -%}
+{%- assign ss_cands = 0 -%}
+{%- for ss_f in ss_icon_fields -%}
+  {%- assign ss_vals = ss_entry[ss_f.key] | as_list -%}
+  {%- assign ss_total = ss_total | plus: ss_vals.size -%}
+  {%- if ss_vals.size > 2 -%}
+    {%- assign ss_cands = ss_cands | plus: 2 -%}
+  {%- else -%}
+    {%- assign ss_cands = ss_cands | plus: ss_vals.size -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- assign ss_cap = 4 -%}
+{%- if ss_total > ss_cands or ss_cands > 4 -%}{%- assign ss_cap = 3 -%}{%- endif -%}
+{%- assign ss_glyphs = 0 -%}
+{%- capture ss_signals -%}
+  {%- for ss_f in ss_icon_fields -%}
+    {%- if ss_glyphs >= ss_cap -%}{%- break -%}{%- endif -%}
+    {%- assign ss_vals = ss_entry[ss_f.key] | as_list -%}
+    {%- assign ss_shown = 0 -%}
+    {%- for ss_v in ss_vals -%}
+      {%- if ss_glyphs >= ss_cap or ss_shown >= 2 -%}{%- break -%}{%- endif -%}
+      {%- assign ss_om = ss_f | option_meta: ss_v -%}
+      {%- assign ss_tone = 'signal' -%}
+      {%- if ss_om.tone == 'warn' -%}{%- assign ss_tone = 'signal-warn' -%}{%- elsif ss_om.tone == 'primary' -%}{%- assign ss_tone = 'signal-primary' -%}{%- endif -%}
+      {%- capture ss_sig_label -%}{{ ss_f.label }}: {{ ss_v }}{%- endcapture -%}
+      {%- comment -%} No `title`: the sr-only span below already carries the same string, and a title on it becomes an accessible description that repeats the name. {%- endcomment -%}
+      <span class="{{ ss_tone }}">{% include icon.html name=ss_om.icon size='xs' %}<span aria-hidden="true">{{ ss_om.short | escape }}</span><span class="sr-only">{{ ss_sig_label | escape }}</span></span>
+      {%- assign ss_shown = ss_shown | plus: 1 -%}
+      {%- assign ss_glyphs = ss_glyphs | plus: 1 -%}
+    {%- endfor -%}
+  {%- endfor -%}
+  {%- assign ss_more = ss_total | minus: ss_glyphs -%}
+  {%- if ss_glyphs > 0 and ss_more > 0 -%}
+    <span class="signal"><span aria-hidden="true">+{{ ss_more }}</span><span class="sr-only">{{ ss_more }} more</span></span>
+  {%- endif -%}
+{%- endcapture -%}
+{%- assign ss_signals = ss_signals | strip -%}
+{%- if ss_signals != '' -%}<div class="{{ ss_class }}">{{ ss_signals }}</div>{%- endif -%}
