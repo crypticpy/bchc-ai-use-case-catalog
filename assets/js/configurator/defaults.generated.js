@@ -24,11 +24,11 @@ export const SITE = {
     "text": "BCHC"
   },
   "github": {
-    "repository": "crypticpy/bchc-template",
+    "repository": "crypticpy/bchc-ai-use-case-catalog",
     "branch": "main"
   },
   "demo": true,
-  "demo_starter_url": "https://crypticpy.github.io/bchc-catalog-starter/",
+  "demo_starter_url": "",
   "modules": {
     "catalog": true,
     "submit": true,
@@ -99,7 +99,7 @@ export const SITE = {
       },
       {
         "label": "Maintainer guide",
-        "url": "https://github.com/crypticpy/bchc-template/blob/main/docs/admin-guide.md"
+        "url": "https://github.com/crypticpy/bchc-ai-use-case-catalog/blob/main/docs/admin-guide.md"
       }
     ],
     "copyright": "Big Cities Health Coalition",

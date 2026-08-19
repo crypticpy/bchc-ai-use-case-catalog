@@ -23,7 +23,7 @@ logo:
 # GitHub repository that hosts this site, as "owner/repo".
 # Used to build the "Submit" form links, "Edit this page" links, and issue URLs.
 github:
-  repository: "crypticpy/bchc-template"
+  repository: "crypticpy/bchc-ai-use-case-catalog"
   branch: "main"
 
 # Demo mode. `true` puts a banner on every page saying the content is the
@@ -33,7 +33,7 @@ github:
 # through the launch guide — the banner offers it as "what a fresh copy looks
 # like on day one". Only used while `demo` is true; leave blank to omit the link.
 demo: true
-demo_starter_url: "https://crypticpy.github.io/bchc-catalog-starter/"
+demo_starter_url: ""
 
 # Modules: turn site sections on or off. Navigation, home page blocks and
 # workflows adapt automatically.
@@ -108,7 +108,7 @@ footer:
       url: "/submit/"
       module: submit
     - label: "Maintainer guide"
-      url: "https://github.com/crypticpy/bchc-template/blob/main/docs/admin-guide.md"
+      url: "https://github.com/crypticpy/bchc-ai-use-case-catalog/blob/main/docs/admin-guide.md"
   copyright: "Big Cities Health Coalition"
   # One-sentence accessibility statement for the footer. When the governance
   # module is on it links to the full statement at /governance/#accessibility.

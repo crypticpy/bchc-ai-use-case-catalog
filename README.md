@@ -1,25 +1,22 @@
-# Civic Catalog Template
+# BCHC AI Use Case Catalog
 
-A configurable, GitHub-Pages-hosted catalog and resource site, managed entirely through GitHub. There is no server, no database and no CMS login — Jekyll builds the site on GitHub Actions and deploys it to Pages, and every content change flows through a GitHub issue and a pull request.
+A shared catalog of AI use cases, tools and lessons learned from Big Cities Health Coalition member health departments. Member departments publish what they have built — the source repo or vendor product behind it, the data it touches, what staffing it took, what they would do differently — so another city can decide in a couple of minutes whether it is worth reusing.
 
-This repository is shipped configured as the **Big Cities Health Coalition (BCHC) AI Use Case Catalog**, where member health departments share AI use cases — source repos, cloud deployments, vendor solutions, write-ups. The same template can be re-pointed at other uses without touching layout code: a project/asset portal, a cohort or training-program portal where teams publish outputs, an event calendar, or a curated resource library. See [`docs/configuration.md`](docs/configuration.md) for how to retarget it.
+The site is hosted on GitHub Pages and managed entirely through GitHub: no server, no database, no CMS login. Jekyll builds it on GitHub Actions, and every content change flows through a GitHub issue and a pull request.
 
-**Live demo:** [crypticpy.github.io/bchc-template](https://crypticpy.github.io/bchc-template/) — a landing page introducing the template, with four complete sites built from this same repository behind it. Each is a real build with its own fields, filters, colours and sample content, search and submission form included:
+**Live site:** <https://crypticpy.github.io/bchc-ai-use-case-catalog/>
 
-- [AI use case catalog](https://crypticpy.github.io/bchc-template/examples/ai-use-cases/) — the configuration this repository ships with.
-- [Cohort portal](https://crypticpy.github.io/bchc-template/examples/cohort-portal/) — a training program's teams, cohort by cohort, with the events and cohorts modules on.
-- [Resource library](https://crypticpy.github.io/bchc-template/examples/resource-library/) — shorter entries and more of them: guides, toolkits and datasets.
-- [Blank catalog](https://crypticpy.github.io/bchc-template/examples/blank/) — the smallest useful starting point, ready to be renamed.
+## Add an entry
 
-**See what a fresh copy looks like on day one:** [crypticpy.github.io/bchc-catalog-starter](https://crypticpy.github.io/bchc-catalog-starter/) — a copy made from this template by following [`docs/launch.md`](docs/launch.md), configured through the setup wizard, samples removed, one entry published.
+Fill in the [**Submit** form](https://crypticpy.github.io/bchc-ai-use-case-catalog/submit/) on the site — one page, with a live preview of the card your entry will produce — or open the [Submit a use case issue form](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=new-entry.yml) directly. Automation turns the issue into a pull request with the entry drafted and any screenshots downloaded into it; a maintainer reviews and merges, and the entry is live a couple of minutes later.
 
-<p align="center">
-  <img src="docs/images/home.png" alt="Home page: dark hero with search, calls to action, an honest stat line and the newest entries listed alongside; a browse-by grid of the schema's facets underneath." width="720">
-</p>
+## Maintainers
 
-| Catalog | Entry |
-| --- | --- |
-| ![Catalog page: filter rail on the left with counted pills, results header with search, sort and view toggle, and cards carrying an image, a result line, taxonomy chips and a signal strip.](docs/images/catalog.png) | ![Entry page: breadcrumbs, organization and stage eyebrow, title, result line, summary, dates, a documentation button, a four-column fact strip and a screenshot gallery.](docs/images/entry.png) |
+[`docs/admin-guide.md`](docs/admin-guide.md) is the maintainer's manual: reviewing submissions, the content model, editing entries, and configuring the site. [`docs/launch.md`](docs/launch.md) covers first-time setup, and [`docs/configuration.md`](docs/configuration.md) the `_data/*.yml` files that drive everything.
+
+> The catalog currently carries the demo entries the site shipped with — every page says so until they are cleared (`npm run eject:samples`, or the *Apply setup* issue form).
+
+Built on the [Civic Catalog Template](https://github.com/crypticpy/bchc-template); see [`docs/upgrading.md`](docs/upgrading.md) for pulling in template improvements.
 
 ## Features
 
@@ -142,8 +139,6 @@ scripts/                 setup.mjs, generate.mjs, validate.mjs, build_showcase.m
 .github/workflows/       pages, validate, quality (a11y + Lighthouse), smoke, new-entry, thumbnails, new-year, new-event, update-schedule, update-event-attachments,
                          verification-sweep, metrics
 .github/ISSUE_TEMPLATE/  new-entry.yml is generated — do not hand-edit it, run `npm run generate`
-_showcase/<id>/          sample content for the live examples on the template's own deployment; _data/showcase.yml is the
-                         landing page's copy. Both are removed by `npm run eject:samples` (docs/showcase-plan.md)
 catalog/<slug>/index.md  published entries; screenshots live in catalog/<slug>/screenshots/
                          (ten sample entries ship with the template, marked `sample: true`)
 cohorts/<year>/          cohort landing page + event pages (module: cohorts)
