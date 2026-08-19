@@ -97,7 +97,7 @@ const MANUAL_STEPS = [
 function manualStepsCard(repository, branch) {
   const launchGuide = repository
     ? `https://github.com/${repository}/blob/${branch}/docs/launch.md`
-    : 'https://github.com/crypticpy/bchc-template/blob/main/docs/launch.md';
+    : 'https://github.com/crypticpy/phct/blob/main/docs/launch.md';
   return el('section', { class: 'card' }, [
     el('div', { class: 'card-header' }, [
       el('p', { class: 'card-title', text: 'Three things this wizard cannot do for you' }),

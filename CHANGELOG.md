@@ -28,14 +28,14 @@ a fork changes: the showcase is built only while `demo` is `true`, and
   you start from, how publishing works, and the ways in — the launch guide, the
   browser wizard, the day-one starter site.
 - **Four live examples**, each a full build at `/examples/<preset-id>/`:
-  [AI use case catalog](https://crypticpy.github.io/bchc-template/examples/ai-use-cases/)
+  [AI use case catalog](https://crypticpy.github.io/phct/examples/ai-use-cases/)
   (the configuration this repository ships with),
-  [cohort portal](https://crypticpy.github.io/bchc-template/examples/cohort-portal/)
+  [cohort portal](https://crypticpy.github.io/phct/examples/cohort-portal/)
   (six team projects across two cohort years, with the cohorts and events
   modules on),
-  [resource library](https://crypticpy.github.io/bchc-template/examples/resource-library/)
+  [resource library](https://crypticpy.github.io/phct/examples/resource-library/)
   (six guides, toolkits and datasets) and
-  [blank catalog](https://crypticpy.github.io/bchc-template/examples/blank/)
+  [blank catalog](https://crypticpy.github.io/phct/examples/blank/)
   (three entries on the smallest useful schema). The per-example facts on the
   landing's cards — how many fields, how many filters, which modules — are
   generated from `assets/js/configurator/presets.js`, so they cannot drift from
@@ -61,9 +61,9 @@ a fork changes: the showcase is built only while `demo` is `true`, and
 
 ### Changed
 
-- **The template's own deployment.** <https://crypticpy.github.io/bchc-template/>
+- **The template's own deployment.** <https://crypticpy.github.io/phct/>
   is now the landing page; the AI use case catalog it used to be lives at
-  [`/examples/ai-use-cases/`](https://crypticpy.github.io/bchc-template/examples/ai-use-cases/),
+  [`/examples/ai-use-cases/`](https://crypticpy.github.io/phct/examples/ai-use-cases/),
   unchanged. The showcase is opt-in: `pages.yml` builds it only when the
   repository variable `CATALOG_SHOWCASE` is `true` *and* `_data/site.yml`
   still has `demo: true`; a copy of the template never has the variable, so it
@@ -839,14 +839,14 @@ fixed in this release, and the remaining P3s are listed in `docs/roadmap.md`.
   in-browser and CLI configurators, GitHub-issue submission flow, events /
   cohorts / resources modules, Lunr search, thumbnails workflow.
 
-[Unreleased]: https://github.com/crypticpy/bchc-template/compare/v1.7.0...HEAD
-[1.7.0]: https://github.com/crypticpy/bchc-template/compare/v1.6.1...v1.7.0
-[1.6.1]: https://github.com/crypticpy/bchc-template/compare/v1.6.0...v1.6.1
-[1.6.0]: https://github.com/crypticpy/bchc-template/compare/v1.5.0...v1.6.0
-[1.5.0]: https://github.com/crypticpy/bchc-template/compare/v1.4.0...v1.5.0
-[1.4.0]: https://github.com/crypticpy/bchc-template/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/crypticpy/bchc-template/compare/v1.2.0...v1.3.0
-[1.2.0]: https://github.com/crypticpy/bchc-template/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/crypticpy/bchc-template/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/crypticpy/bchc-template/compare/38365a5...v1.0.0
-[0.1.0]: https://github.com/crypticpy/bchc-template/commits/38365a5
+[Unreleased]: https://github.com/crypticpy/phct/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/crypticpy/phct/compare/v1.6.1...v1.7.0
+[1.6.1]: https://github.com/crypticpy/phct/compare/v1.6.0...v1.6.1
+[1.6.0]: https://github.com/crypticpy/phct/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/crypticpy/phct/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/crypticpy/phct/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/crypticpy/phct/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/crypticpy/phct/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/crypticpy/phct/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/crypticpy/phct/compare/38365a5...v1.0.0
+[0.1.0]: https://github.com/crypticpy/phct/commits/38365a5

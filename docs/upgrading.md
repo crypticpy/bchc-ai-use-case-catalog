@@ -24,7 +24,7 @@ conflict, while merging the template's changes into everything else.
 ## One-time setup
 
 ```sh
-git remote add template https://github.com/crypticpy/bchc-template.git
+git remote add template https://github.com/crypticpy/phct.git
 git config merge.ours.driver true
 ```
 

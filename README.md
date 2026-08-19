@@ -16,7 +16,7 @@ Fill in the [**Submit** form](https://crypticpy.github.io/bchc-ai-use-case-catal
 
 > The catalog currently carries the demo entries the site shipped with — every page says so until they are cleared (`npm run eject:samples`, or the *Apply setup* issue form).
 
-Built on the [Civic Catalog Template](https://github.com/crypticpy/bchc-template); see [`docs/upgrading.md`](docs/upgrading.md) for pulling in template improvements.
+Built on the [Civic Catalog Template](https://github.com/crypticpy/phct); see [`docs/upgrading.md`](docs/upgrading.md) for pulling in template improvements.
 
 ## Features
 
@@ -87,7 +87,7 @@ Full reference for every setting: [`docs/configuration.md`](docs/configuration.m
 A fork is a copy, not a subscription: template releases do not reach you on their own. `.gitattributes` marks everything a fork owns — `_config.yml`, `_data/*.yml`, your content, your images, your README — as `merge=ours`, so a template merge updates the code and leaves your site alone.
 
 ```bash
-git remote add template https://github.com/crypticpy/bchc-template.git
+git remote add template https://github.com/crypticpy/phct.git
 git config merge.ours.driver true    # required — without it .gitattributes is inert
 git fetch template --tags
 npm run upgrade:check                # read-only: what the next release would change, in two lists
