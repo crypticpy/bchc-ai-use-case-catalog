@@ -3,10 +3,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import { applyUpdate, parseNameStatusZ, planUpdate } from '../../scripts/apply_phct_update.mjs';
 import { forkOwnershipRules } from '../../scripts/upgrade_check.mjs';
+
+const SCRIPT = fileURLToPath(new URL('../../scripts/apply_phct_update.mjs', import.meta.url));
 
 function git(root, ...args) {
   return execFileSync('git', args, {
@@ -39,6 +42,15 @@ test('the update plan takes template files and leaves deployment files alone', (
   assert.deepEqual(plan.take, ['after.md', 'app.js', 'config/template/schema.yml']);
   assert.deepEqual(plan.remove, ['before.md', 'old.js']);
   assert.deepEqual(plan.preserve, ['config/site.yml']);
+});
+
+test('the CLI runs when invoked through a symlinked path', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phct-update-cli-'));
+  const link = path.join(root, 'apply-update.mjs');
+  fs.symlinkSync(SCRIPT, link);
+  const result = spawnSync(process.execPath, [link], { encoding: 'utf8' });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Usage: node scripts\/apply_phct_update\.mjs/);
 });
 
 test('an unrelated GitHub-template history receives the exact parent diff without conflicts', () => {
