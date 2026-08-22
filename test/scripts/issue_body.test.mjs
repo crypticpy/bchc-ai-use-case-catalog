@@ -65,7 +65,7 @@ test('normalizeLabel folds case, whitespace and an (optional) suffix', () => {
 
 test('parseSections only breaks on known headings', () => {
   const sections = parseSections(basic, LABELS);
-  assert.equal(sections.get('title'), 'Overdose spike situational brief generator');
+  assert.equal(sections.get('title'), 'Service request routing assistant');
   const writeUp = sections.get('full write-up');
   assert.match(writeUp, /### Deep dive/);
   assert.match(writeUp, /One hour, same quality\./);
@@ -275,7 +275,7 @@ test('parseAttachmentRef reads what GitHub’s upload control leaves in the body
 });
 
 test('slugify and uniqueSlug', () => {
-  assert.equal(slugify('Overdose Spike: Brief Generator!'), 'overdose-spike-brief-generator');
+  assert.equal(slugify('Service Request: Routing Assistant!'), 'service-request-routing-assistant');
   assert.equal(slugify(''), '');
   // Folded, not dropped: the folder this names is the entry's URL for ever, and
   // /submit/ has already shown the submitter this same answer.

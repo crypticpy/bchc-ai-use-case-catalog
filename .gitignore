@@ -11,3 +11,6 @@ _config.ci.yml
 /assets/css/site.css
 _config.quality.yml
 .lighthouseci/
+/performance-report.json
+/sbom.cdx.json
+/coverage/

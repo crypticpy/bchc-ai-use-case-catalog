@@ -19,6 +19,7 @@ import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import * as yaml from 'js-yaml';
+import { expectedToolchain, parseToolVersions } from './lib/toolchain.mjs';
 
 const ROOT = process.cwd();
 let failed = false;
@@ -139,13 +140,22 @@ if (ciRepository) {
 
 // --- Ruby checks -----------------------------------------------------------
 
-const rubyAvailable = spawnSync('ruby', ['--version'], { stdio: 'ignore' }).status === 0;
+const expectedRuby = expectedToolchain(ROOT).ruby;
+const rubyResult = spawnSync('ruby', ['--version'], { encoding: 'utf8' });
+const actualRuby = parseToolVersions({ ruby: `${rubyResult.stdout ?? ''}${rubyResult.stderr ?? ''}` }).ruby;
+const rubyAvailable = rubyResult.status === 0;
 
 if (!rubyAvailable) {
-  console.log(
-    '\nSKIP  Ruby checks — `ruby` was not found on your PATH.\n' +
-      '      Front matter and file size validation were NOT run locally; CI will still run them.\n' +
-      '      Install Ruby 3.3+ (e.g. `brew install ruby`) to run the full gate.'
+  report(
+    false,
+    'Ruby checks',
+    `Ruby ${expectedRuby} was not found. Run \`npm run doctor\` for setup instructions; validation cannot pass partially.`
+  );
+} else if (actualRuby !== expectedRuby) {
+  report(
+    false,
+    'Ruby checks',
+    `Found Ruby ${actualRuby || 'unknown'}, expected exactly ${expectedRuby}. Run \`npm run doctor\`; Ruby checks were not run.`
   );
 } else {
   for (const script of ['check_front_matter.rb', 'check_file_sizes.rb']) {

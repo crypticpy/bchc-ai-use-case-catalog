@@ -51,7 +51,7 @@ function frontMatter(file) {
  * Site-relative paths of the entry pages to audit: the first entry with images
  * and the first without (alphabetical), each only if it exists.
  * @param {string} [root] repo root (tests pass a fixture).
- * @returns {string[]} e.g. `['/catalog/epi-signal-triage/', '/catalog/coalition-meeting-notes/']`.
+ * @returns {string[]} e.g. `['/catalog/permit-intake-triage/', '/catalog/council-meeting-summaries/']`.
  */
 function sampleEntryPaths(root = ROOT) {
   const dir = path.join(root, entryPath());

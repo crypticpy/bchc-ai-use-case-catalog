@@ -5,7 +5,7 @@
  *
  *   node scripts/build_showcase.mjs                          into ./_site
  *   node scripts/build_showcase.mjs --destination _site \
- *        --url https://owner.github.io --baseurl /bchc-template
+ *        --url https://owner.github.io --baseurl /phct
  *   node scripts/build_showcase.mjs cohort-portal            landing + that one
  *   node scripts/build_showcase.mjs --keep                   leave the scratch trees
  *

@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible PHCT defect without sensitive information.
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, personal information, PHI, or private security details. Use SECURITY.md for vulnerabilities.
+  - type: input
+    id: version
+    attributes:
+      label: PHCT release and commit
+      description: Copy the tag and full commit from the release or .phct-version.json.
+      placeholder: v1.9.0 / 40-character SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected path
+      options:
+        - Visitor site
+        - Submission or review workflow
+        - Setup or configuration
+        - Build or deployment
+        - Parent update
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Numbered steps using public or fictional data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and recovery message
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, device, or runner
+      placeholder: Safari 19 / iPhone; or ubuntu-latest Actions run URL
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, personal information, PHI, and non-public data.
+          required: true

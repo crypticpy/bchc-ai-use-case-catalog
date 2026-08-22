@@ -8,8 +8,10 @@
 #
 # Runs on pull requests and on `workflow_dispatch` for any ref — a dispatch is
 # how a fork re-runs the gate on a branch (`gh workflow run validate.yml --ref
-# <branch>`), so nothing here reads `github.event.pull_request`. The `status`
-# job posts the result back onto the dispatched commit.
+# <branch>`). That dispatch also calls the candidate branch's Performance,
+# Supply chain, and CodeQL workflows. This lets an older deployment run new
+# release gates before those workflow paths exist on its default branch. The
+# `status` job posts the aggregate result back onto the dispatched commit.
 name: Validate Content
 
 on:
@@ -44,17 +46,24 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
-          ruby-version: "3.3"
           bundler-cache: true
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version-file: ".node-version"
           cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
 
       - name: Install npm dependencies
         run: npm ci
+
+      - name: Verify exact toolchain and PHCT ownership contract
+        run: |
+          git config merge.ours.driver true
+          npm run doctor
 
       - name: Generated files are in sync with _data/schema.yml
         # Fails when .github/ISSUE_TEMPLATE/new-entry.yml, _config.yml or the
@@ -82,10 +91,11 @@ jobs:
       - name: Build CSS
         run: npm run build:css
 
-      - name: Build site
-        env:
-          JEKYLL_ENV: production
-        run: bundle exec jekyll build --destination _site
+      - name: Run Jekyll doctor and build the production site
+        run: npm run build:release
+
+      - name: Check built links, assets, anchors, sitemap, feed, and JSON
+        run: npm run links:check
 
   build-matrix:
     name: Build every preset and module combination
@@ -103,24 +113,91 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
-          ruby-version: "3.3"
           bundler-cache: true
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version-file: ".node-version"
           cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
 
       - name: Install npm dependencies
         run: npm ci
 
-      # One runner, one bundle install, eight Jekyll builds — the builds
+      # One runner, one bundle install, nine Jekyll builds — the builds
       # themselves are seconds each, so sharding would cost more in setup than
       # it saves. `BUILD_VARIANTS` is read by test/build/variants.test.mjs if
       # this ever does need splitting across runners.
       - name: Build every variant and check the rendered copy
         run: npm run test:build
+
+  coverage:
+    name: Coverage evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          bundler-cache: true
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Enforce reviewed coverage floors
+        run: npm run coverage
+
+      - name: Upload coverage evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 30
+
+  performance:
+    name: Performance and scale
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      statuses: write
+    uses: ./.github/workflows/performance.yml
+
+  supply-chain:
+    name: Supply chain
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      statuses: write
+    uses: ./.github/workflows/supply-chain.yml
+
+  codeql:
+    name: CodeQL
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    permissions:
+      contents: read
+      security-events: write
+      statuses: write
+    uses: ./.github/workflows/codeql.yml
 
   status:
     # `gh workflow run validate.yml --ref <branch>` produces a run with no
@@ -129,7 +206,7 @@ jobs:
     # instead. `statuses: write` is scoped to this job and nothing else.
     name: Report the dispatched run on its commit
     if: ${{ always() && github.event_name == 'workflow_dispatch' }}
-    needs: [checks, build-matrix]
+    needs: [checks, build-matrix, coverage, performance, supply-chain, codeql]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

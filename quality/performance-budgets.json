@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "supported_entries": 100,
+  "target_entries": 500,
+  "budgets": {
+    "build_ms": 60000,
+    "artifact_bytes": 104857600,
+    "artifact_files": 5000,
+    "catalog_html_gzip_bytes": 102400,
+    "catalog_dom_nodes": 12000,
+    "css_gzip_bytes": 30720,
+    "javascript_gzip_bytes": 40960,
+    "search_json_gzip_bytes": 512000,
+    "entries_json_gzip_bytes": 512000
+  },
+  "interaction_budgets": {
+    "filter_response_p95_ms": 100,
+    "search_response_p95_ms": 250
+  },
+  "scale_budgets": {
+    "500": {
+      "search_json_gzip_bytes": 512000
+    }
+  }
+}

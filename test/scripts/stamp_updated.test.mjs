@@ -18,8 +18,8 @@ import { changedEntryFiles, stampFrontMatter, stampUpdated, today } from '../../
 
 const ENTRY = `---
 layout: entry
-title: "Overdose spike brief"   # keep the comment
-slug: overdose-spike-brief
+title: "Service request routing"   # keep the comment
+slug: service-request-routing
 summary: "One paragraph."
 published: 2026-05-02
 featured: false
@@ -49,7 +49,7 @@ function repo() {
   };
   git('init', '-q', '-b', 'main');
   write('_data/schema.yml', 'entry:\n  path: "catalog"\nfields: []\n');
-  write('catalog/overdose-spike-brief/index.md', ENTRY);
+  write('catalog/service-request-routing/index.md', ENTRY);
   write('catalog/sample-one/index.md', ENTRY.replace('featured: false', 'featured: false\nsample: true'));
   git('add', '-A');
   git('commit', '-q', '-m', 'first');
@@ -118,15 +118,15 @@ test('stampFrontMatter keeps CRLF line endings and never doubles the key', () =>
 
 test('changedEntryFiles lists modified entry files only — not added ones, not attachments', () => {
   const r = repo();
-  r.write('catalog/overdose-spike-brief/index.md', ENTRY.replace('One paragraph.', 'Two paragraphs.'));
-  r.write('catalog/overdose-spike-brief/screenshots/a.png', 'png');
-  r.write('catalog/brand-new/index.md', ENTRY.replace('overdose-spike-brief', 'brand-new'));
+  r.write('catalog/service-request-routing/index.md', ENTRY.replace('One paragraph.', 'Two paragraphs.'));
+  r.write('catalog/service-request-routing/screenshots/a.png', 'png');
+  r.write('catalog/brand-new/index.md', ENTRY.replace('service-request-routing', 'brand-new'));
   r.write('_data/schema.yml', 'entry:\n  path: "catalog"\nfields: [{ key: x }]\n');
   r.git('add', '-A');
   r.git('commit', '-q', '-m', 'edits');
   const second = r.git('rev-parse', 'HEAD');
   assert.deepEqual(changedEntryFiles(r.root, r.first, second, 'catalog'), [
-    'catalog/overdose-spike-brief/index.md',
+    'catalog/service-request-routing/index.md',
   ]);
   // A slug rename plus an edit in one push: without --no-renames git reports
   // it as R and the edit would go unstamped.
@@ -140,7 +140,7 @@ test('changedEntryFiles lists modified entry files only — not added ones, not 
   const third = r.git('rev-parse', 'HEAD');
   assert.deepEqual(changedEntryFiles(r.root, second, third, 'catalog'), []);
   assert.deepEqual(changedEntryFiles(r.root, r.first, third, 'catalog'), [
-    'catalog/overdose-spike-brief/index.md',
+    'catalog/service-request-routing/index.md',
   ]);
   assert.deepEqual(
     changedEntryFiles(r.root, '0'.repeat(40), second, 'catalog'),
@@ -156,7 +156,7 @@ test('changedEntryFiles lists modified entry files only — not added ones, not 
 
 test('stampUpdated writes the date into the edited entry and nowhere else, and is idempotent', () => {
   const r = repo();
-  r.write('catalog/overdose-spike-brief/index.md', ENTRY.replace('One paragraph.', 'Two paragraphs.'));
+  r.write('catalog/service-request-routing/index.md', ENTRY.replace('One paragraph.', 'Two paragraphs.'));
   r.write(
     'catalog/sample-one/index.md',
     r.read('catalog/sample-one/index.md').replace('One paragraph.', 'Edited.')
@@ -166,17 +166,17 @@ test('stampUpdated writes the date into the edited entry and nowhere else, and i
   const second = r.git('rev-parse', 'HEAD');
 
   const planned = stampUpdated(r.root, { before: r.first, after: second, date: '2026-08-18', dryRun: true });
-  assert.deepEqual(planned.stamped, ['catalog/overdose-spike-brief/index.md']);
+  assert.deepEqual(planned.stamped, ['catalog/service-request-routing/index.md']);
   assert.deepEqual(planned.skipped, [{ file: 'catalog/sample-one/index.md', reason: 'sample' }]);
   assert.doesNotMatch(
-    r.read('catalog/overdose-spike-brief/index.md'),
+    r.read('catalog/service-request-routing/index.md'),
     /updated:/,
     '--dry-run writes nothing'
   );
 
   const done = stampUpdated(r.root, { before: r.first, after: second, date: '2026-08-18' });
   assert.deepEqual(done.stamped, planned.stamped);
-  assert.match(r.read('catalog/overdose-spike-brief/index.md'), /^updated: 2026-08-18$/m);
+  assert.match(r.read('catalog/service-request-routing/index.md'), /^updated: 2026-08-18$/m);
   assert.doesNotMatch(r.read('catalog/sample-one/index.md'), /updated:/);
 
   // The workflow commits that and, with a bot token, may run again on it.
@@ -185,12 +185,12 @@ test('stampUpdated writes the date into the edited entry and nowhere else, and i
   const third = r.git('rev-parse', 'HEAD');
   const again = stampUpdated(r.root, { before: second, after: third, date: '2026-08-18' });
   assert.deepEqual(again.stamped, []);
-  assert.deepEqual(again.skipped, [{ file: 'catalog/overdose-spike-brief/index.md', reason: 'current' }]);
+  assert.deepEqual(again.skipped, [{ file: 'catalog/service-request-routing/index.md', reason: 'current' }]);
 });
 
 test('the CLI stamps with just the two shas — no --date needed — and reports through GITHUB_OUTPUT', () => {
   const r = repo();
-  r.write('catalog/overdose-spike-brief/index.md', ENTRY.replace('One paragraph.', 'Two paragraphs.'));
+  r.write('catalog/service-request-routing/index.md', ENTRY.replace('One paragraph.', 'Two paragraphs.'));
   r.git('add', '-A');
   r.git('commit', '-q', '-m', 'edits');
   const second = r.git('rev-parse', 'HEAD');
@@ -205,17 +205,17 @@ test('the CLI stamps with just the two shas — no --date needed — and reports
 
   const dry = run(r.first, second, '--dry-run');
   assert.equal(dry.status, 0, dry.stderr);
-  assert.match(dry.stdout, /would stamp catalog\/overdose-spike-brief\/index\.md \(\d{4}-\d{2}-\d{2}\)/);
+  assert.match(dry.stdout, /would stamp catalog\/service-request-routing\/index\.md \(\d{4}-\d{2}-\d{2}\)/);
 
   const dated = run(r.first, second, '--date', '2026-08-18');
   assert.equal(dated.status, 0, dated.stderr);
-  assert.match(dated.stdout, /^stamped catalog\/overdose-spike-brief\/index\.md \(2026-08-18\)$/m);
+  assert.match(dated.stdout, /^stamped catalog\/service-request-routing\/index\.md \(2026-08-18\)$/m);
   assert.match(
     fs.readFileSync(outputFile, 'utf8'),
     /^count<<GHEOF_count_[0-9a-f]+\n1\n/m,
     'heredoc-safe outputs'
   );
-  assert.match(fs.readFileSync(outputFile, 'utf8'), /catalog\/overdose-spike-brief\/index\.md/);
+  assert.match(fs.readFileSync(outputFile, 'utf8'), /catalog\/service-request-routing\/index\.md/);
 
   assert.equal(run(r.first).status, 2, 'one sha is a usage error');
   assert.equal(run(r.first, second, '--date', 'yesterday').status, 2, 'so is a malformed date');

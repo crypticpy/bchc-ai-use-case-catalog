@@ -164,10 +164,8 @@ Each item is either a bare string (the `src`) or a mapping with `src` and `alt`.
 
 ```yaml
 screenshots:
-  - src: /catalog/epi-signal-triage/screenshots/01.png
-    alt: "Triage queue listing seven ranked signals with area, signal strength and status."
-  - src: /catalog/epi-signal-triage/screenshots/02.png
-    alt: "Draft triage note beside a bar chart of daily visit counts, marked as awaiting review."
+  - src: /catalog/permit-intake-triage/screenshots/01.png
+    alt: "Intake queue showing permit applications with type, completeness check, missing documents and routing status."
 ```
 
 - **Where the files live**: inside the entry's own folder, conventionally `catalog/<slug>/screenshots/`. The scaffolder writes them as `01.png`, `02.jpg`, … in the order the submitter attached them.
@@ -311,60 +309,88 @@ Three shipped fields carry `escalate_on`, matching the governance page's "partne
 
 ## Worked example
 
-A complete entry, `catalog/epi-signal-triage/index.md`:
+A complete entry, `catalog/permit-intake-triage/index.md`:
 
 ```yaml
 ---
 layout: entry
 render_with_liquid: false
-title: "Syndromic surveillance signal triage assistant"
-slug: epi-signal-triage
-summary: "Reads the daily syndromic alert export, drafts a plain-language note for each signal, and ranks the ones an epidemiologist should open first."
-published: 2026-06-18
-updated: 2026-07-30
+title: "Permit application intake triage"
+slug: permit-intake-triage
+summary: "Reads incoming building and trade permit applications, checks them against the submittal requirements for that permit type, and routes complete ones straight to a plan reviewer."
+published: 2026-02-24
+updated: 2026-06-30
+verified: 2026-07-28
 featured: true
-impact: "Cut daily alert review from 90 to 30 minutes for two analysts"
-organization: "Lakeshore City Department of Public Health"
+sample: true
+impact: "Applications returned for a missing document fell from 46% to 12% of intake"
+organization: "Mid-sized city — Development Services"
+review_status: "Reviewed & approved"
 solution_type: "Source code"
+use_case_category: "Administrative & task automation"
 area:
-  - "Epidemiology & surveillance"
+  - "IT & operations"
   - "Data & informatics"
-stage: "Pilot"
-ai_role: "AI is part of the solution"
+  - "Policy & planning"
+stage: "In production"
+ai_role: "Both"
 ai_types:
-  - "Generative text (LLM)"
   - "Classification & NLP"
+  - "Document Q&A (RAG)"
+  - "Computer vision"
 ai_tools:
-  - "Claude (API)"
+  - "Azure OpenAI Service"
+  - "Azure AI Document Intelligence"
   - "Python"
+  - "Terraform"
 platform:
   - "Microsoft Azure"
-expertise: "Analyst or data scientist"
+expertise: "Developer"
 readiness:
   - "Needs customization"
   - "Human review built in"
-repo_url: "https://github.com/example-org/signal-triage"
-docs_url: "https://github.com/example-org/signal-triage/wiki"
+repo_url: "https://github.com/example-org/permit-intake-triage"
+docs_url: "https://docs.example.gov/permit-intake-triage/architecture"
 resources:
-  - label: "Evaluation notebook (PDF)"
-    url: "https://docs.example.gov/lakeshore/signal-triage-evaluation.pdf"
+  - label: "Submittal checklist rubric (shared doc)"
+    url: "https://docs.example.org/document/d/7h2k9p4m/edit"
+  - label: "Shadow-period evaluation (PDF)"
+    url: "https://docs.example.gov/permit-intake-triage/shadow-evaluation.pdf"
 screenshots:
-  - src: /catalog/epi-signal-triage/screenshots/01.png
-    alt: "Triage queue listing seven ranked signals with area, signal strength and status."
+  - src: /catalog/permit-intake-triage/screenshots/01.png
+    alt: "Intake queue showing permit applications with type, completeness check, missing documents and routing status."
+license: "MIT"
+portability: "Partially — with rework"
+portability_notes: "The rubric, the prompts and the queue logic are plain Python and travel anywhere. Document parsing uses Azure AI Document Intelligence; a team on another cloud would swap that for its own OCR service and re-tune the field extraction, which is about two weeks of work."
+cost_band: "$25k–$100k"
+run_cost: "Under $10k/yr"
+procurement:
+  - "Existing enterprise licence"
+  - "No procurement needed"
+approvals:
+  - "Privacy review"
+  - "Security review or authority to operate"
+  - "Records retention review"
+equity_note: "Everyone who applies for a permit is affected, and the group most helped is the one least likely to have a permit expediter: homeowners and small contractors filing on their own, who accounted for most of the returned-for-corrections queue. We compare the return rate for self-filed and agent-filed applications every month. Completeness is the only thing the model judges — it never scores an applicant, and no approval decision is made from its output."
+no_pii_attestation: true
 data_sensitivity:
-  - "De-identified data"
+  - "Personal information (PII)"
   - "Internal, non-public data"
 data_sources:
-  - "Syndromic surveillance alert export"
-  - "Facility visit counts"
+  - "Permitting system application records"
+  - "Uploaded submittal documents (PDF, DWG cover sheets)"
+  - "Submittal requirement tables by permit type"
 audience: "Internal staff"
-contact_name: "Priya Natarajan"
-contact_email: "priya.natarajan@example.org"
+data_governance_notes: "Applications carry applicant names, addresses and contact details. Everything stays inside the city's own Azure subscription, nothing is used to train a model, and extracted text is deleted after 30 days while the permit record itself follows the existing retention schedule. No real application data appears in this entry or its screenshot."
+contact_name: "Permitting systems lead"
+contact_title: "Development Services Department"
+contact_email: "permit-systems@example.org"
 ---
 
 ## Problem
 
-…the markdown field's content becomes the page body…
+Roughly 9,000 permit applications a year arrive through the online portal, and close to half of them were returned to the applicant for something missing — an unsigned form, no site plan, an expired contractor licence. A permit technician found that out by opening every attachment and comparing it against a submittal checklist that lives in a different document for each of 34 permit types. The check took eight to ten minutes per application, and the queue ran three to five days behind for most of the year.
+The cost of that delay was not evenly spread. An applicant with a permit expediter on retainer got their corrections back the same afternoon. A homeowner filing their own deck permit waited a week to find out they had forgotten one form.
 ```
 
 Rules the validator enforces: `slug` equals the folder name, `published` (and `updated` when present) is a real `YYYY-MM-DD` date, every required field is non-blank, `select`/`multiselect` values appear verbatim in `options`, `url` fields are `http(s)`, `email` fields contain `@`, `images` point at files that exist, `links` have a label and a URL, and — a warning by default, a failure under `entry.require_link` — the entry has at least one link somewhere.

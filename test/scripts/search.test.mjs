@@ -40,6 +40,7 @@ async function boot(options = {}) {
   });
   const dom = new JSDOM('<!doctype html><body>' + HTML + '</body>', {
     url: 'https://example.org/catalog/',
+    pretendToBeVisual: true,
     runScripts: 'outside-only',
     virtualConsole,
   });
@@ -93,7 +94,7 @@ async function boot(options = {}) {
 }
 
 /**
- * Let the 120ms debounce fire and every chained promise resolve.
+ * Let the 50ms debounce fire and every chained promise resolve.
  * @param {object} window
  */
 function settle(window) {
@@ -314,6 +315,46 @@ test('a query with no hits closes the listbox and empties the grid', async () =>
 
   assert.equal(page.listbox.hidden, true);
   assert.deepEqual([...page.window.__searchMatches], []);
+});
+
+test('prefix and fuzzy matching remain available when an exact query has no hits', async () => {
+  const page = await boot();
+  await page.type('notic');
+  assert.ok(page.window.__searchMatches.has('notice-translation'));
+
+  await page.type('reviewr');
+  assert.ok(page.window.__searchMatches.has('notice-translation'));
+});
+
+test("one exact word does not suppress another word's prefix or fuzzy recall", async () => {
+  const page = await boot();
+  await page.type('review notic');
+  assert.ok(page.rows().some((row) => row.dataset.url.includes('/permit-tracker/')));
+
+  await page.type('review grnt');
+  assert.ok(page.rows().some((row) => row.dataset.url.includes('/grant-finder/')));
+});
+
+test('a common literal query keeps title relevance without expensive fuzzy expansion', async () => {
+  const index = {
+    synonyms: {},
+    docs: Array.from({ length: 30 }, (_, at) => ({
+      i: at,
+      id: `common-${at}`,
+      kind: 'entry',
+      title: at === 0 ? 'Common service' : `Service ${at}`,
+      summary: '',
+      facets: '',
+      sections: [{ h: 'Evidence', a: 'evidence', t: 'A common operational pattern.' }],
+      url: `/catalog/common-${at}/`,
+    })),
+  };
+  const page = await boot({ index });
+  await page.type('common');
+
+  assert.equal(page.window.__searchMatches.size, 1);
+  assert.equal(page.window.__searchOrder[0], 'common-0');
+  assert.match(page.more.textContent, /Show 29 more/);
 });
 
 test('without lunr the box reports itself unavailable instead of throwing', async () => {

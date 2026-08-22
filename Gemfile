@@ -9,4 +9,5 @@ gem "sass-embedded", "~> 1.77"
 
 group :test do
   gem "minitest", "~> 5.25"
+  gem "bundler-audit", "0.9.3", require: false
 end

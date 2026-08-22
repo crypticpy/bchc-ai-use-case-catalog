@@ -30,7 +30,7 @@ const ISSUE_BODY = fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'issue-ba
 function dryRunOutput(cwd) {
   const result = spawnSync(process.execPath, [SCRIPT, '--dry-run'], {
     cwd,
-    env: { ...process.env, ISSUE_BODY, ISSUE_TITLE: '[Use case] Overdose spike brief', ISSUE_NUMBER: '7' },
+    env: { ...process.env, ISSUE_BODY, ISSUE_TITLE: '[Use case] Service request routing', ISSUE_NUMBER: '7' },
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr);
@@ -69,7 +69,7 @@ test('a schema without entry.status_key writes no status at all', () => {
     // The field is still a schema field, so it is emitted as the (blank) answer
     // the issue carried; what must NOT happen is a default being invented.
     assert.notEqual(fm.review_status, 'Under review');
-    assert.equal(fm.title, 'Overdose spike situational brief generator');
+    assert.equal(fm.title, 'Service request routing assistant');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

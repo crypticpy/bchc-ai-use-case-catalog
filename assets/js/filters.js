@@ -153,6 +153,9 @@ import {
   }
 
   let lastPush = 0;
+  let urlFrame = null;
+  let urlTimer = null;
+  let queuedPush = false;
   /**
    * Serialize `state`/`sort`/`view` back onto the URL.
    * @param {boolean} push true to push a new history entry (a toggle), false
@@ -175,6 +178,28 @@ import {
     } else {
       window.history.replaceState(null, '', url);
     }
+  }
+
+  /**
+   * Let the filtered/sorted DOM paint before history serialization. pushState
+   * can be surprisingly expensive on a throttled mobile CPU; it must not hold
+   * the visible answer behind bookkeeping that the reader cannot see.
+   * Multiple changes inside one frame collapse into the newest state, while
+   * retaining a push when any of those changes represented a user action.
+   * @param {boolean} push whether the next history write should add an entry.
+   */
+  function queueUrl(push) {
+    queuedPush = queuedPush || push;
+    if (urlFrame !== null) return;
+    urlFrame = window.requestAnimationFrame(() => {
+      urlFrame = null;
+      const shouldPush = queuedPush;
+      queuedPush = false;
+      urlTimer = setTimeout(() => {
+        urlTimer = null;
+        writeUrl(shouldPush);
+      }, 0);
+    });
   }
 
   /* -------------------------------------------------------------- matching */
@@ -440,8 +465,9 @@ import {
   }
 
   function update(push) {
-    writeUrl(push !== false);
     render();
+    if (push === false) writeUrl(false);
+    else queueUrl(true);
   }
 
   /**
@@ -554,6 +580,11 @@ import {
   });
 
   window.addEventListener('popstate', () => {
+    if (urlFrame !== null) window.cancelAnimationFrame(urlFrame);
+    if (urlTimer !== null) clearTimeout(urlTimer);
+    urlFrame = null;
+    urlTimer = null;
+    queuedPush = false;
     readUrl();
     syncRelevanceOption();
     if (searchInput) searchInput.dispatchEvent(new Event('input', { bubbles: true }));

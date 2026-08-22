@@ -31,6 +31,8 @@ Local assigns are prefixed `rc_` so nothing leaks into the caller's scope.
 {%- assign rc_fields = include.fields | fields_in_group: include.group -%}
 {%- assign rc_entry = include.entry -%}
 {%- assign rc_shown = include.shown | default: '' -%}
+{%- assign rc_demo_sample = false -%}
+{%- if site.data.site.demo and rc_entry.sample -%}{%- assign rc_demo_sample = true -%}{%- endif -%}
 {%- capture rc_default_id -%}rail-{{ include.group }}{%- endcapture -%}
 {%- assign rc_id = include.id | default: rc_default_id -%}
 
@@ -91,7 +93,11 @@ I found your entry "{{ rc_entry.title }}" in the {{ rc_site_name }} and wanted t
       <p class="text-xs text-brand-muted">{{ rc_entry[rc_f.key] | escape }}<span class="sr-only"> ({{ rc_f.label | escape }})</span></p>
         {%- endfor -%}
       {%- endif -%}
+      {%- if rc_demo_sample -%}
+      <p class="rail-link text-brand-muted">{% include icon.html name='info' size='sm' class='shrink-0' %}<span class="min-w-0">Fictional contact — demo only</span><span class="sr-only"> ({{ rc_email_f.label | escape }})</span></p>
+      {%- else -%}
       <a class="rail-link" href="mailto:{{ rc_email | escape }}?subject={{ rc_mail_subject | query_encode }}&amp;body={{ rc_mail_body | query_encode }}">{% include icon.html name='mail' size='sm' class='shrink-0 text-brand-primary' %}<span class="min-w-0 break-all">{{ rc_email | escape }}</span><span class="sr-only"> ({{ rc_email_f.label | escape }})</span></a>
+      {%- endif -%}
       {%- comment -%}
       A second door, off by default only in the sense that a site with no
       repository or with Discussions disabled must not advertise it. The private
@@ -99,7 +105,7 @@ I found your entry "{{ rc_entry.title }}" in the {{ rc_site_name }} and wanted t
       everyone who searches it later, which is the whole premise of the catalog.
       {%- endcomment -%}
       {%- assign rc_repo = site.data.site.github.repository -%}
-      {%- if site.data.site.contact.ask_in_open and rc_repo and rc_repo != '' -%}
+      {%- if site.data.site.contact.ask_in_open and rc_repo and rc_repo != '' and rc_demo_sample == false -%}
         <a class="rail-link" href="https://github.com/{{ rc_repo }}/discussions/new?category=q-a&amp;title={{ rc_mail_subject | query_encode }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='chat' size='sm' class='shrink-0 text-brand-primary' %}<span class="min-w-0">Ask in the open<span class="block text-xs font-normal text-brand-muted">so the answer helps the next person</span></span><span class="sr-only"> (opens a discussion in a new tab)</span></a>
       {%- endif -%}
     </div>
@@ -120,11 +126,18 @@ I found your entry "{{ rc_entry.title }}" in the {{ rc_site_name }} and wanted t
           {%- assign rc_label = rc_l.label | default: rc_url -%}
           {%- if rc_url == nil or rc_url == '' -%}{%- continue -%}{%- endif -%}
           <li>
+            {%- if rc_demo_sample -%}
+            <span class="rail-link text-brand-muted">
+              {% include icon.html name='info' size='sm' class='mt-0.5 shrink-0' %}
+              <span class="min-w-0"><span class="block leading-snug">{{ rc_label | escape }}</span><span class="block text-xs">Sample resource — not live</span></span>
+            </span>
+            {%- else -%}
             <a class="rail-link" href="{{ rc_url | escape }}" target="_blank" rel="noopener noreferrer">
               {% include icon.html name='link' size='sm' class='mt-0.5 shrink-0 text-brand-primary' %}
               <span class="min-w-0"><span class="block leading-snug">{{ rc_label | escape }}</span><span class="link-host block truncate text-xs text-brand-muted">{{ rc_url | link_host | escape }}</span></span>
               <span class="sr-only"> (opens in a new tab)</span>
             </a>
+            {%- endif -%}
           </li>
         {%- endfor -%}
       </ul>

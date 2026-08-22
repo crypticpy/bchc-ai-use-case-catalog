@@ -97,6 +97,7 @@ async function boot(options = {}) {
   virtualConsole.on('jsdomError', () => {});
   const dom = new JSDOM('<!doctype html><body>' + HTML + '</body>', {
     url: 'https://example.org/catalog/',
+    pretendToBeVisual: true,
     runScripts: 'outside-only',
     virtualConsole,
   });
@@ -142,7 +143,7 @@ async function boot(options = {}) {
 }
 
 /**
- * Let the 120ms debounce fire and every chained promise resolve.
+ * Let the 50ms debounce fire and every chained promise resolve.
  * @param {object} window
  */
 function settle(window) {

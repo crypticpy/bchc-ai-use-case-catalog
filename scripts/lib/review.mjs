@@ -100,7 +100,7 @@ export function escalations(fields, values) {
  *   the schema's status field (`entry.status_key`), what the scaffold wrote
  *   (`status_scaffold_value`) and what approval means (`status_approved_value`)
  * @param {{reason: string}[]} [options.escalations] from `escalations()`
- * @param {string} [options.entryDir] e.g. `catalog/overdose-spike-brief`
+ * @param {string} [options.entryDir] e.g. `catalog/service-request-routing`
  * @returns {string} markdown, starting with a `### Closer review` block when
  *   there is anything to escalate, then `### Maintainer checklist`.
  */

@@ -1,0 +1,39 @@
+name: Accessibility problem
+description: Report a barrier in PHCT or one of its generated examples.
+title: "[Accessibility] "
+labels: [accessibility]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page or feature
+      placeholder: /catalog/ filter dialog
+    validations:
+      required: true
+  - type: textarea
+    id: barrier
+    attributes:
+      label: Barrier encountered
+      description: Explain the task, where progress stopped, and what feedback was or was not available.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and assistive technology
+      placeholder: Firefox with NVDA; Safari with VoiceOver; keyboard only; 400% zoom
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected accessible behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: Any attachment or URL is public and contains no personal, health, credential, or non-public information.
+          required: true

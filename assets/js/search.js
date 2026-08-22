@@ -23,28 +23,9 @@
 //                                         reader might type for it
 //   window.__catalogFilters.apply(k, v)   turn one of them on
 //
-// VOCABULARY-AWARE SEARCH. A catalog's taxonomy is its best answer and its
-// worst-kept secret: someone types "chatbot", the tag is called "Chat
-// assistant", and full-text search reports nothing. So before the lunr pass the
-// query is matched against the filter vocabulary — every option's label, its
-// `option_meta`, and the aliases in _data/search.yml — and any hit is offered
-// FIRST, as a filter rather than a document. It is the better answer twice
-// over: it is exhaustive where a text hit is a sample, and it teaches the word
-// the catalog actually uses. Separately, `synonyms` from _data/search.yml ride
-// along in /search.json and widen the lunr query itself, at a lower boost than
-// the literal term so a synonym can never outrank a real hit.
-//
-// Entry hits narrow the card grid; hits of other kinds (events, cohorts) and the
-// top entry hits are offered in the listbox. A failed index load shows a visible
-// message and retries once — the rejected promise is never memoized.
-//
-// Because the whole write-up is indexed, OR-recall over full bodies is noisy: a
-// common word matches half the catalog on a passing mention. The score
-// distribution is not ambiguous, though (for "notice": 6.64, then 0.52 0.39 0.38),
-// so the grid keeps only hits scoring at least RELEVANCE_FLOOR of the top hit and
-// offers the rest behind one button. That is strictly better than tightening the
-// fuzzy radius: typo tolerance here is good (`dashbord` finds the dashboard) and
-// the noise is genuine body matches, not typos.
+// Vocabulary matches lead as filter suggestions; configured synonyms widen
+// document recall at lower weight. A relevance floor keeps passing body mentions
+// behind an explicit “show more” action without removing typo tolerance.
 (function () {
   const input = document.querySelector('[data-filter="search"]');
   if (!input) return;
@@ -81,6 +62,7 @@
   // suggestion list that needs scrolling is a second search problem.
   const MAX_VOCAB_ROWS = 3;
   const MAX_EMPTY_CHIPS = 4;
+  const MAX_CARD_ANNOTATIONS = 20;
   // Below this the query is a prefix of half the taxonomy and every suggestion
   // is noise.
   const MIN_VOCAB_QUERY = 2;
@@ -98,6 +80,8 @@
   let runSeq = 0;
   // The query whose relevance floor the reader has lifted, if any.
   let lifted = null;
+  let annotationFrame = null;
+  let annotationTimer = null;
 
   // Unhide before writing: a live region that is still `display:none` when its
   // text changes is not announced by every screen reader.
@@ -127,6 +111,52 @@
     });
     doc.body = parts.join(' ');
     doc.spans = spans;
+    doc.literal = Object.fromEntries(
+      ['title', 'summary', 'facets', 'body'].map((field) => [field, String(doc[field] || '').toLowerCase()])
+    );
+  }
+
+  function literalCount(value, term) {
+    const text = String(value || '');
+    let count = 0;
+    let at = text.indexOf(term);
+    while (at >= 0) {
+      const before = at > 0 && /[\p{L}\p{N}]/u.test(text[at - 1]);
+      const end = at + term.length;
+      const after = end < text.length && /[\p{L}\p{N}]/u.test(text[end]);
+      if (!before && !after) count += 1;
+      at = text.indexOf(term, at + Math.max(1, term.length));
+    }
+    return count;
+  }
+
+  /** Avoid expensive relevance scoring when one literal word matches much of the supported catalog. */
+  function commonLiteralQuery(terms, extra) {
+    if (terms.length !== 1 || extra.length) return null;
+    const term = terms[0];
+    const fields = [
+      ['title', 10],
+      ['summary', 4],
+      ['facets', 3],
+      ['body', 1],
+    ];
+    const hits = docs
+      .map((doc, index) => {
+        let score = 0;
+        const metadata = {};
+        fields.forEach(([field, boost]) => {
+          const count = literalCount(doc.literal[field], term);
+          if (!count) return;
+          metadata[field] = {};
+          score += boost * Math.log1p(count);
+        });
+        return score ? { doc, score, meta: { [term]: metadata }, index } : null;
+      })
+      .filter(Boolean);
+    if (hits.length < 25) return null;
+    return hits
+      .sort((left, right) => right.score - left.score || left.index - right.index)
+      .map(({ doc, score, meta }) => ({ doc, score, meta }));
   }
 
   /**
@@ -158,7 +188,6 @@
           this.field('summary', { boost: 4 });
           this.field('facets', { boost: 3 });
           this.field('body');
-          // Positions are what let a result explain itself (see snippetFor).
           this.metadataWhitelist = ['position'];
           docs.forEach((d, i) =>
             this.add({
@@ -185,8 +214,8 @@
   }
 
   /**
-   * Run a lunr query, boosting exact term matches over trailing-wildcard and
-   * fuzzy (edit-distance 1, for terms > 3 chars) matches.
+   * Keep prefix/typo recall for every word in a multi-term query; otherwise an
+   * exact hit for one word can hide another word's approximate matches.
    * @param {string} q raw search box value.
    * @returns {{doc: object, score: number, meta: object}[]} ranked hits.
    */
@@ -196,18 +225,25 @@
     const terms = lower.split(/\s+/).filter(Boolean);
     if (!terms.length) return [];
     const extra = expand(lower, terms);
-    let hits;
-    try {
-      hits = idx.query((qb) => {
+    const common = commonLiteralQuery(terms, extra);
+    if (common) return common;
+    const search = (approximate) =>
+      idx.query((qb) => {
         terms.forEach((t) => {
           qb.term(t, { boost: 10 });
-          qb.term(t, { wildcard: lunr.Query.wildcard.TRAILING, boost: 3 });
-          if (t.length > 3) qb.term(t, { editDistance: 1 });
+          if (approximate) {
+            qb.term(t, { wildcard: lunr.Query.wildcard.TRAILING, boost: 3 });
+            if (t.length > 3) qb.term(t, { editDistance: 1 });
+          }
         });
         // Boost 1 against the literal term's 10: a synonym broadens the recall
         // without ever reordering the hits the reader's own words earned.
         extra.forEach((t) => qb.term(t, { boost: 1 }));
       });
+    let hits;
+    try {
+      hits = search(false);
+      if (!hits.length || terms.length > 1) hits = search(true);
     } catch (e) {
       hits = [];
     }
@@ -321,11 +357,25 @@
   function snippetFor(hit) {
     const text = hit.doc.body || '';
     if (!text) return null;
+    const lower = text.toLowerCase();
     let best = null;
     Object.keys(hit.meta || {}).forEach((term) => {
-      const positions = (hit.meta[term].body || {}).position;
-      if (!positions || !positions.length) return;
-      const [start, length] = positions[0];
+      if (!hit.meta[term].body) return;
+      const position = hit.meta[term].body.position?.[0];
+      let start;
+      let length;
+      if (position) [start, length] = position;
+      else {
+        const needle = term.toLowerCase();
+        start = lower.indexOf(needle);
+        while (start > 0 && /[\p{L}\p{N}]/u.test(text[start - 1])) {
+          start = lower.indexOf(needle, start + 1);
+        }
+        if (start < 0) return;
+        let end = start + needle.length;
+        while (end < text.length && /[\p{L}\p{N}]/u.test(text[end])) end += 1;
+        length = end - start;
+      }
       if (!best || start < best[0]) best = [start, length];
     });
     if (!best) return null;
@@ -610,6 +660,26 @@
     });
   }
 
+  /** Clear stale snippets now, then decorate the highest-ranked cards after the filtered grid can paint. */
+  function queueCardAnnotations(hits) {
+    if (annotationFrame !== null) window.cancelAnimationFrame(annotationFrame);
+    if (annotationTimer !== null) clearTimeout(annotationTimer);
+    annotationFrame = null;
+    annotationTimer = null;
+    document.querySelectorAll('[data-match-slot]').forEach((slot) => {
+      slot.textContent = '';
+      slot.hidden = true;
+    });
+    if (!hits.length) return;
+    annotationFrame = window.requestAnimationFrame(() => {
+      annotationFrame = null;
+      annotationTimer = setTimeout(() => {
+        annotationTimer = null;
+        annotateCards(hits.slice(0, MAX_CARD_ANNOTATIONS));
+      }, 0);
+    });
+  }
+
   /**
    * Publish the entry hits that clear the relevance floor, and offer the rest.
    * @param {object[]} entries entry hits in ranked order.
@@ -622,7 +692,7 @@
     const weak = entries.length - strong.length;
     const ids = strong.map((h) => h.doc.id);
     announce(new Set(ids), ids);
-    annotateCards(strong);
+    queueCardAnnotations(strong);
 
     if (!floorEl || !moreBtn) return;
     floorEl.hidden = weak === 0;
@@ -648,7 +718,7 @@
     if (!q) {
       lifted = null;
       if (floorEl) floorEl.hidden = true;
-      annotateCards([]);
+      queueCardAnnotations([]);
       renderSuggestions([]);
       announce(null, []);
       close();
@@ -684,8 +754,9 @@
 
   input.addEventListener('input', () => {
     lifted = null;
+    queueCardAnnotations([]);
     clearTimeout(timer);
-    timer = setTimeout(run, 120);
+    timer = setTimeout(run, 50);
   });
   input.addEventListener('focus', () => load());
 

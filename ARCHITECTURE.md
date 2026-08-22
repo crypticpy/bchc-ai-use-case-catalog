@@ -103,8 +103,9 @@ run identically in tests.
 | `new-entry.yml` | issue labelled `content:new-entry` | `scripts/new_entry_from_issue.mjs` (+ `lib/issue_body`, `lib/images`, `lib/yaml`, `lib/review` for the checklist and `escalate_on`) | PR adding `catalog/<slug>/` with downloaded screenshots, the maintainer checklist and `review:*` labels |
 | `thumbnails.yml` | PR touching `catalog/**` | `scripts/thumbnail_sources.mjs` + `pdftoppm` | commits `thumb.jpg` from `deck.pdf` |
 | `new-event.yml`, `new-year.yml`, `update-schedule.yml`, `update-event-attachments.yml` | issue templates for the events/cohorts modules | matching `scripts/*` | PRs against `_data/` |
-| `validate.yml` | PR / push | `generate.mjs --check`, `npm test`, `npm run test:ruby`, `npm run validate`, CSS + Jekyll build | the merge gate |
-| `quality.yml` | PR / push to main | `pa11y-ci` (WCAG 2 AA) + Lighthouse CI over `_site` | accessibility gate; performance/SEO warn |
+| `validate.yml` | PR / push | `generate.mjs --check`, `npm test`, `npm run coverage`, `npm run test:ruby`, `npm run validate`, CSS + Jekyll build | the merge gate; coverage evidence is retained as an artifact even when its reviewed floors fail |
+| `performance.yml` | PR / push to main / aggregate dispatch | `performance_fixture.mjs` + `interaction_performance.mjs` | deterministic 0–1,000-entry build/payload evidence plus blocking 100-entry filter/search p95 in low-end-mobile Chrome |
+| `quality.yml` | PR / push to main | `pa11y-ci` (WCAG 2 AA), keyboard flows, and blocking desktop/mobile Lighthouse budgets over `_site` | browser accessibility and performance gate |
 | `pages.yml` | push to main | `scripts/stamp_updated.mjs` (stamps `updated:` on modified entries, commits back), then CSS build + Jekyll build with the repo-derived `baseurl` — or `scripts/build_showcase.mjs` when this deployment is the showcase (see below) | deploys to GitHub Pages, tells the submitter |
 | `smoke.yml` | weekly | full build | catches upstream breakage |
 | `metrics.yml` | monthly (2nd) / manual | `scripts/metrics.mjs` — two read-only REST calls (issues by label, closed PRs by branch prefix) plus the entries' `entry.contributor_key` values, four calendar quarters | commits `_data/metrics.json` when the figures changed, dispatches `pages.yml`; the governance page renders it as "How the catalog is doing" |
@@ -154,6 +155,11 @@ Fonts are self-hosted variable woff2 subsets (`assets/fonts/README.md`).
 
 - `npm test` — Node's built-in runner over `test/**/*.test.mjs`: configurator modules, issue-body
   parsing, image download rules, YAML emission, and jsdom tests of the submit form.
+- `npm run coverage` — the pinned runtimes' built-in coverage over the complete Node and Ruby
+  suites, plus focused Node security-parser and parent-updater groups. `scripts/coverage.mjs` and
+  `scripts/ruby_coverage.rb` record line, branch, and function/method evidence under `coverage/`
+  and enforce conservative regression floors. Reports explicitly say they cover production files
+  loaded by the suites; the numbers do not replace adversarial or end-to-end tests.
 - `npm run test:ruby` — minitest for `scripts/check_front_matter.rb`.
 - `npm run validate` — parses every `_data/*.yml`, then runs the front-matter and file-size checks.
 - `npm run a11y` / `npm run lighthouse` — the same audits `quality.yml` runs, against a local server

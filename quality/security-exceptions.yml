@@ -1,0 +1,12 @@
+schema_version: 1
+exceptions: []
+# Replace the empty list only after the documented P2 approval. Example shape:
+# exceptions:
+#   - id: GHSA-xxxx-xxxx-xxxx
+#     ecosystem: npm
+#     package: exact-package-name
+#     severity: high
+#     priority: P2
+#     owner: "@accountable-maintainer"
+#     reason: "Tracking issue URL, mitigation, and why an immediate patch is unavailable."
+#     expires: 2026-09-01

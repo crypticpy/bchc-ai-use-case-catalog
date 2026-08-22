@@ -2,7 +2,7 @@
 # Builds the site with url set to the local server, serves _site, then:
 #   * pa11y-ci (axe + HTML_CodeSniffer, WCAG 2 AA) over the pages in quality/pa11yci.js (entry URLs discovered from the built site) — FAILS the job on any issue
 #   * the assistive-technology flow tests (test/a11y/flows.test.mjs): keyboard-only walkthroughs across pages and states, which a per-page audit cannot see — FAILS the job
-#   * Lighthouse CI over quality/lighthouserc.js, once per form factor — accessibility >= 0.95 is an error, other categories warn
+#   * Lighthouse CI over quality/lighthouserc.js, once per form factor — every checked budget blocks release
 #
 # The tools are not in package.json so `npm ci` in the other workflows stays
 # fast; their versions are pinned in quality/package.json and read by
@@ -33,7 +33,7 @@ env:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,14 +45,16 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
-          ruby-version: "3.3"
           bundler-cache: true
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version-file: ".node-version"
           cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
 
       - name: Install npm dependencies
         run: npm ci
@@ -70,7 +72,7 @@ jobs:
 
       - name: Serve _site
         run: |
-          python3 -m http.server 4173 --directory _site >/dev/null 2>&1 &
+          node scripts/serve_built_site.mjs --port 4173 --directory _site >/dev/null 2>&1 &
           for _ in $(seq 1 30); do curl -sf "$QUALITY_BASE_URL/" >/dev/null && break; sleep 1; done
           curl -sf -o /dev/null "$QUALITY_BASE_URL/" || { echo "server did not start"; exit 1; }
 
@@ -84,13 +86,16 @@ jobs:
         id: showcase
         env:
           CATALOG_SHOWCASE: ${{ vars.CATALOG_SHOWCASE }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           demo="$(ruby -ryaml -e 'puts YAML.load_file("_data/site.yml")["demo"] == true')"
           build=false
-          if [[ "$demo" == "true" && "$CATALOG_SHOWCASE" == "true" ]]; then build=true; fi
+          if [[ "$demo" == "true" && ( "$REPOSITORY" == "crypticpy/phct" || "$CATALOG_SHOWCASE" == "true" ) ]]; then
+            build=true
+          fi
           echo "build=$build" >> "$GITHUB_OUTPUT"
-          echo "Showcase: $build (demo=$demo, CATALOG_SHOWCASE='${CATALOG_SHOWCASE}')"
+          echo "Showcase: $build (repository=$REPOSITORY, demo=$demo, CATALOG_SHOWCASE='${CATALOG_SHOWCASE}')"
 
       # The landing and one example — enough for the landing's markup and the
       # example switcher without quadrupling the build. Built outside the
@@ -105,7 +110,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/build_showcase.mjs --destination "$SHOWCASE_DIR" --url "$SHOWCASE_BASE_URL" cohort-portal
-          python3 -m http.server 4174 --directory "$SHOWCASE_DIR" >/dev/null 2>&1 &
+          node scripts/serve_built_site.mjs --port 4174 --directory "$SHOWCASE_DIR" >/dev/null 2>&1 &
           for _ in $(seq 1 30); do curl -sf "$SHOWCASE_BASE_URL/" >/dev/null && break; sleep 1; done
           curl -sf -o /dev/null "$SHOWCASE_BASE_URL/" || { echo "showcase server did not start"; exit 1; }
           {

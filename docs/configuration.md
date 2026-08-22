@@ -31,7 +31,7 @@ Used to build the `/submit/` form's GitHub issue URL, the "Suggest an edit on Gi
 
 ```yaml
 demo: true
-demo_starter_url: "https://crypticpy.github.io/bchc-catalog-starter/"
+demo_starter_url: ""
 ```
 
 While `demo` is `true`, every page carries a **Demo content** banner
@@ -41,9 +41,8 @@ fictional health departments with nothing to say so.
 
 `demo_starter_url` is optional. Set it to a copy of the template that has already been through
 [launch.md](launch.md) — configured, samples removed, one entry — and the banner adds "See what a
-fresh copy looks like on day one" with that link. It ships pointing at the template's own starter
-copy; blank it (or delete the key) to drop the sentence. It is only read while `demo` is `true`, so
-there is nothing to clean up once the banner is off.
+fresh copy looks like on day one" with that link. It ships blank, which drops the sentence. It is
+only read while `demo` is `true`, so there is nothing to clean up once the banner is off.
 
 It is turned off by whatever removes the content: `npm run eject:samples`, the **Remove the demo
 content** checkbox on the Apply setup issue, or `npm run setup`'s last question. Delete the key
@@ -75,7 +74,7 @@ Each toggle does three things:
 2. Shows or hides the module's block on the home page (`index.md` checks `cfg.modules.<name>`).
 3. **Removes the module's pages from the build entirely.** `_plugins/modules.rb` runs on `post_read` and drops any page whose URL starts with the module's path prefix when that module is off — those pages are not built, not in the sitemap, and not in `search.json`. Prefixes come from `_data/modules.yml` (`/cohorts/`, `/events/`, `/governance/`, `/resources/`, `/submit/`); `catalog`'s prefix is derived from the schema's `entry.path` instead, since it has to track the configured entry folder. Turning the module back on brings its pages back on the next build without further changes.
 
-The shipped BCHC configuration has `catalog`, `submit`, `carousel`, `stats` and `governance` on, and `events`, `cohorts` and `resources` off. Sample data for the three off-by-default modules still ships in `_data/`, so turning one on gives you something to look at immediately.
+The shipped `ai-use-cases` configuration has `catalog`, `submit`, `carousel`, `stats` and `governance` on, and `events`, `cohorts` and `resources` off. Sample data for the three off-by-default modules still ships in `_data/`, so turning one on gives you something to look at immediately.
 
 ### Home page copy
 
@@ -274,7 +273,7 @@ outro: "…"                      # closing paragraph beside the contact button
 
 `body` fields are Markdown. Policy `id`s become section anchors, so keep them stable once published — the footer links to `#accessibility` when a policy with that id exists, and outside pages may link to any of them; do not reuse the page's own section ids (`review`, `criteria`, `roles`, `questions`). The closing block renders a mail button from `organization.contact_email` and links to the repository's `docs/contributor-guide.md` and `CODE_OF_CONDUCT.md`, built from `github.repository`/`github.branch`, so a fork's links point at the fork.
 
-It ships with the Big Cities Health Coalition text as a worked example. Unlike `events.yml` and `resources.yml`, it is not sample rows that can be emptied — an empty file would render a page of bare headings — and it names one coalition's committees and timelines, so `npm run eject:samples` (and the wizard's *Remove the demo content* step) switch the module off (`governance: false` in `_data/site.yml`) rather than touching the file. Rewrite it in your own words, then turn the module back on.
+It ships with an invented public-sector community of practice's text as a worked example. Unlike `events.yml` and `resources.yml`, it is not sample rows that can be emptied — an empty file would render a page of bare headings — and it names one community's committees and timelines, so `npm run eject:samples` (and the wizard's *Remove the demo content* step) switch the module off (`governance: false` in `_data/site.yml`) rather than touching the file. Rewrite it in your own words, then turn the module back on.
 
 ### Optional keys the metrics block reads
 
@@ -382,12 +381,13 @@ The example matching the site's own name — the configuration this repository s
 others are built with `github.repository` blank, so their submission forms explain that there is
 nowhere to send answers rather than linking at a repository that is not theirs.
 
-**This is the template's deployment, not yours.** The showcase is opt-in: `.github/workflows/pages.yml`
-builds it only when the repository variable `CATALOG_SHOWCASE` is `true` (Settings → Secrets and
-variables → Actions → Variables) *and* `demo` is still `true` in `_data/site.yml`. A copy of the
-template never has the variable, so it deploys the single ordinary build from its first push — even
-before the samples are ejected. Set the variable to `true` on your own copy only if you want your
-own showcase, and delete it to stop.
+**This is the template's deployment, not yours.** `.github/workflows/pages.yml` always builds the
+showcase in the canonical `crypticpy/phct` repository while `demo` is still `true` in
+`_data/site.yml`. Another repository must explicitly opt in with the `CATALOG_SHOWCASE` repository
+variable (Settings → Secrets and variables → Actions → Variables). A normal copy never has that
+variable, so it deploys the single ordinary build from its first push — even before the samples are
+ejected. Set the variable to `true` on your own copy only if you want a showcase, and delete it to
+stop.
 `npm run eject:samples` removes `_showcase/`, `_data/showcase.yml` and `assets/images/showcase/`
 along with the rest of the sample content, and turning `demo` off is what ends the showcase.
 

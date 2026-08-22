@@ -44,6 +44,15 @@ export default [
       globals: { ...globals.node, ...globals.browser },
     },
   },
+  // This release probe is a Node CLI whose page.evaluate() callbacks run in Chrome.
+  {
+    files: ['scripts/interaction_performance.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
   // quality/ is CommonJS (its own package.json): pa11y-ci and Lighthouse CI require() their configs.
   {
     files: ['quality/**/*.js'],

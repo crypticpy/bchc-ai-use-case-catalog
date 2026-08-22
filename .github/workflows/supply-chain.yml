@@ -1,20 +1,91 @@
-# GitHub registers manually dispatched workflow paths from the default branch.
-# The PHCT update replaces this fail-closed registration stub on its branch;
-# dispatching that ref then runs the candidate's complete supply-chain workflow.
 name: Supply chain
 
 on:
+  workflow_call:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "43 6 * * 2"
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
+
+concurrency:
+  group: supply-chain-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  registration:
-    name: Replace this registration stub through a PHCT update
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Ruby from .ruby-version
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          bundler-cache: true
+
+      - name: Setup Node from .node-version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Validate the security exception register
+        run: node scripts/check_security_exceptions.mjs
+
+      - name: Audit npm and Ruby dependencies against approved exceptions
+        run: npm run security:audit
+
+      - name: Review dependency licenses
+        run: npm run licenses:check
+
+      - name: Generate release SBOM
+        run: npm run sbom -- --output sbom.cdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 90
+
+  status:
+    name: Report the dispatched run on its commit
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    needs: [audit]
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+
     steps:
-      - name: Refuse to report a bootstrap stub as a release gate
-        run: |
-          echo "::error title=PHCT update required::This registration stub is not a supply-chain gate. Run it only on a branch where the protected PHCT updater has installed the candidate workflow."
-          exit 1
+      - name: Post a commit status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const passed = ${{ toJSON(needs.audit.result) }} === 'success';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: passed ? 'success' : 'failure',
+              context: 'Supply chain (dispatch)',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: passed ? 'Dependency and SBOM gates passed' : 'Supply-chain gates reported problems',
+            });

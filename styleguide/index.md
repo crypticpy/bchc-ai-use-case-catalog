@@ -54,7 +54,7 @@ Reference: docs/design-system.md. Local assigns are prefixed `sg_`.
     <p class="section-lead mt-2">Headings: <strong>{{ sg_theme.fonts.heading }}</strong> · Body: <strong>{{ sg_theme.fonts.body }}</strong>. Sentence case everywhere; the eyebrow is the only uppercase style.</p>
     <div class="card mt-6 divide-y divide-brand-line">
       <div class="p-6"><p class="eyebrow">Display clamp(36–48)/1.08 · .hero-title</p><p class="hero-title mt-2 text-brand-primary-dark">Every pixel reduces a decision</p></div>
-      <div class="p-6"><p class="eyebrow">H1 32/38 · .page-title</p><p class="page-title mt-2">Syndromic surveillance signal triage assistant</p></div>
+      <div class="p-6"><p class="eyebrow">H1 32/38 · .page-title</p><p class="page-title mt-2">Permit application intake triage</p></div>
       <div class="p-6"><p class="eyebrow">H2 28/34 · .section-title</p><p class="section-title mt-2">What we built</p></div>
       <div class="p-6"><p class="eyebrow">Card title 18/24 · .entry-title</p><p class="entry-title mt-2">Plain-language rewrites for public notices</p></div>
       <div class="p-6"><p class="eyebrow">Body 16/26 · measure --measure</p><p class="mt-2 text-base leading-relaxed text-brand-ink" style="max-width: var(--measure)">A scheduled job pulls the alert export each night. For every signal it assembles fourteen days of visit history, the expected count from a simple seasonal baseline, and the relevant syndrome definition.</p></div>
@@ -173,7 +173,7 @@ Reference: docs/design-system.md. Local assigns are prefixed `sg_`.
       <div class="field">
         <label class="field-label" for="sg-title">Title <span class="field-required">Required</span></label>
         <p class="field-help" id="sg-title-help">A short, specific name — what someone would call it in a meeting.</p>
-        <input id="sg-title" class="field-input" type="text" aria-describedby="sg-title-help" placeholder="Syndromic signal triage assistant">
+        <input id="sg-title" class="field-input" type="text" aria-describedby="sg-title-help" placeholder="Permit application intake triage">
       </div>
       <div class="field">
         <label class="field-label" for="sg-url">Source URL</label>

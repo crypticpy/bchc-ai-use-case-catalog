@@ -21,13 +21,15 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
-          ruby-version: "3.3"
           bundler-cache: true
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version-file: ".node-version"
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
 
       - name: Install npm dependencies
         run: npm ci
