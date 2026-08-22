@@ -42,7 +42,7 @@ export const SITE = {
   "hero": {
     "eyebrow": "Big Cities Health Coalition · AI Community of Practice",
     "title": "What health departments are building with AI",
-    "lead": "Browse real solutions from member cities — source code, cloud deployments, vendor implementations and write-ups — and share your own so others can learn, reuse and adapt.",
+    "lead": "Preview realistic sample use cases modeled on common public-health needs, and see how approved member submissions will present code, deployments, vendor details and lessons learned.",
     "primary_cta": {
       "label": "Browse the catalog",
       "url": "/catalog/",
@@ -61,11 +61,11 @@ export const SITE = {
     "highlights": [
       {
         "title": "Start from what already works",
-        "body": "Every entry links to code, deployments or vendor details so your team can evaluate and adapt quickly."
+        "body": "Each sample entry shows where code, deployments or vendor details will appear after a real submission is reviewed and approved."
       },
       {
         "title": "Honest notes on what it took",
-        "body": "Entries capture data sources, tools, staffing and lessons learned — not just the demo."
+        "body": "The demo shows how entries can capture data sources, tools, staffing and lessons learned — not just a project description."
       },
       {
         "title": "One form, one review, then it's live",
@@ -86,7 +86,7 @@ export const SITE = {
     "ask_in_open": true
   },
   "footer": {
-    "about": "A collaborative catalog maintained by the coalition's AI community of practice. Content is contributed by member health departments and reviewed before publication.",
+    "about": "A demonstration of a collaborative catalog for the coalition's AI community of practice. All current entries are fictional samples; member submissions will be reviewed before publication.",
     "links": [
       {
         "label": "Big Cities Health Coalition",
