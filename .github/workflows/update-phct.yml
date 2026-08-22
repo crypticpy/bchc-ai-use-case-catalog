@@ -48,6 +48,9 @@ jobs:
           node-version-file: ".node-version"
           cache: npm
 
+      - name: Select exact current npm
+        run: node scripts/install_exact_npm.mjs
+
       - name: Install npm dependencies
         run: npm ci
 
@@ -129,6 +132,9 @@ jobs:
         with:
           node-version-file: ".node-version"
           cache: npm
+
+      - name: Select exact candidate npm
+        run: node scripts/install_exact_npm.mjs
 
       - name: Install the candidate npm dependencies
         run: npm ci

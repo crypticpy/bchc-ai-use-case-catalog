@@ -121,7 +121,12 @@ test('the landing chrome keeps external links and the pages the landing has', ()
 /* ------------------------------------------------------------ the built site */
 
 const ENABLED = process.env.RUN_BUILD_TESTS === '1';
-const ready = ENABLED ? preflight() : { ok: false, reason: 'set RUN_BUILD_TESTS=1 (`npm run test:build`)' };
+const SHOWCASE_CONFIGURED = fs.existsSync(path.join(ROOT, '_data', 'showcase.yml'));
+const ready = !ENABLED
+  ? { ok: false, reason: 'set RUN_BUILD_TESTS=1 (`npm run test:build`)' }
+  : !SHOWCASE_CONFIGURED
+    ? { ok: false, reason: 'this downstream does not deploy the PHCT showcase' }
+    : preflight();
 
 /** Parsed `<dir>/<page>/index.html`. */
 function page(siteDir, urlPath) {
