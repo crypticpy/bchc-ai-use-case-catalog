@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Apply one immutable PHCT release diff to an unrelated downstream history. */
+/** Reconcile one immutable PHCT release into an unrelated downstream history. */
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -89,6 +89,38 @@ export function planUpdate(changes, rules) {
   };
 }
 
+/**
+ * Reconcile the complete template-owned tree, including files that were
+ * unchanged between parent releases but removed or edited downstream.
+ *
+ * @param {string[]} targetFiles
+ * @param {string[]} currentFiles
+ * @param {{pattern: string, owned: boolean}[]} rules
+ */
+export function planReconciliation(targetFiles, currentFiles, rules) {
+  const target = new Set(targetFiles);
+  const take = targetFiles.filter((file) => !isForkOwned(rules, file)).sort();
+  const remove = currentFiles.filter((file) => !target.has(file) && !isForkOwned(rules, file)).sort();
+  const preserve = [...new Set([...targetFiles, ...currentFiles])]
+    .filter((file) => isForkOwned(rules, file))
+    .sort();
+  return { take, remove, preserve };
+}
+
+function nulList(output) {
+  const values = String(output ?? '').split('\0');
+  if (values.at(-1) === '') values.pop();
+  return values;
+}
+
+function batches(values, size = 100) {
+  const result = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+}
+
 function assertRef(root, ref, label) {
   if (!isImmutableUpdateRef(ref)) {
     throw new Error(`${label} must be an immutable semantic-version tag, update ref, or full SHA.`);
@@ -97,8 +129,8 @@ function assertRef(root, ref, label) {
 }
 
 /**
- * Apply the exact parent diff without assuming that the GitHub-template clone
- * shares commit ancestry with PHCT.
+ * Reconcile the complete template-owned target tree without assuming that the
+ * GitHub-template clone shares commit ancestry with PHCT.
  *
  * @param {{root?: string, from: string, to: string}} options
  */
@@ -111,13 +143,15 @@ export function applyUpdate({ root = ROOT, from, to }) {
   const changes = parseNameStatusZ(
     git(root, ['diff', '--name-status', '-z', '--find-renames', from, to, '--'])
   );
-  const plan = planUpdate(changes, rules);
+  const targetFiles = nulList(git(root, ['ls-tree', '-r', '-z', '--name-only', to, '--']));
+  const currentFiles = nulList(git(root, ['ls-files', '-z']));
+  const plan = planReconciliation(targetFiles, currentFiles, rules);
 
-  for (const file of plan.remove) {
-    git(root, ['rm', '--quiet', '--force', '--ignore-unmatch', '--', file]);
+  for (const batch of batches(plan.remove)) {
+    git(root, ['rm', '--quiet', '--force', '--ignore-unmatch', '--', ...batch]);
   }
-  for (const file of plan.take) {
-    git(root, ['checkout', '--quiet', to, '--', file]);
+  for (const batch of batches(plan.take)) {
+    git(root, ['checkout', '--quiet', to, '--', ...batch]);
   }
 
   const unmerged = git(root, ['diff', '--name-only', '--diff-filter=U', '--']).trim();
@@ -146,7 +180,7 @@ function main(argv) {
   try {
     const result = applyUpdate({ from, to });
     console.log(
-      `Applied ${result.take.length + result.remove.length} template-owned changes from ${from} to ${to}; preserved ${result.preserve.length} deployment-owned paths.`
+      `Reconciled ${result.take.length + result.remove.length} template-owned paths to ${to} from ${result.changes.length} parent changes; preserved ${result.preserve.length} deployment-owned paths.`
     );
     return 0;
   } catch (error) {

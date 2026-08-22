@@ -117,7 +117,7 @@ jobs:
 
       # The parent release may change either runtime pin. Node at the start of
       # the job belongs to the currently consumed downstream version and only
-      # runs the bootstrap checks; select both candidate versions after applying the parent diff.
+      # runs the bootstrap checks; select both candidate versions after reconciling the parent tree.
       - name: Setup candidate Ruby from the applied .ruby-version
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
@@ -196,7 +196,7 @@ jobs:
             printf 'Exact parent commit: `%s`\n\n' "$COMMIT"
             printf '### Automated evidence\n\n'
             printf -- '- [x] Before/after checksum manifests prove every protected deployment file is byte-identical\n'
-            printf -- '- [x] The exact parent diff was applied without assuming shared Git ancestry\n'
+            printf -- '- [x] The complete template-owned tree matches the target without assuming shared Git ancestry\n'
             printf -- '- [x] Generated outputs were rebuilt from deployment configuration\n'
             printf -- '- [x] The PHCT ownership manifest and version lock agree\n'
             printf -- '- [x] `npm run verify` passed on the update commit\n'

@@ -84,7 +84,7 @@ Full reference for every setting: [`docs/configuration.md`](docs/configuration.m
 
 ## Staying up to date
 
-A fork is a copy, not a subscription: template releases do not reach you on their own. `.gitattributes` marks everything a deployment owns — `_config.yml`, `_data/*.yml`, content, images, and local operations records. The protected updater applies the exact diff between two immutable PHCT releases, takes template-owned code from the target, and leaves those deployment paths untouched even though GitHub template repositories do not share commit history with PHCT.
+A fork is a copy, not a subscription: template releases do not reach you on their own. `.gitattributes` marks everything a deployment owns — `_config.yml`, `_data/*.yml`, content, images, and local operations records. The protected updater verifies two immutable PHCT releases, reconciles the complete template-owned tree to the target, and leaves those deployment paths untouched even though GitHub template repositories do not share commit history with PHCT.
 
 ```bash
 git remote add template https://github.com/crypticpy/phct.git

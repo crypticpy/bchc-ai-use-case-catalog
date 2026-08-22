@@ -12,7 +12,7 @@
 - Stable release and BCHC handoff: **no-go until the human and live-repository gates below pass**
 
 This is the dated evidence record for the canonical
-[release-readiness plan](phct-release-readiness-plan.md). A green local test run proves that the
+[release-readiness plan](bchc/phct-release-readiness-plan.md). A green local test run proves that the
 candidate is technically coherent; it does not replace pull-request review, live GitHub workflow
 rehearsals, accessibility testing with people and assistive technology, or an operational handoff.
 

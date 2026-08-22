@@ -6,7 +6,12 @@ import test from 'node:test';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { applyUpdate, parseNameStatusZ, planUpdate } from '../../scripts/apply_phct_update.mjs';
+import {
+  applyUpdate,
+  parseNameStatusZ,
+  planReconciliation,
+  planUpdate,
+} from '../../scripts/apply_phct_update.mjs';
 import { forkOwnershipRules } from '../../scripts/upgrade_check.mjs';
 
 const SCRIPT = fileURLToPath(new URL('../../scripts/apply_phct_update.mjs', import.meta.url));
@@ -44,6 +49,22 @@ test('the update plan takes template files and leaves deployment files alone', (
   assert.deepEqual(plan.preserve, ['config/site.yml']);
 });
 
+test('tree reconciliation restores unchanged parent files removed downstream', () => {
+  const rules = forkOwnershipRules('config/** merge=ours\n');
+  assert.deepEqual(
+    planReconciliation(
+      ['app.js', 'showcase/data.yml', 'config/site.yml'],
+      ['app.js', 'child-only.js', 'config/site.yml'],
+      rules
+    ),
+    {
+      take: ['app.js', 'showcase/data.yml'],
+      remove: ['child-only.js'],
+      preserve: ['config/site.yml'],
+    }
+  );
+});
+
 test('the CLI runs when invoked through a symlinked path', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phct-update-cli-'));
   const link = path.join(root, 'apply-update.mjs');
@@ -61,6 +82,7 @@ test('an unrelated GitHub-template history receives the exact parent diff withou
   fs.mkdirSync(path.join(root, 'config'), { recursive: true });
   fs.writeFileSync(path.join(root, '.gitattributes'), 'config/** merge=ours\n');
   fs.writeFileSync(path.join(root, 'app.txt'), 'parent v1\n');
+  fs.writeFileSync(path.join(root, 'stable.txt'), 'unchanged parent file\n');
   fs.writeFileSync(path.join(root, 'old.txt'), 'remove me\n');
   fs.writeFileSync(path.join(root, 'config', 'site.yml'), 'parent: v1\n');
   git(root, 'add', '.');
@@ -81,6 +103,8 @@ test('an unrelated GitHub-template history receives the exact parent diff withou
   git(root, 'branch', 'downstream', childRoot);
   git(root, 'checkout', '--quiet', 'downstream');
   fs.writeFileSync(path.join(root, 'config', 'site.yml'), 'bchc: true\n');
+  fs.writeFileSync(path.join(root, 'stable.txt'), 'downstream drift\n');
+  fs.writeFileSync(path.join(root, 'child-only.txt'), 'not deployment-owned\n');
   git(root, 'add', '.');
   git(root, 'commit', '--quiet', '-m', 'customize downstream');
 
@@ -89,6 +113,8 @@ test('an unrelated GitHub-template history receives the exact parent diff withou
 
   assert.equal(fs.readFileSync(path.join(root, 'app.txt'), 'utf8'), 'parent v2\n');
   assert.equal(fs.readFileSync(path.join(root, 'added.txt'), 'utf8'), 'new in parent\n');
+  assert.equal(fs.readFileSync(path.join(root, 'stable.txt'), 'utf8'), 'unchanged parent file\n');
+  assert.equal(fs.existsSync(path.join(root, 'child-only.txt')), false);
   assert.equal(fs.existsSync(path.join(root, 'old.txt')), false);
   assert.equal(fs.readFileSync(path.join(root, 'config', 'site.yml'), 'utf8'), 'bchc: true\n');
   assert.equal(fs.existsSync(path.join(root, 'config', 'parent-only.yml')), false);
