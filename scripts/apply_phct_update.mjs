@@ -30,7 +30,7 @@ export function parseNameStatusZ(output) {
   if (fields.at(-1) === '') fields.pop();
   const changes = [];
 
-  for (let index = 0; index < fields.length;) {
+  for (let index = 0; index < fields.length; ) {
     const rawStatus = fields[index++];
     const status = rawStatus[0];
     if (!'ACDMRT'.includes(status)) {
@@ -107,6 +107,28 @@ export function planReconciliation(targetFiles, currentFiles, rules) {
   return { take, remove, preserve };
 }
 
+/**
+ * Refuse to guess when a release moves paths across the ownership boundary.
+ * Ownership migrations need a separate, human-reviewed downstream change so
+ * newly protected files cannot be overwritten and reclaimed files cannot keep
+ * stale deployment content.
+ *
+ * @param {string} currentAttributes
+ * @param {string} targetAttributes
+ * @returns {{pattern: string, owned: boolean}[]}
+ */
+export function assertStableOwnershipContract(currentAttributes, targetAttributes) {
+  const currentRules = forkOwnershipRules(currentAttributes);
+  const targetRules = forkOwnershipRules(targetAttributes);
+  if (JSON.stringify(currentRules) !== JSON.stringify(targetRules)) {
+    throw new Error(
+      'Target release changes the deployment ownership contract. Apply and review the ' +
+        '.gitattributes and .phct/ownership.yml migration separately before rerunning this update.'
+    );
+  }
+  return currentRules;
+}
+
 function nulList(output) {
   const values = String(output ?? '').split('\0');
   if (values.at(-1) === '') values.pop();
@@ -138,8 +160,9 @@ export function applyUpdate({ root = ROOT, from, to }) {
   assertRef(root, from, 'Starting reference');
   assertRef(root, to, 'Target reference');
 
-  const attributes = fs.readFileSync(path.join(root, '.gitattributes'), 'utf8');
-  const rules = forkOwnershipRules(attributes);
+  const currentAttributes = fs.readFileSync(path.join(root, '.gitattributes'), 'utf8');
+  const targetAttributes = git(root, ['show', `${to}:.gitattributes`]);
+  const rules = assertStableOwnershipContract(currentAttributes, targetAttributes);
   const changes = parseNameStatusZ(
     git(root, ['diff', '--name-status', '-z', '--find-renames', from, to, '--'])
   );

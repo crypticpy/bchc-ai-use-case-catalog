@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   applyUpdate,
+  assertStableOwnershipContract,
   parseNameStatusZ,
   planReconciliation,
   planUpdate,
@@ -63,6 +64,53 @@ test('tree reconciliation restores unchanged parent files removed downstream', (
       preserve: ['config/site.yml'],
     }
   );
+});
+
+test('ownership transitions fail closed in both directions', () => {
+  const current = 'config/** merge=ours\nconfig/template/** !merge\n';
+  assert.deepEqual(assertStableOwnershipContract(`# current\n${current}`, `${current}# target\n`), [
+    { pattern: 'config/**', owned: true },
+    { pattern: 'config/template/**', owned: false },
+  ]);
+  assert.throws(
+    () => assertStableOwnershipContract(current, `${current}config/reclaimed/** !merge\n`),
+    /changes the deployment ownership contract/
+  );
+  assert.throws(
+    () => assertStableOwnershipContract(current, `${current}new-protected/** merge=ours\n`),
+    /changes the deployment ownership contract/
+  );
+});
+
+test('an ownership migration stops before changing the downstream tree', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'phct-ownership-transition-'));
+  git(root, 'init', '--quiet', '--initial-branch=main');
+  git(root, 'config', 'user.name', 'PHCT test');
+  git(root, 'config', 'user.email', 'test@example.invalid');
+  fs.writeFileSync(path.join(root, '.gitattributes'), 'config/** merge=ours\n');
+  fs.writeFileSync(path.join(root, 'app.txt'), 'parent v1\n');
+  git(root, 'add', '.');
+  git(root, 'commit', '--quiet', '-m', 'parent v1');
+  git(root, 'tag', 'v1.0.0');
+
+  fs.writeFileSync(path.join(root, '.gitattributes'), 'config/** merge=ours\nconfig/reclaimed/** !merge\n');
+  fs.writeFileSync(path.join(root, 'app.txt'), 'parent v2\n');
+  git(root, 'add', '.');
+  git(root, 'commit', '--quiet', '-m', 'parent v2');
+  git(root, 'tag', 'v1.1.0');
+
+  git(root, 'checkout', '--quiet', '-b', 'downstream', 'v1.0.0');
+  fs.writeFileSync(path.join(root, 'app.txt'), 'downstream drift\n');
+  git(root, 'add', 'app.txt');
+  git(root, 'commit', '--quiet', '-m', 'customize downstream');
+
+  assert.throws(
+    () => applyUpdate({ root, from: 'v1.0.0', to: 'v1.1.0' }),
+    /changes the deployment ownership contract/
+  );
+  assert.equal(fs.readFileSync(path.join(root, 'app.txt'), 'utf8'), 'downstream drift\n');
+  assert.equal(fs.readFileSync(path.join(root, '.gitattributes'), 'utf8'), 'config/** merge=ours\n');
+  assert.equal(git(root, 'status', '--short'), '');
 });
 
 test('the CLI runs when invoked through a symlinked path', () => {
