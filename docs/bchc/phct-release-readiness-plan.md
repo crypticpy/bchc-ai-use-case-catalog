@@ -113,7 +113,7 @@ browser accessibility and interaction checks, mobile and desktop PHCT Lighthouse
 Lighthouse, secret scans of both histories, and the supported 100-entry scale target. The stable
 release remains a no-go until the live GitHub, human accessibility, ownership, recovery, and soak
 gates are performed. Exact results and open blockers are maintained in
-[release-readiness-status.md](release-readiness-status.md).
+[release-readiness-status.md](../release-readiness-status.md).
 
 ## Critical propagation defect to fix first
 
