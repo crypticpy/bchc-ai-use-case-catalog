@@ -162,6 +162,9 @@ test('updates require immutable tags or full commit SHAs', () => {
   assert.equal(isImmutableUpdateRef('v1.9.0-rc.1'), true);
   assert.equal(isImmutableUpdateRef('a'.repeat(40)), true);
   assert.equal(isImmutableUpdateRef('refs/phct-update/v1.9.0'), true);
+  assert.equal(isImmutableUpdateRef('refs/phct-update/from/v1.7.0'), true);
+  assert.equal(isImmutableUpdateRef('refs/phct-update/to/v1.9.0-rc.1'), true);
+  assert.equal(isImmutableUpdateRef('refs/phct-update/to/main'), false);
   assert.equal(isImmutableUpdateRef('template/main'), false);
   assert.equal(isImmutableUpdateRef('abc1234'), false);
 });

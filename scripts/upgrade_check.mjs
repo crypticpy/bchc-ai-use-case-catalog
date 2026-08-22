@@ -157,7 +157,7 @@ export function parseArgs(argv) {
 }
 
 export function isImmutableUpdateRef(value) {
-  return /^(?:v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?|[0-9a-f]{40}|refs\/phct-update\/v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.test(
+  return /^(?:v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?|[0-9a-f]{40}|refs\/phct-update\/(?:(?:from|to)\/)?v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.test(
     value ?? ''
   );
 }
