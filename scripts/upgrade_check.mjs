@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * What a template upgrade would bring, before you merge it.
+ * What a template upgrade would bring, before you apply it.
  *
  *   npm run upgrade:check -- --to v1.9.0  since the release in .phct-version.json
  *   npm run upgrade:check -- --from v1.1.0 --to v1.3.0
@@ -14,7 +14,7 @@
  * the size of an upgrade without starting one.
  *
  * Read-only: it runs `git diff --name-status` and nothing else. It never
- * fetches, merges or writes. See docs/upgrading.md for the whole recipe.
+ * fetches, applies or writes. See docs/upgrading.md for the whole recipe.
  */
 
 import fs from 'node:fs';
@@ -31,8 +31,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_REMOTE = 'template';
 
 /**
- * The `merge=ours` patterns in `.gitattributes` — the fork's files, in the one
- * place that already had to be right for `git merge` to behave.
+ * The `merge=ours` patterns in `.gitattributes` are the ordered ownership
+ * boundary used by both the preview and deterministic update applier.
  *
  * @param {string} text the whole `.gitattributes`.
  * @returns {string[]} patterns, in file order.
@@ -125,7 +125,7 @@ export function parseNameStatus(stdout) {
     .filter(Boolean)
     .map((line) => {
       const parts = line.split('\t');
-      // A rename is `R100\told\tnew`; the new name is what a merge would write.
+      // A rename is `R100\told\tnew`; the new name is what an update would write.
       return { status: parts[0][0], file: parts[parts.length - 1] };
     });
 }
@@ -248,17 +248,11 @@ function main(argv) {
   for (const change of yours) console.log(`    ${dim(change.status)} ${change.file}`);
   if (yours.length === 0) console.log(dim('    none'));
 
-  // Without the driver, every `merge=ours` line in .gitattributes is inert and
-  // the "Yours" list above is exactly the set of files that will conflict.
-  if (git(['config', '--get', 'merge.ours.driver']) === null) {
-    console.log(`\n  ${red('merge.ours.driver is not set in this clone.')}`);
-    console.log(`  Until it is, .gitattributes does nothing and all ${yours.length} of your files conflict:`);
-    console.log(`    ${cyan('git config merge.ours.driver true')}`);
-  }
-
   console.log(`\n  Read what changed:  ${cyan(`git log --oneline ${from}..${to} -- CHANGELOG.md`)}`);
-  console.log(`  Then upgrade:       ${cyan(`git merge ${to}`)}`);
-  console.log(dim('\n  Nothing was fetched, merged or written. See docs/upgrading.md.\n'));
+  console.log(
+    `  Then apply it:      ${cyan(`node scripts/apply_phct_update.mjs --from ${from} --to ${to}`)}`
+  );
+  console.log(dim('\n  Nothing was fetched, applied or written. See docs/upgrading.md.\n'));
   return 0;
 }
 

@@ -133,8 +133,8 @@ This mismatch is a release blocker. Before the first automated upgrade:
 3. Add a test that fails when the manifest, `.gitattributes`, upgrade documentation, and
    generated-file list disagree.
 4. Add before/after checksum protection to the update workflow.
-5. Add the corrected attributes to BCHC in a small upgrade-preparation pull request before its
-   first unrelated-history merge with the newer PHCT release.
+5. Add the corrected attributes and deterministic diff applier to BCHC in a small
+   upgrade-preparation pull request before its first newer PHCT release.
 
 ## Ownership contract
 
@@ -177,7 +177,7 @@ migration is complete.
 
 ### Generated downstream files
 
-These are preserved during the merge, then regenerated from BCHC-owned configuration with the
+These are preserved during the update, then regenerated from BCHC-owned configuration with the
 new PHCT generator:
 
 - `.github/ISSUE_TEMPLATE/new-entry.yml`;
@@ -274,9 +274,11 @@ The BCHC updater consumes the exact release-candidate tag and opens
 
 1. Read `.phct-version.json`.
 2. Fetch the exact PHCT tag and verify its commit.
-3. Configure the merge driver inside the job.
+3. Read the ordered ownership rules and snapshot every protected deployment path.
 4. Preview the incoming change classification.
-5. Merge the tag, using `--allow-unrelated-histories` only for the first integration.
+5. Apply the exact parent diff from the locked tag to the target tag, taking template-owned paths
+   from the target and leaving deployment-owned paths untouched without assuming shared Git
+   ancestry.
 6. Regenerate downstream outputs.
 7. Compare checksums for every protected deployment-owned path.
 8. Fail on an unexplained protected-path change.
@@ -313,7 +315,7 @@ Tasks:
 - Pin the exact supported Ruby, Bundler, Node, and npm versions.
 - Add `packageManager`, a Node-version file, and a single authoritative Ruby version.
 - Provide a Dev Container/Codespaces configuration or equivalent reproducible environment.
-- Add `npm run doctor` to report missing/wrong tools, merge-driver state, Chrome availability,
+- Add `npm run doctor` to report missing/wrong tools, protected-updater state, Chrome availability,
   and generated-file drift in plain language.
 - Add `npm run verify` as the one command that runs all non-browser release checks.
 - Verify setup on macOS, Linux, and the GitHub-hosted runner from clean clones.
@@ -557,7 +559,7 @@ Exit: baseline is reproducible and every finding has one tracking location.
 - Add the ownership manifest.
 - Fix `.gitattributes` and upgrade documentation.
 - Add ownership/parity/checksum tests.
-- Prepare BCHC's attributes before the first parent merge.
+- Prepare BCHC's attributes and ancestry-independent update applier before the first parent update.
 - Add `.phct-version.json` and the updater workflow in a disabled/manual-first state.
 
 Exit: a dry-run upgrade cannot alter BCHC-owned content unnoticed.

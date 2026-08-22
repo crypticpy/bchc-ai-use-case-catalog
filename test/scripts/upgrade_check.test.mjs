@@ -30,10 +30,9 @@ const attributes = fs.readFileSync(path.join(ROOT, '.gitattributes'), 'utf8');
 const patterns = forkOwnedPatterns(attributes);
 const rules = forkOwnershipRules(attributes);
 
-test('.gitattributes says out loud that the driver has to be configured', () => {
-  // Without `git config merge.ours.driver true` every rule in the file is
-  // silently inert, which is the worst way for a safety net to fail.
-  assert.match(attributes, /git config merge\.ours\.driver true/);
+test('.gitattributes identifies the deterministic update engine', () => {
+  assert.match(attributes, /apply_phct_update\.mjs/);
+  assert.match(attributes, /GitHub template clone/);
 });
 
 test('forkOwnedPatterns reads the rules and ignores the prose', () => {
@@ -108,7 +107,7 @@ test('parseNameStatus keeps the destination of a rename', () => {
   assert.deepEqual(parsed, [
     { status: 'M', file: '_layouts/default.html' },
     { status: 'A', file: 'docs/upgrading.md' },
-    // The new name is what a merge would write, so that is the one to classify.
+    // The new name is what an update would write, so that is the one to classify.
     { status: 'R', file: 'new.md' },
   ]);
 });

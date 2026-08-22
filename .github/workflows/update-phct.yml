@@ -100,34 +100,30 @@ jobs:
           TAG_REF: ${{ steps.release.outputs.tag_ref }}
         run: node scripts/upgrade_check.mjs --from "$FROM_REF" --to "$TAG_REF"
 
-      - name: Merge the immutable PHCT candidate
+      - name: Apply the immutable PHCT candidate
         env:
           BRANCH: ${{ steps.release.outputs.branch }}
+          FROM_REF: ${{ steps.release.outputs.from_ref }}
           TAG_REF: ${{ steps.release.outputs.tag_ref }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config merge.ours.driver true
           git checkout -B "$BRANCH"
-          if git merge-base HEAD "$TAG_REF" >/dev/null 2>&1; then
-            git merge --no-commit --no-ff "$TAG_REF"
-          else
-            git merge --no-commit --no-ff --allow-unrelated-histories "$TAG_REF"
-          fi
+          node scripts/apply_phct_update.mjs --from "$FROM_REF" --to "$TAG_REF"
 
-      - name: Prove deployment files survived the merge byte-for-byte
+      - name: Prove deployment files survived the update byte-for-byte
         run: npm run ownership:verify -- "$RUNNER_TEMP/deployment-protected-before.json"
 
       # The parent release may change either runtime pin. Node at the start of
       # the job belongs to the currently consumed downstream version and only
-      # runs the bootstrap checks; select both candidate versions after merge.
-      - name: Setup candidate Ruby from the merged .ruby-version
+      # runs the bootstrap checks; select both candidate versions after applying the parent diff.
+      - name: Setup candidate Ruby from the applied .ruby-version
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           bundler-cache: true
 
-      - name: Setup candidate Node from the merged .node-version
+      - name: Setup candidate Node from the applied .node-version
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: ".node-version"
@@ -200,6 +196,7 @@ jobs:
             printf 'Exact parent commit: `%s`\n\n' "$COMMIT"
             printf '### Automated evidence\n\n'
             printf -- '- [x] Before/after checksum manifests prove every protected deployment file is byte-identical\n'
+            printf -- '- [x] The exact parent diff was applied without assuming shared Git ancestry\n'
             printf -- '- [x] Generated outputs were rebuilt from deployment configuration\n'
             printf -- '- [x] The PHCT ownership manifest and version lock agree\n'
             printf -- '- [x] `npm run verify` passed on the update commit\n'

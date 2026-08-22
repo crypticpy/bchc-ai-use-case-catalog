@@ -1,15 +1,12 @@
-# Which files belong to the fork, for `git merge template/main`.
+# Which files belong to a downstream deployment during a PHCT update.
 #
-# READ THIS FIRST: `merge=ours` does nothing until the driver exists. Git
-# deliberately refuses to run a merge driver a repository has not opted into, so
-# without the line below these rules are silently inert and you get ordinary
-# conflicts in every file listed here. Run it once per clone:
+# `scripts/apply_phct_update.mjs` reads these ordered rules directly. It applies
+# the exact immutable parent diff without assuming that a GitHub template clone
+# shares history with PHCT, and leaves every `merge=ours` path untouched.
 #
-#     git config merge.ours.driver true
-#
-# `scripts/upgrade_check.mjs` checks for it and says so if it is missing. The
-# full recipe — adding the template remote, what to review, what to skip — is in
-# docs/upgrading.md.
+# `merge=ours` remains a second guard for an expert doing a manual Git merge,
+# but that path also requires `git config merge.ours.driver true` in that clone.
+# The supported automated and manual recipes are in docs/upgrading.md.
 #
 # Everything NOT listed here is template code: take the template's version.
 # Everything listed here is yours: keep yours, and read the template's diff by

@@ -84,16 +84,15 @@ Full reference for every setting: [`docs/configuration.md`](docs/configuration.m
 
 ## Staying up to date
 
-A fork is a copy, not a subscription: template releases do not reach you on their own. `.gitattributes` marks everything a fork owns — `_config.yml`, `_data/*.yml`, your content, your images, your README — as `merge=ours`, so a template merge updates the code and leaves your site alone.
+A fork is a copy, not a subscription: template releases do not reach you on their own. `.gitattributes` marks everything a deployment owns — `_config.yml`, `_data/*.yml`, content, images, and local operations records. The protected updater applies the exact diff between two immutable PHCT releases, takes template-owned code from the target, and leaves those deployment paths untouched even though GitHub template repositories do not share commit history with PHCT.
 
 ```bash
 git remote add template https://github.com/crypticpy/phct.git
-git config merge.ours.driver true    # required — without it .gitattributes is inert
 git fetch template --tags
 npm run upgrade:check -- --to v1.9.0 # read-only: what this exact release changes, in two lists
 ```
 
-The whole recipe, including what a merge cannot adopt for you: [`docs/upgrading.md`](docs/upgrading.md).
+The whole protected-update and manual-recovery recipe: [`docs/upgrading.md`](docs/upgrading.md).
 
 ## Local development
 
@@ -102,6 +101,7 @@ The exact supported versions live in `.ruby-version`, `.node-version`, `Gemfile.
 version managers can read `.ruby-version`, `.node-version`, or `.nvmrc`.
 
 ```bash
+mise trust mise.toml # after inspecting the pinned runtime definitions
 mise install          # optional; use any manager that installs the pinned versions
 gem install bundler -v "$(cat .bundler-version)"
 bundle install
