@@ -3,6 +3,35 @@ repository: crypticpy/bchc-ai-use-case-catalog
 last_verified: null
 verified_by: null
 
+# Partial, read-only evidence gathered through the connected GitHub application.
+# This does not close the settings audit below: the source did not expose branch
+# rules, Pages, Actions policy, secrets, variables, DNS, or security settings.
+partial_live_evidence:
+  observed_at: 2026-08-22
+  source: connected_github_application
+  repository_visibility: public
+  default_branch: main
+  merge_methods_enabled:
+    - merge_commit
+    - squash
+    - rebase
+  bootstrap_pull_request: https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/2
+  green_workflows_at_implementation_head:
+    commit: 013c9fac20413158704174670d9f974e92cfe6de
+    workflows:
+      - Validate Content
+      - Quality (a11y + Lighthouse)
+      - Lint workflows
+  not_exposed_by_source:
+    - branch_rules
+    - required_checks_and_approvals
+    - pages_and_environment_settings
+    - actions_permissions
+    - secrets_and_variables
+    - custom_domain_and_dns
+    - security_feature_settings
+    - labels_and_notifications
+
 # This file records ownership and verification, never values of secrets,
 # recovery codes, tokens, private keys, or non-public contact details.
 people:
