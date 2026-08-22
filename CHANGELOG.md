@@ -140,7 +140,7 @@ everything the walkthrough found wrong is fixed below.
 ## [1.6.0] — 2026-08-18
 
 DMWG alignment, wave 4 — metrics and promotion, the last of the four waves in
-[docs/dmwg-alignment-plan.md](docs/dmwg-alignment-plan.md). The governance
+[docs/bchc/dmwg-alignment-plan.md](docs/bchc/dmwg-alignment-plan.md). The governance
 page can now show how the catalog is doing, counted from the repository's own
 issues and pull requests; an entry can say which entry it was adapted from,
 and the source says how many adopted it; and the feed — shipped in 1.2.0 —
@@ -209,7 +209,7 @@ organizations figure.
 
 DMWG alignment, waves 1–3 — the content model, then the site, then the review
 workflow catch up with the Data Modernization Work Group's governance
-framework ([docs/dmwg-alignment-plan.md](docs/dmwg-alignment-plan.md)). Add,
+framework ([docs/bchc/dmwg-alignment-plan.md](docs/bchc/dmwg-alignment-plan.md)). Add,
 never delete: every existing field stays; nine join them, the rules the
 reviewers apply are published on the site rather than in a PDF, and the pull
 request a submission becomes now carries those rules, the answers that need a
