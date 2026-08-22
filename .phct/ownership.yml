@@ -1,0 +1,68 @@
+schema_version: 1
+
+template:
+  name: PHCT
+  repository: https://github.com/crypticpy/phct
+  canonical_plan: docs/release-readiness-plan.md
+
+# These lists are the upgrade contract. scripts/check_template_ownership.mjs
+# keeps them aligned with .gitattributes and the generator's actual outputs.
+ownership:
+  deployment:
+    - _config.yml
+    - _data/site.yml
+    - _data/theme.yml
+    - _data/schema.yml
+    - _data/navigation.yml
+    - _data/governance.yml
+    - _data/search.yml
+    - _data/events.yml
+    - _data/resources.yml
+    - _data/cohorts/**
+    - _data/metrics.json
+    - _data/derivatives.json
+    - catalog/**
+    - cohorts/**
+    - events/**
+    - resources/**
+    - about/**
+    - assets/images/**
+    - CNAME
+    - README.md
+    - .github/CODEOWNERS
+    - MAINTAINERS.md
+    - SUPPORT.md
+    - docs/bchc/**
+
+  generated:
+    - .github/ISSUE_TEMPLATE/new-entry.yml
+    - .github/ISSUE_TEMPLATE/config.yml
+    - assets/js/configurator/defaults.generated.js
+
+  # Protected from the parent merge, then deliberately updated by the updater.
+  # It is excluded from byte-for-byte deployment content checks.
+  update_metadata:
+    - .phct-version.json
+
+  # These paths are nested under a deployment-owned directory but belong to
+  # PHCT. The later !merge rules in .gitattributes restore Git's normal merge
+  # behavior so template showcase assets continue to receive upstream fixes.
+  template_exceptions:
+    - assets/images/showcase/**
+
+template_owned_assertions:
+  - _data/modules.yml
+  - _data/showcase.yml
+  - _showcase/**
+  - assets/images/showcase/**
+  - _layouts/**
+  - _includes/**
+  - _plugins/**
+  - scripts/**
+  - test/**
+  - .github/workflows/**
+  - quality/**
+  - package.json
+  - package-lock.json
+  - Gemfile
+  - Gemfile.lock
