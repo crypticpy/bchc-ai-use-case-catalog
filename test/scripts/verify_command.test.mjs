@@ -33,3 +33,13 @@ test('the default branch registers every workflow the first PHCT update dispatch
     assert.match(source, /registration stub/u, `${name} is not the fail-closed bootstrap definition`);
   }
 });
+
+test('the bootstrap updater dispatches only workflow paths guaranteed on older default branches', () => {
+  const source = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'update-phct.yml'), 'utf8');
+  assert.match(source, /for workflow in validate\.yml quality\.yml/u);
+  assert.doesNotMatch(
+    source,
+    /for workflow in[^\n]*(?:performance|supply-chain|codeql)\.yml/u,
+    'new candidate-only workflows must be reached through the stable validate.yml entrypoint'
+  );
+});

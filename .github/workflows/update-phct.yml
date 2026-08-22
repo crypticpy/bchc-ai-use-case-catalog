@@ -227,7 +227,10 @@ jobs:
             echo "CONTENT_BOT_TOKEN triggered pull-request checks normally." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          for workflow in validate.yml quality.yml performance.yml supply-chain.yml codeql.yml; do
+          # These two entrypoints exist in every supported downstream release.
+          # The candidate validate.yml fans out to its Performance, Supply
+          # chain, and CodeQL reusable workflows on the selected branch.
+          for workflow in validate.yml quality.yml; do
             gh workflow run "$workflow" --ref "$BRANCH"
           done
-          echo "All five release workflows were dispatched on \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Validate Content (including Performance, Supply chain, and CodeQL) and Quality were dispatched on \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"
