@@ -1,11 +1,13 @@
 # PHCT and BCHC release-readiness status
 
 - Evidence date: 2026-08-22
-- PHCT candidate: local commit `cc660252a59e045be7d47799a6b726f1b728dd10` on
-  `release/v1.9.0-rc.1-readiness`; remote review, CI, and the immutable tag remain pending
-- BCHC baseline: `7ea8659ffeb4de7c1f8f53eb93e4d74a15d4fc31`; the updater bootstrap is
-  isolated on `chore/phct-update-bootstrap`, while the broader compatibility mirror remains
-  uncommitted pending a tagged parent update
+- PHCT candidate: `v1.9.0-rc.1` in [PR #14](https://github.com/crypticpy/phct/pull/14);
+  implementation head `78200bf565ff271a27033693f05f1fc864a77892` passed all six automated
+  workflows, while independent review and the immutable tag remain pending
+- BCHC baseline: `7ea8659ffeb4de7c1f8f53eb93e4d74a15d4fc31`; the protected updater
+  bootstrap is in [PR #2](https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/2), whose
+  implementation head `013c9fac20413158704174670d9f974e92cfe6de` passed all three installed
+  workflows; the broader compatibility mirror remains uncommitted pending a tagged parent update
 - Automated code baseline: **green**
 - Stable release and BCHC handoff: **no-go until the human and live-repository gates below pass**
 
@@ -26,6 +28,7 @@ hand-copied generic update or advance the BCHC lock before that updater succeeds
 | Area | Result | Evidence |
 |---|---|---|
 | Reproducible toolchain | Pass | Node 22.22.2, npm 10.9.4, Ruby 3.3.11, and Bundler 4.0.11 are exact-pinned and checked by `npm run doctor`. |
+| Live pull-request CI | Pass at implementation heads | PHCT PR #14 passed Validate Content, Quality, Performance and scale, Supply chain, CodeQL, and Lint workflows at `78200bf`. BCHC PR #2 passed Validate Content, Quality, and Lint workflows at `013c9fa`. Both PRs are open and ready for independent review. |
 | PHCT release verification | Pass | `npm run verify` completed on the final working tree: 551 Node tests, 200 Ruby tests with 503 assertions, 89 build-matrix tests, generated-file checks, preset/module/showcase builds, CSS, Jekyll, license, security-exception, SBOM, image, and internal-link gates. |
 | BCHC regression verification | Pass | `npm run verify` completed on the final working tree: doctor, 551 Node tests, 200 Ruby tests with 503 assertions, validation, license, security-exception, SBOM, image, 71 downstream build tests, CSS, Jekyll, and internal-link gates. |
 | Dependency vulnerabilities | Pass | `npm audit --audit-level=high` found zero vulnerabilities. `bundler-audit` found no unpatched Ruby advisories. |
@@ -57,6 +60,9 @@ artifacts.
   BCHC content and configuration so a parent update cannot silently replace operational owners.
 - Made validation fail closed when the supported Ruby toolchain is absent or wrong.
 - Pinned the complete toolchain and fixed Bundler 4 version detection.
+- Fixed live-runner package-manager drift: every PHCT workflow that installs dependencies now
+  selects the exact npm declared by `packageManager` after `setup-node`, including both the current
+  and candidate toolchains in the updater.
 - Added deterministic supply-chain, license, security-exception, SBOM, performance, and
   internal-link gates.
 - Added a path-confined gzip release server so browser tests measure production-style transfer
@@ -65,6 +71,8 @@ artifacts.
   expectations into blocking budgets.
 - Fixed an empty-slug Jekyll warning and parent/downstream test assumptions around optional
   showcase and lock-file data.
+- Made the PHCT showcase build suite explicitly optional in downstream repositories that do not
+  ship showcase configuration, while retaining the complete preset/module matrix.
 
 No unresolved automated P0 or P1 code defect is known at this checkpoint.
 
@@ -72,7 +80,7 @@ No unresolved automated P0 or P1 code defect is known at this checkpoint.
 
 | ID | Required evidence | Owner | Status |
 |---|---|---|---|
-| RR-H01 | Review these working-tree changes, commit them to feature branches, and obtain green required CI in PHCT and BCHC. | PHCT maintainer | Open |
+| RR-H01 | Review these working-tree changes, commit them to feature branches, and obtain green required CI in PHCT and BCHC. | PHCT maintainer | In progress — PRs #14 and #2 are open and automated CI is green; independent approval is pending. |
 | RR-H02 | Tag an immutable PHCT release candidate, run the actual BCHC update workflow, review the checksum report and generated changes, then prove revert/rollback of the update pull request. | PHCT maintainer | Open |
 | RR-H03 | Complete a real issue → pull request → media processing → review → merge → Pages deploy → notification rehearsal in both repositories. Use non-sensitive test content and remove it afterward. | Repository admins | Open |
 | RR-H04 | Name a BCHC product owner and backup technical maintainer; grant least-privilege access; update `CODEOWNERS`, `MAINTAINERS.md`, and the private contact system. | BCHC sponsor | Open |
@@ -82,12 +90,14 @@ No unresolved automated P0 or P1 code defect is known at this checkpoint.
 | RR-H08 | Run the approved candidate on the intended Pages configuration for one business day with no unresolved P0/P1 defect and review Actions/Pages behavior before the wider demo. | Release owner | Open |
 | RR-H09 | Check presentation-critical external links and contact destinations from the deployed candidate; record any intentionally unreachable or staging-only target. | BCHC content owner | Open |
 
-The 2026-08-22 live-settings audit confirmed that the local remotes point to
-`crypticpy/phct` and `crypticpy/bchc-ai-use-case-catalog`. The configured GitHub CLI credential is
-no longer valid, so authenticated settings, required checks, Pages configuration, secrets,
-variables, security controls, and the live workflow rehearsals could not be inspected. A repository
-owner must re-authenticate with `gh auth refresh -h github.com` before RR-H02, RR-H03, or RR-H05 can
-be closed. No credential value belongs in this evidence file or the operations inventory.
+The 2026-08-22 live audit confirmed that both repositories are public, use `main` as the default
+branch, and expose squash, rebase, and merge-commit methods. A connected GitHub application opened
+PRs #14 and #2 and verified their live workflow results. The configured GitHub CLI credential is
+still invalid, and the connected API does not expose branch rules, Pages/environment settings,
+Actions permissions, secrets, variables, DNS, security controls, labels, or notifications. A
+repository owner must inspect those surfaces against `docs/bchc/operations-inventory.yml`; CLI
+re-authentication with `gh auth refresh -h github.com` is also required before command-line release
+and drill work. No credential value belongs in this evidence file or the operations inventory.
 
 ## Candidate decision rule
 
