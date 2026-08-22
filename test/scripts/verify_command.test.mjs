@@ -25,3 +25,11 @@ test('the documented verify command exists and references only available entrypo
     assert.ok(fs.existsSync(path.join(ROOT, match[1])), `scripts.verify references missing ${match[1]}`);
   }
 });
+
+test('the default branch registers every workflow the first PHCT update dispatches', () => {
+  for (const name of ['performance.yml', 'supply-chain.yml', 'codeql.yml']) {
+    const source = fs.readFileSync(path.join(ROOT, '.github', 'workflows', name), 'utf8');
+    assert.match(source, /workflow_dispatch:/u, `${name} cannot be manually dispatched`);
+    assert.match(source, /registration stub/u, `${name} is not the fail-closed bootstrap definition`);
+  }
+});

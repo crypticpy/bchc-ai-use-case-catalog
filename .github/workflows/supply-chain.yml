@@ -1,0 +1,20 @@
+# GitHub registers manually dispatched workflow paths from the default branch.
+# The PHCT update replaces this fail-closed registration stub on its branch;
+# dispatching that ref then runs the candidate's complete supply-chain workflow.
+name: Supply chain
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  registration:
+    name: Replace this registration stub through a PHCT update
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Refuse to report a bootstrap stub as a release gate
+        run: |
+          echo "::error title=PHCT update required::This registration stub is not a supply-chain gate. Run it only on a branch where the protected PHCT updater has installed the candidate workflow."
+          exit 1
