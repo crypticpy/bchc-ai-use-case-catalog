@@ -2,7 +2,7 @@
 /**
  * What a template upgrade would bring, before you merge it.
  *
- *   npm run upgrade:check                 since the version in package.json
+ *   npm run upgrade:check -- --to v1.9.0  since the release in .phct-version.json
  *   npm run upgrade:check -- --from v1.1.0 --to v1.3.0
  *   npm run upgrade:check -- --remote upstream
  *
@@ -38,11 +38,32 @@ const DEFAULT_REMOTE = 'template';
  * @returns {string[]} patterns, in file order.
  */
 export function forkOwnedPatterns(text) {
+  return forkOwnershipRules(text)
+    .filter((rule) => rule.owned)
+    .map((rule) => rule.pattern);
+}
+
+/**
+ * Ordered ownership rules from .gitattributes. Later rules win, matching Git's
+ * attribute semantics. `!merge` restores normal merging for template-owned
+ * exceptions nested under a broad deployment-owned directory.
+ *
+ * @param {string} text
+ * @returns {{pattern: string, owned: boolean}[]}
+ */
+export function forkOwnershipRules(text) {
   return String(text ?? '')
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => line !== '' && !line.startsWith('#') && /\smerge=ours\b/.test(line))
-    .map((line) => line.split(/\s+/)[0]);
+    .filter((line) => line !== '' && !line.startsWith('#'))
+    .map((line) => line.split(/\s+/))
+    .filter((parts) =>
+      parts.slice(1).some((attribute) => attribute === 'merge=ours' || attribute === '!merge')
+    )
+    .map(([pattern, ...attributes]) => ({
+      pattern,
+      owned: attributes.includes('merge=ours'),
+    }));
 }
 
 /**
@@ -61,6 +82,23 @@ export function matchesPattern(pattern, file) {
 }
 
 /**
+ * Apply ordered .gitattributes ownership rules to a path.
+ * String arrays remain supported for callers using forkOwnedPatterns().
+ *
+ * @param {({pattern: string, owned: boolean}|string)[]} rules
+ * @param {string} file
+ * @returns {boolean}
+ */
+export function isForkOwned(rules, file) {
+  let owned = false;
+  for (const rule of rules) {
+    const pattern = typeof rule === 'string' ? rule : rule.pattern;
+    if (matchesPattern(pattern, file)) owned = typeof rule === 'string' ? true : rule.owned;
+  }
+  return owned;
+}
+
+/**
  * Sort changed paths into the fork's files and the template's.
  *
  * @param {{status: string, file: string}[]} changes
@@ -71,7 +109,7 @@ export function classify(changes, patterns) {
   const yours = [];
   const template = [];
   for (const change of changes) {
-    (patterns.some((pattern) => matchesPattern(pattern, change.file)) ? yours : template).push(change);
+    (isForkOwned(patterns, change.file) ? yours : template).push(change);
   }
   return { yours, template };
 }
@@ -118,19 +156,51 @@ export function parseArgs(argv) {
   return args;
 }
 
-/** The version this fork was last upgraded to, from package.json. */
-function currentVersion() {
+export function isImmutableUpdateRef(value) {
+  return /^(?:v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?|[0-9a-f]{40}|refs\/phct-update\/v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.test(
+    value ?? ''
+  );
+}
+
+/** The immutable PHCT release this deployment last consumed. */
+export function consumedRelease(lockText, packageText) {
   try {
-    return JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version ?? '';
+    const release = JSON.parse(lockText)?.release;
+    if (/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(release ?? '')) return release;
+  } catch {
+    // Old forks predate the lock file; package.json remains a safe fallback.
+  }
+  try {
+    const version = JSON.parse(packageText)?.version ?? '';
+    return version ? `v${version}` : '';
   } catch {
     return '';
   }
 }
 
+function currentRelease() {
+  const lockPath = path.join(ROOT, '.phct-version.json');
+  return consumedRelease(
+    fs.existsSync(lockPath) ? fs.readFileSync(lockPath, 'utf8') : '',
+    fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')
+  );
+}
+
 function main(argv) {
   const args = parseArgs(argv);
-  const from = args.from || `v${currentVersion()}`;
-  const to = args.to || `${args.remote}/main`;
+  const from = args.from || currentRelease();
+  const to = args.to;
+
+  if (!to) {
+    console.error(`\n${red('Name an immutable PHCT release with --to.')}`);
+    console.error(`  Example: ${cyan('npm run upgrade:check -- --to v1.9.0')}\n`);
+    return 2;
+  }
+  if (!isImmutableUpdateRef(to)) {
+    console.error(`\n${red(`Refusing moving or abbreviated update reference ${JSON.stringify(to)}.`)}`);
+    console.error('  Use an exact semantic-version tag or full 40-character commit SHA.\n');
+    return 2;
+  }
 
   if (git(['rev-parse', '--git-dir']) === null) {
     console.error('Not a git repository.');
@@ -138,7 +208,7 @@ function main(argv) {
   }
   if (git(['rev-parse', '--verify', `${from}^{commit}`]) === null) {
     console.error(`\n${red(`Cannot find ${from}.`)}`);
-    console.error(`  package.json says this fork is on ${currentVersion() || 'no version'}.`);
+    console.error(`  .phct-version.json says this deployment is on ${currentRelease() || 'no release'}.`);
     console.error(`  Fetch the template's tags first:  ${cyan(`git fetch ${args.remote} --tags`)}`);
     console.error(`  Or name a starting point:         ${cyan('npm run upgrade:check -- --from v1.2.0')}\n`);
     return 1;
@@ -164,8 +234,8 @@ function main(argv) {
   }
 
   const attributes = path.join(ROOT, '.gitattributes');
-  const patterns = fs.existsSync(attributes) ? forkOwnedPatterns(fs.readFileSync(attributes, 'utf8')) : [];
-  const { yours, template } = classify(changes, patterns);
+  const rules = fs.existsSync(attributes) ? forkOwnershipRules(fs.readFileSync(attributes, 'utf8')) : [];
+  const { yours, template } = classify(changes, rules);
 
   console.log(bold(`\n${from} → ${to}: ${changes.length} files changed\n`));
 

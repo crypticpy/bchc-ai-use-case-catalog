@@ -1,0 +1,12 @@
+# The BCHC deployment currently has one named technical code owner. A BCHC
+# product owner and backup technical owner must be added before handoff;
+# MAINTAINERS.md keeps those as blockers rather than inventing accounts.
+* @crypticpy
+
+# High-trust release, automation, dependency, and security surfaces.
+/.github/ @crypticpy
+/scripts/ @crypticpy
+/quality/ @crypticpy
+/SECURITY.md @crypticpy
+/Gemfile* @crypticpy
+/package*.json @crypticpy

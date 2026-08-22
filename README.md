@@ -90,18 +90,23 @@ A fork is a copy, not a subscription: template releases do not reach you on thei
 git remote add template https://github.com/crypticpy/phct.git
 git config merge.ours.driver true    # required — without it .gitattributes is inert
 git fetch template --tags
-npm run upgrade:check                # read-only: what the next release would change, in two lists
+npm run upgrade:check -- --to v1.9.0 # read-only: what this exact release changes, in two lists
 ```
 
 The whole recipe, including what a merge cannot adopt for you: [`docs/upgrading.md`](docs/upgrading.md).
 
 ## Local development
 
-Requires Ruby 3.3 (see `.ruby-version`) and Node 22+.
+The exact supported versions live in `.ruby-version`, `.node-version`, `Gemfile.lock`, and
+`packageManager` in `package.json`. `mise install` can install both runtimes from `mise.toml`; other
+version managers can read `.ruby-version`, `.node-version`, or `.nvmrc`.
 
 ```bash
+mise install          # optional; use any manager that installs the pinned versions
+gem install bundler -v "$(cat .bundler-version)"
 bundle install
-npm install
+npm ci
+npm run doctor        # plain-language runtime, dependency, ownership, and generated-file checks
 
 npm run dev       # http://127.0.0.1:4000/ with live reload — Tailwind watcher + jekyll serve in one terminal,
                   # regenerating the schema-derived files whenever _data/schema.yml or _data/site.yml changes
@@ -118,6 +123,7 @@ npm run generate   # regenerate the issue template + configurator defaults, and 
 npm run validate   # parse all _data/*.yml and run the front-matter / file-size checks CI runs on pull requests
 npm test           # Node unit tests; `npm run test:ruby` for the Ruby validators
 npm run test:build # build every preset and module combination and check the rendered copy (needs Ruby; minutes, not seconds)
+npm run verify     # every non-browser release gate, including all preset/module builds
 npm run a11y       # pa11y-ci (WCAG 2 AA) against _site served on :4173 — see CONTRIBUTING.md
 npm run lighthouse # Lighthouse CI against the same local server
 ```

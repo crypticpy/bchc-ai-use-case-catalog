@@ -2,8 +2,10 @@
   "name": "civic-catalog-template",
   "version": "1.7.0",
   "private": true,
+  "packageManager": "npm@10.9.4",
   "engines": {
-    "node": ">=22"
+    "node": "22.22.2",
+    "npm": "10.9.4"
   },
   "type": "module",
   "description": "GitHub Pages catalog / resource portal template managed entirely through GitHub issues and pull requests.",
@@ -11,6 +13,10 @@
     "setup": "node scripts/setup.mjs",
     "eject:samples": "node scripts/eject_samples.mjs",
     "upgrade:check": "node scripts/upgrade_check.mjs",
+    "ownership:check": "node scripts/check_template_ownership.mjs",
+    "ownership:snapshot": "node scripts/protected_checksums.mjs snapshot",
+    "ownership:verify": "node scripts/protected_checksums.mjs verify",
+    "version:record": "node scripts/record_phct_version.mjs",
     "generate": "node scripts/generate.mjs",
     "validate": "node scripts/validate.mjs",
     "test": "node --test",

@@ -1,0 +1,230 @@
+name: Update from PHCT
+
+# Manual-only during the release-readiness period. A weekly schedule is added
+# only after the first release-candidate update and rollback have both been
+# rehearsed successfully. Every run targets one immutable tag.
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Exact PHCT tag, for example v1.9.0-rc.1
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: update-phct
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Open protected PHCT update
+    # This workflow is distributed by PHCT for downstream deployments. It is
+    # intentionally inert in the canonical template repository itself.
+    if: github.repository != 'crypticpy/phct'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout downstream repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # A workflow_dispatch run can be started while viewing any branch.
+          # Template updates always branch from the repository's default branch.
+          ref: ${{ github.event.repository.default_branch }}
+          # The final step intentionally pushes a machine-owned update branch.
+          # zizmor: ignore[artipacked]
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node from .node-version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Validate the current ownership boundary
+        run: npm run ownership:check
+
+      - name: Snapshot protected deployment files
+        run: npm run ownership:snapshot -- "$RUNNER_TEMP/deployment-protected-before.json"
+
+      - name: Fetch and resolve the exact PHCT tag
+        id: release
+        env:
+          RELEASE: ${{ inputs.release }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$RELEASE" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "Release must be an exact semantic-version tag such as v1.9.0 or v1.9.0-rc.1." >&2
+            exit 2
+          fi
+          git remote add phct https://github.com/crypticpy/phct.git
+          from="$(node --input-type=module -e "import lock from './.phct-version.json' with { type: 'json' }; process.stdout.write(lock.release)")"
+          locked_commit="$(node --input-type=module -e "import lock from './.phct-version.json' with { type: 'json' }; process.stdout.write(lock.commit)")"
+          from_ref="refs/phct-update/from/$from"
+          tag_ref="refs/phct-update/to/$RELEASE"
+          git fetch --force --no-tags phct \
+            "refs/tags/$from:$from_ref" \
+            "refs/tags/$RELEASE:$tag_ref"
+          resolved_from="$(git rev-parse "$from_ref^{commit}")"
+          if [ "$resolved_from" != "$locked_commit" ]; then
+            echo "Locked PHCT commit $locked_commit does not match $from at $resolved_from." >&2
+            echo "Refusing an update from a moved tag or inconsistent lock file." >&2
+            exit 2
+          fi
+          commit="$(git rev-parse "$tag_ref^{commit}")"
+          {
+            printf 'release=%s\n' "$RELEASE"
+            printf 'tag_ref=%s\n' "$tag_ref"
+            printf 'commit=%s\n' "$commit"
+            printf 'from=%s\n' "$from"
+            printf 'from_ref=%s\n' "$from_ref"
+            printf 'branch=upgrade/phct-%s\n' "$RELEASE"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Preview incoming ownership classification
+        env:
+          FROM_REF: ${{ steps.release.outputs.from_ref }}
+          TAG_REF: ${{ steps.release.outputs.tag_ref }}
+        run: node scripts/upgrade_check.mjs --from "$FROM_REF" --to "$TAG_REF"
+
+      - name: Merge the immutable PHCT candidate
+        env:
+          BRANCH: ${{ steps.release.outputs.branch }}
+          TAG_REF: ${{ steps.release.outputs.tag_ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config merge.ours.driver true
+          git checkout -B "$BRANCH"
+          if git merge-base HEAD "$TAG_REF" >/dev/null 2>&1; then
+            git merge --no-commit --no-ff "$TAG_REF"
+          else
+            git merge --no-commit --no-ff --allow-unrelated-histories "$TAG_REF"
+          fi
+
+      - name: Prove deployment files survived the merge byte-for-byte
+        run: npm run ownership:verify -- "$RUNNER_TEMP/deployment-protected-before.json"
+
+      # The parent release may change either runtime pin. Node at the start of
+      # the job belongs to the currently consumed downstream version and only
+      # runs the bootstrap checks; select both candidate versions after merge.
+      - name: Setup candidate Ruby from the merged .ruby-version
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          bundler-cache: true
+
+      - name: Setup candidate Node from the merged .node-version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Install the candidate npm dependencies
+        run: npm ci
+
+      - name: Regenerate downstream outputs with the new PHCT generator
+        run: npm run generate
+
+      - name: Record the consumed release and commit
+        env:
+          RELEASE: ${{ steps.release.outputs.release }}
+          COMMIT: ${{ steps.release.outputs.commit }}
+        run: npm run version:record -- --release "$RELEASE" --commit "$COMMIT"
+
+      - name: Recheck ownership after regeneration
+        run: |
+          npm run ownership:verify -- "$RUNNER_TEMP/deployment-protected-before.json"
+          npm run ownership:check
+          npm run ownership:snapshot -- "$RUNNER_TEMP/deployment-protected-after.json"
+
+      - name: Run every non-browser release gate
+        run: npm run verify
+
+      - name: Save the inspectable site and ownership evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phct-update-${{ steps.release.outputs.release }}
+          path: |
+            _site/
+            ${{ runner.temp }}/deployment-protected-before.json
+            ${{ runner.temp }}/deployment-protected-after.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Commit and push the update branch
+        env:
+          BRANCH: ${{ steps.release.outputs.branch }}
+          RELEASE: ${{ steps.release.outputs.release }}
+          COMMIT: ${{ steps.release.outputs.commit }}
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The downstream already contains $RELEASE ($COMMIT)." >&2
+            exit 2
+          fi
+          git commit -m "chore: update PHCT to $RELEASE"
+          git push --force-with-lease origin "HEAD:refs/heads/$BRANCH"
+
+      - name: Open or update the human-reviewed pull request
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.release.outputs.branch }}
+          RELEASE: ${{ steps.release.outputs.release }}
+          COMMIT: ${{ steps.release.outputs.commit }}
+          FROM: ${{ steps.release.outputs.from }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          # Backticks below are intentional Markdown, not shell substitutions.
+          # shellcheck disable=SC2016
+          {
+            printf 'Updates this deployment from PHCT `%s` to [`%s`](https://github.com/crypticpy/phct/releases/tag/%s).\n\n' "$FROM" "$RELEASE" "$RELEASE"
+            printf 'Exact parent commit: `%s`\n\n' "$COMMIT"
+            printf '### Automated evidence\n\n'
+            printf -- '- [x] Before/after checksum manifests prove every protected deployment file is byte-identical\n'
+            printf -- '- [x] Generated outputs were rebuilt from deployment configuration\n'
+            printf -- '- [x] The PHCT ownership manifest and version lock agree\n'
+            printf -- '- [x] `npm run verify` passed on the update commit\n'
+            printf -- '- [x] An inspectable `_site` artifact is attached to the workflow run\n\n'
+            printf '### Human release checklist\n\n'
+            printf -- '- [ ] Read the PHCT release and migration notes\n'
+            printf -- '- [ ] Review every changed generated file\n'
+            printf -- '- [ ] Confirm the deployment name, demo banner, policy, content, and media in the preview\n'
+            printf -- '- [ ] Confirm Validate Content, Quality, Performance, Supply chain, and CodeQL are green\n'
+            printf -- '- [ ] Approve only after the release-candidate rehearsal is complete\n'
+          } > "$RUNNER_TEMP/phct-pr-body.md"
+
+          open_pr="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open_pr" ]; then
+            gh pr edit "$open_pr" --title "Update PHCT to $RELEASE" --body-file "$RUNNER_TEMP/phct-pr-body.md"
+          else
+            gh pr create --base "$BASE_BRANCH" --head "$BRANCH" --title "Update PHCT to $RELEASE" --body-file "$RUNNER_TEMP/phct-pr-body.md"
+          fi
+
+      - name: Dispatch checks when the built-in token opened the pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.release.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN triggered pull-request checks normally." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for workflow in validate.yml quality.yml performance.yml supply-chain.yml codeql.yml; do
+            gh workflow run "$workflow" --ref "$BRANCH"
+          done
+          echo "All five release workflows were dispatched on \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"

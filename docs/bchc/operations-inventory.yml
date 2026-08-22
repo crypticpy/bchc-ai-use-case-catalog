@@ -1,0 +1,50 @@
+schema_version: 1
+repository: crypticpy/bchc-ai-use-case-catalog
+last_verified: null
+verified_by: null
+
+# This file records ownership and verification, never values of secrets,
+# recovery codes, tokens, private keys, or non-public contact details.
+people:
+  product_owner: pending_bchc_assignment
+  primary_technical_maintainer: crypticpy
+  backup_release_maintainer: pending_bchc_assignment
+
+settings:
+  repository_visibility: verify
+  default_branch: main
+  pull_requests_required: verify
+  required_approvals: verify
+  required_checks: verify
+  force_push_blocked: verify
+  deletion_blocked: verify
+  tag_protection: verify
+  actions_may_open_pull_requests: verify
+  pages_source_github_actions: verify
+  pages_environment_protected: verify
+  custom_domain_owner: verify
+  dns_renewal_owner: verify
+  discussions: verify
+  private_vulnerability_reporting: verify
+  secret_scanning: verify
+  push_protection: verify
+  dependabot_alerts: verify
+  codeql: verify
+
+automation:
+  variables:
+    - CATALOG_SHOWCASE
+    - SUBMISSIONS_OPEN
+    - VERIFICATION_SWEEP
+  secrets_present_not_values:
+    - CONTENT_BOT_TOKEN_optional
+  token_owner: verify
+  token_expiry_reviewed: verify
+
+drills:
+  template_update: { last_run: null, result: not_run }
+  rollback: { last_run: null, result: not_run }
+  protected_data_takedown: { last_run: null, result: not_run }
+  credential_rotation: { last_run: null, result: not_run }
+  backup_restore: { last_run: null, result: not_run }
+  owner_transfer: { last_run: null, result: not_run }

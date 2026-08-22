@@ -15,6 +15,9 @@
 # Everything listed here is yours: keep yours, and read the template's diff by
 # hand if you want a change it made.
 
+# The exact PHCT release this deployment consumes.
+.phct-version.json                           merge=ours
+
 # Your configuration. `npm run setup`, /setup/ and the Apply setup issue all
 # write these; the template's copies are only ever the demo's.
 _config.yml                                  merge=ours
@@ -22,20 +25,30 @@ _data/site.yml                               merge=ours
 _data/theme.yml                              merge=ours
 _data/schema.yml                             merge=ours
 _data/navigation.yml                         merge=ours
+_data/governance.yml                         merge=ours
+_data/search.yml                             merge=ours
 
 # Your content.
 _data/events.yml                             merge=ours
 _data/resources.yml                          merge=ours
 _data/cohorts/**                             merge=ours
 _data/metrics.json                           merge=ours
+_data/derivatives.json                       merge=ours
 catalog/**                                   merge=ours
 cohorts/**                                   merge=ours
 events/**                                    merge=ours
 resources/**                                 merge=ours
 about/**                                     merge=ours
 assets/images/**                             merge=ours
+# PHCT's showcase is template code nested under the deployment image tree.
+# Restore the default merge behavior for it; the last matching rule wins.
+assets/images/showcase/**                    !merge
 CNAME                                        merge=ours
 README.md                                    merge=ours
+.github/CODEOWNERS                           merge=ours
+MAINTAINERS.md                               merge=ours
+SUPPORT.md                                   merge=ours
+docs/bchc/**                                 merge=ours
 
 # Generated from the files above, so they follow your data, not the template's.
 # Regenerate rather than merge: `npm run generate`.
