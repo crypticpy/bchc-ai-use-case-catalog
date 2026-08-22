@@ -30,7 +30,7 @@ export function parseNameStatusZ(output) {
   if (fields.at(-1) === '') fields.pop();
   const changes = [];
 
-  for (let index = 0; index < fields.length; ) {
+  for (let index = 0; index < fields.length;) {
     const rawStatus = fields[index++];
     const status = rawStatus[0];
     if (!'ACDMRT'.includes(status)) {
