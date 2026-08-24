@@ -1,7 +1,9 @@
 # Launch your catalog
 
 Start to finish: a copy of this template on GitHub, configured, emptied of the sample
-content, and carrying one entry you published yourself.
+content, and carrying one entry you published yourself. What you end up with is the
+[blank example](https://crypticpy.github.io/phct/examples/blank/) with your own name on it
+and one real entry.
 
 - **Time:** about 40 minutes, most of it waiting for builds.
 - **You need:** a GitHub account, and permission to create a repository in your organization.
@@ -127,7 +129,7 @@ wrote), each `_data/cohorts/<year>.yml` together with its `cohorts/<year>/` page
 comments intact, so you still have somewhere to put your own. The sample screenshots' records
 leave `_data/derivatives.json` with them (the responsive-image manifest `derive_images --check`
 verifies on every pull request). `_data/governance.yml` is different:
-it is the coalition's actual review process and policies as a worked example, not rows to empty,
+it is a worked example of a review process and its policies, not rows to empty,
 so the ejector sets `governance: false` in `_data/site.yml` and leaves the file for you to rewrite
 (the checklist in step 8 has a line for it). `_data/metrics.json` — the sample submission and
 review figures shown on the governance page — is deleted; your monthly **Catalog metrics** run

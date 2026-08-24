@@ -39,6 +39,9 @@ jobs:
           # verification sweep (verification-sweep.yml) applies it to the one
           # rolling issue it keeps open, so maintainers can find or mute it.
           create "verification"               "8250DF" "Entries due to be re-confirmed with their contact"
+          create "bug"                        "D1242F" "Reproducible defect in shared PHCT behavior"
+          create "accessibility"              "0E8A16" "Accessibility barrier or conformance defect"
+          create "enhancement"                "A2EEEF" "Proposed reusable capability or improvement"
           # Review-tier labels for the pull requests the entry scaffolder opens
           # (new-entry.yml). `review:intake` goes on every scaffolded pull
           # request; `review:data-governance` when an answer matches a field's

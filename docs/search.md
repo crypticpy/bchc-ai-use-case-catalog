@@ -64,7 +64,7 @@ never outrank a real hit.
 Pairs do **not** chain: `a: [b]` and `b: [c]` does not make `a` find `c`. That is on purpose, so
 widening one term never silently widens its neighbours.
 
-Use it for words that are **not** in the taxonomy: a term of art (`syndromic`), an abbreviation
+Use it for words that are **not** in the taxonomy: a term of art (`redaction`), an abbreviation
 (`PHI`, `RAG`), the word a resident would use rather than the word the department uses. If the word
 *is* a tag, it belongs in `aliases` instead — see below, that is the better answer.
 

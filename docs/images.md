@@ -14,13 +14,13 @@ reads that manifest and emits a `<picture>` so the browser downloads the one
 variant that fits its screen.
 
 ```
-catalog/epi-signal-triage/screenshots/
-  01.png          30,300 B   the source, committed by the submission bot
-  01-400.avif      5,454 B   what a phone actually downloads
+catalog/permit-intake-triage/screenshots/
+  01.png          25,969 B   the source, committed by the submission bot
+  01-400.avif      6,124 B   what a phone actually downloads
   01-400.webp
   01-800.avif
   01-800.webp
-  01-1280.avif
+                             (no 01-1280.avif: it came out larger than the source, so it was skipped)
 ```
 
 Nothing in the site depends on any of this existing. A fork that has never run
@@ -115,11 +115,11 @@ appears in front matter:
 
 ```json
 {
-  "/catalog/epi-signal-triage/screenshots/01.png": {
+  "/catalog/permit-intake-triage/screenshots/01.png": {
     "w": 1280,
     "h": 800,
     "src_bytes": 30300,
-    "base": "/catalog/epi-signal-triage/screenshots/01",
+    "base": "/catalog/permit-intake-triage/screenshots/01",
     "variants": { "avif": [400, 800, 1280], "webp": [400, 800] }
   }
 }
@@ -171,14 +171,18 @@ The `sizes` values shipped in `_includes/entry-thumb.html` and
 
 ## What it bought
 
-Measured on the ten sample entries at 390×844, DPR 2, throttled to 1.6 Mbps /
-150 ms RTT / 4× CPU:
+Measured on an earlier ten-entry sample set (same screenshot sizes, same pipeline)
+at 390×844, DPR 2, throttled to 1.6 Mbps / 150 ms RTT / 4× CPU:
 
 | Page | Before | After |
 |---|---|---|
 | `/catalog/` LCP image | 20,090 B (`01.png`) | 11,551 B (`01-800.avif`) |
 | `/catalog/` all images | 124,131 B | 70,843 B (−43%) |
-| `/catalog/epi-signal-triage/` all images | 55,903 B | 30,279 B (−46%) |
+| one entry page, all images | 55,903 B | 30,279 B (−46%) |
+
+For the current sample set the manifest sums to 276,194 B of source PNGs against
+187,094 B for the largest AVIF variant of each (−32%); the screenshots are smaller
+and already tight, so the saving is proportionally less.
 
 The sample screenshots are small and already well-optimised, which understates
 the effect: the case this exists for is a real 2–4 MB retina PNG dropped into a

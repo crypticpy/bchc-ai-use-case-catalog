@@ -24,7 +24,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
 const CASES = [
   // Plain ASCII, the shape most titles have.
-  'Overdose Spike: Brief Generator!',
+  'Service Request: Routing Assistant!',
   'ALL CAPS',
   '2024 Cohort',
   '  spaced  out  ',

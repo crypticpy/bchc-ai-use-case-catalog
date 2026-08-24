@@ -37,23 +37,23 @@ const presets = await loadPresets();
 test('normalizeRoot turns a baseurl into the prefix every showcase path is built on', () => {
   assert.equal(normalizeRoot(''), '');
   assert.equal(normalizeRoot('/'), '');
-  assert.equal(normalizeRoot('/bchc-template'), '/bchc-template');
-  assert.equal(normalizeRoot('bchc-template/'), '/bchc-template');
+  assert.equal(normalizeRoot('/phct'), '/phct');
+  assert.equal(normalizeRoot('phct/'), '/phct');
   assert.equal(normalizeRoot(undefined), '');
 });
 
 test('site.showcase is the shape the landing and the switcher read', () => {
-  const examples = showcaseExamples(presets, '/bchc-template');
+  const examples = showcaseExamples(presets, '/phct');
   assert.deepEqual(examples[0], {
     id: presets[0].id,
     name: presets[0].name,
-    path: `/bchc-template/examples/${presets[0].id}`,
+    path: `/phct/examples/${presets[0].id}`,
   });
   assert.equal(examples.length, presets.length, 'every preset is an example');
 
   const landing = showcaseOverride({
     role: 'landing',
-    root: '/bchc-template',
+    root: '/phct',
     url: 'https://x.test',
     examples,
   });

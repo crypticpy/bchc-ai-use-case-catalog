@@ -6,8 +6,8 @@ maintaining a catalog rather than the person building the template.
 **entry** — one published thing in the catalog: one folder under `catalog/`, one page on the site,
 one card in the grid. What an entry *is* (a use case, a project, a resource) is up to your schema.
 
-**slug** — the short, hyphenated name in an entry's web address. `catalog/overdose-spike-brief/`
-has the slug `overdose-spike-brief`; it must match the folder name exactly, which is what the "slug
+**slug** — the short, hyphenated name in an entry's web address. `catalog/service-request-routing/`
+has the slug `service-request-routing`; it must match the folder name exactly, which is what the "slug
 must equal the folder name" validation error is telling you.
 
 **front matter** — the block of `key: value` lines between the two `---` markers at the top of an

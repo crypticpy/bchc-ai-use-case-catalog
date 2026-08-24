@@ -118,6 +118,18 @@ The upgrade path is `.gitattributes` `merge=ours` on the files a fork owns plus
 every fork was considered and deferred: it needs a token with write access to the fork, and the
 merge driver already makes `git merge upstream/main` safe for the files that matter.
 
+## 2026-08-22 — Protected updates use immutable diffs, not shared ancestry
+
+The release updater supersedes the ancestry-dependent part of the earlier merge-driver decision.
+A repository created with **Use this template** has a new root commit, so
+`--allow-unrelated-histories` permits a merge but still treats every common file as an add/add and
+cannot identify the consumed PHCT release as the merge base. The updater now verifies the locked
+and target immutable PHCT refs directly, reconciles every template-owned path byte-for-byte to the
+complete target tree (including files unchanged between releases), and leaves deployment-owned
+paths untouched before verifying their checksums. The ordered
+`.gitattributes` rules remain the ownership source and a manual-merge defense, but the supported
+automation does not depend on local merge-driver configuration or shared history.
+
 ## 2026-08-17 — Saved constraints overlay is deferred
 
 Letting a reader save "my constraints" (budget band, no PHI, on-prem only) and shading the

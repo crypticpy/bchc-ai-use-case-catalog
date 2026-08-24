@@ -22,9 +22,14 @@ export const SKIP = new Set([
   '.git',
   '.jekyll-cache',
   '.lighthouseci',
+  '_config.ci.yml',
+  '_config.quality.yml',
   '_site',
+  'coverage',
   'node_modules',
   'panel2',
+  'performance-report.json',
+  'sbom.cdx.json',
   'vendor',
 ]);
 

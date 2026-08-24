@@ -1,0 +1,34 @@
+name: Feature proposal
+description: Propose a reusable PHCT capability or documentation improvement.
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Maintainer or visitor problem
+      description: Describe the recurring task or failure, not only a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: users
+    attributes:
+      label: Who needs this and how often
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Accessibility, security, performance, migration, and no-code constraints
+      description: State what must continue to work for non-technical downstream maintainers.
+  - type: checkboxes
+    id: routing
+    attributes:
+      label: Repository routing
+      options:
+        - label: This is reusable PHCT behavior, not only downstream content, branding, taxonomy, or policy.
+          required: true

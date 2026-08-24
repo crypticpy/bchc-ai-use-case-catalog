@@ -36,7 +36,10 @@ Local assigns are prefixed `az_`.
 
 <nav class="az-jump" aria-label="Jump to a letter">
   {%- for az_group in az_letters -%}
-    {%- assign az_anchor = az_group.letter | slugify | default: 'other' -%}
+    {%- assign az_anchor = 'other' -%}
+    {%- unless az_group.letter == '#' -%}
+      {%- assign az_anchor = az_group.letter | slugify -%}
+    {%- endunless -%}
     <a href="#letter-{{ az_anchor }}">{{ az_group.letter }}</a>
   {%- endfor -%}
 </nav>
@@ -44,7 +47,10 @@ Local assigns are prefixed `az_`.
 <section class="mt-8" aria-labelledby="az-entries-heading">
   <h2 class="section-title" id="az-entries-heading">All {{ az_plural | downcase }}</h2>
   {%- for az_group in az_letters -%}
-    {%- assign az_anchor = az_group.letter | slugify | default: 'other' -%}
+    {%- assign az_anchor = 'other' -%}
+    {%- unless az_group.letter == '#' -%}
+      {%- assign az_anchor = az_group.letter | slugify -%}
+    {%- endunless -%}
     <div class="az-block scroll-mt-24" id="letter-{{ az_anchor }}">
       <h3 class="az-letter"><span aria-hidden="true">{{ az_group.letter }}</span><span class="sr-only">Starting with {{ az_group.letter }}</span></h3>
       <ul role="list" class="az-list">

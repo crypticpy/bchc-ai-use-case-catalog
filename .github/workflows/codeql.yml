@@ -1,20 +1,73 @@
-# GitHub registers manually dispatched workflow paths from the default branch.
-# The PHCT update replaces this fail-closed registration stub on its branch;
-# dispatching that ref then runs the candidate's complete CodeQL workflow.
 name: CodeQL
 
 on:
+  workflow_call:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 2"
   workflow_dispatch:
 
 permissions: {}
 
+concurrency:
+  group: codeql-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  registration:
-    name: Replace this registration stub through a PHCT update
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, ruby]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyze repository
+        uses: github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
+        with:
+          category: /language:${{ matrix.language }}
+
+  status:
+    name: Report the dispatched run on its commit
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    needs: [analyze]
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+
     steps:
-      - name: Refuse to report a bootstrap stub as a release gate
-        run: |
-          echo "::error title=PHCT update required::This registration stub is not a CodeQL gate. Run it only on a branch where the protected PHCT updater has installed the candidate workflow."
-          exit 1
+      - name: Post a commit status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const passed = ${{ toJSON(needs.analyze.result) }} === 'success';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: passed ? 'success' : 'failure',
+              context: 'CodeQL (dispatch)',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: passed ? 'CodeQL passed' : 'CodeQL reported problems',
+            });

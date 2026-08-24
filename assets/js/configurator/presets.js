@@ -23,7 +23,7 @@ export const presets = [
     id: 'ai-use-cases',
     name: 'AI use case catalog',
     description:
-      'The configuration this template ships with: a catalog of AI projects shared between health departments, grouped by what it is, how it is built, what it takes to reuse, and the data it touches.',
+      'The configuration this template ships with: a catalog of AI projects shared between public-sector teams, grouped by what it is, how it is built, what it takes to reuse, and the data it touches.',
     config: { site: shipped.site, theme: shipped.theme, schema: shipped.schema },
   },
   {

@@ -8,6 +8,131 @@ major version, and each entry says so when it happens.
 
 ## [Unreleased]
 
+## [1.9.0-rc.2] — 2026-08-22
+
+### Fixed
+
+- The downstream updater now uses a dedicated `PHCT_UPDATE_TOKEN` for releases that change
+  `.github/workflows`. It detects that requirement immediately after the protected reconciliation
+  and checksum check, then fails with setup guidance before installing the candidate toolchain or
+  running the full suite. Routine content automation retains its narrower token.
+- The privileged updater credential stays out of checkout and candidate-controlled install,
+  generation, verification, processes, and Git hooks. The verified commit crosses a digest-checked
+  Git bundle into a fresh publication runner that never checks out or executes it; only that clean
+  job receives the token for push and pull-request operations, without storing it in Git
+  configuration or a remote URL.
+
+## [1.9.0-rc.1] — 2026-08-22
+
+### Changed
+
+- Added a real-Chrome, 4× CPU-slowdown interaction gate at the supported 100-entry ceiling. Filter
+  and warm-search p95 now block release; search cold start, sorting, comparison, main-thread time,
+  heap use, repository subpath serving, cache behavior, and font/image transfer totals remain in
+  the retained performance evidence. Reduced search debounce from 120 ms to 50 ms and made
+  prefix/fuzzy expansion a no-hit fallback after controlled macOS and Linux runs exposed wasted
+  work for common exact terms. Search result cards now paint
+  before deferred snippet decoration, which is limited to the 20 highest-ranked cards.
+- Kept scale and variant evidence reproducible by excluding locally generated coverage, SBOM, and
+  performance artifacts from scratch builds and reporting elapsed time for every variant step.
+  Performance fixtures now include long-form prose, deterministic 320×180 PNGs, every facet at
+  common/rare frequencies, deprecated rows, and relationships instead of 1×1 placeholder-only
+  scale data. Filter rendering now completes before deferred URL-history bookkeeping.
+
+### Added
+
+- **Release-readiness and downstream safety system.** Exact Node, npm, Ruby, and Bundler pins;
+  `npm run doctor` and one fail-closed `npm run verify` command; a machine-readable ownership
+  manifest; protected-file checksums; immutable downstream version locks; and a manual,
+  human-approved PHCT update workflow.
+- **Security and supply-chain gates.** CodeQL for JavaScript and Ruby, weekly npm/Ruby advisory
+  audits, fail-closed dependency-license review, expiring exception records, and deterministic
+  CycloneDX release SBOMs.
+- **Measured scale and browser gates.** A deterministic 0–1,000-entry fixture, enforced 100-entry
+  release budgets, link/anchor/artifact validation, filesystem-only local Lighthouse reports, and
+  a gzip static server that matches production delivery more closely.
+- **Coverage evidence.** Pinned-runtime line, branch, and function/method reports for the complete
+  Node and Ruby suites and explicit security-parser/updater groups, with reviewed regression floors
+  and always-retained CI artifacts.
+- **Open-source operations.** CODEOWNERS, maintainership and support policies, structured bug,
+  accessibility, and feature forms, plus release/update/rollback/backup/succession runbooks.
+- **[docs/ecosystem.md](docs/ecosystem.md)** — the map of the repository family:
+  what `phct` and `bchc-ai-use-case-catalog` each are, the archived starter, the
+  repository variables that make each deployment behave differently, and what to
+  update when a repository moves.
+
+### Fixed
+
+- Protected deployment governance, search vocabulary, derivative metadata, and nested showcase
+  exceptions now match the documented update boundary and are tested before every parent update.
+- Validation no longer reports success after silently skipping Ruby checks, and template-only
+  showcase builds no longer fail downstream verification when no showcase is deployed.
+- The downstream updater now fetches both the locked and target PHCT tags, proves the locked tag
+  still resolves to its recorded full commit, reconciles the complete template-owned target tree
+  without assuming shared Git ancestry, reselects the candidate's Node and Ruby afterward,
+  branches from the default branch, uses `--force-with-lease`, and dispatches every release
+  workflow when GitHub suppresses pull-request events from its built-in token.
+
+## [1.8.1] — 2026-08-19
+
+### Changed
+
+- **The template has a name: Pub Health Catalog Template (PHCT).** The repository
+  is now `crypticpy/phct`, the landing is titled accordingly and the package is
+  `phct`. GitHub redirects the old `bchc-template` remote and web URLs, so existing
+  forks' `template` remotes keep working; update them at leisure (`git remote
+  set-url template https://github.com/crypticpy/phct.git`). The Pages URL moved to
+  <https://crypticpy.github.io/phct/> — the old one does not redirect.
+
+### Removed
+
+- **The day-one starter site.** `crypticpy/bchc-catalog-starter` is archived; with a
+  live example of every preset it no longer earned its keep. `demo_starter_url` and
+  the landing's `starter_url` ship blank — the feature stays (set either to a copy of
+  your own and the links come back), only the default target is gone.
+
+## [1.8.0] — 2026-08-19
+
+The template is a template again. Its working tree used to *be* one
+organization's live catalog, so a copy made from it started life wearing that
+organization's name, tagline, logo mark, footer and governance text — and the
+first job of anyone forking it was to find and undo all of that. The named
+catalog now has its own repository and this one ships a generic identity.
+
+### Changed
+
+- **The shipped configuration is organization-agnostic.** `_data/site.yml`,
+  `_data/governance.yml`, `_data/showcase.yml`, `_config.yml` and the LICENSE
+  no longer name a real organization. The site ships as "AI Use Case Catalog"
+  by an invented "Civic AI Community of Practice", which is what choosing the
+  `ai-use-cases` preset in the setup wizard describes: a public-sector
+  community of practice sharing what it has built. The governance page keeps
+  its structure and reads as a worked example rather than one body's adopted
+  policy.
+- **The `ai-use-cases` showcase example** (`/examples/ai-use-cases/`) carries
+  that generic identity and a refreshed set of sample entries, so the flagship
+  example demonstrates the preset rather than a particular deployment.
+  The ten new entries are org-agnostic public-sector use cases (permit
+  intake triage, council meeting summaries, records-request redaction, …),
+  written to the same standard as before; docs worked examples and test
+  fixtures were re-pointed at them so nothing in the repository quotes the
+  old deployment's data.
+
+### Removed
+
+- **The named deployment moved out.** The health-coalition catalog this
+  template was first built for now lives at
+  [crypticpy/bchc-ai-use-case-catalog](https://github.com/crypticpy/bchc-ai-use-case-catalog),
+  where its content, branding and adopted governance text belong. This
+  repository stays the generic template (renamed to `phct` in 1.8.1, below).
+- **`docs/dmwg-alignment-plan.md` and `docs/BCHC_DMWG_AI_Resource_info.md`**,
+  the source framework and the field-by-field plan behind v1.5.0 and v1.6.0.
+  They describe one work group's adopted framework, so they moved to that
+  repository with it. What they produced — the schema fields, the governance
+  module, the review workflow — is unchanged and documented in
+  [docs/content-model.md](docs/content-model.md) and
+  [docs/configuration.md](docs/configuration.md).
+
 ## [1.7.0] — 2026-08-18
 
 The template now shows its work. Its own deployment used to be one demo catalog
@@ -140,7 +265,7 @@ everything the walkthrough found wrong is fixed below.
 ## [1.6.0] — 2026-08-18
 
 DMWG alignment, wave 4 — metrics and promotion, the last of the four waves in
-[docs/bchc/dmwg-alignment-plan.md](docs/bchc/dmwg-alignment-plan.md). The governance
+`docs/dmwg-alignment-plan.md`. The governance
 page can now show how the catalog is doing, counted from the repository's own
 issues and pull requests; an entry can say which entry it was adapted from,
 and the source says how many adopted it; and the feed — shipped in 1.2.0 —
@@ -209,7 +334,7 @@ organizations figure.
 
 DMWG alignment, waves 1–3 — the content model, then the site, then the review
 workflow catch up with the Data Modernization Work Group's governance
-framework ([docs/bchc/dmwg-alignment-plan.md](docs/bchc/dmwg-alignment-plan.md)). Add,
+framework (`docs/dmwg-alignment-plan.md`). Add,
 never delete: every existing field stays; nine join them, the rules the
 reviewers apply are published on the site rather than in a PDF, and the pull
 request a submission becomes now carries those rules, the answers that need a
@@ -839,7 +964,11 @@ fixed in this release, and the remaining P3s are listed in `docs/roadmap.md`.
   in-browser and CLI configurators, GitHub-issue submission flow, events /
   cohorts / resources modules, Lunr search, thumbnails workflow.
 
-[Unreleased]: https://github.com/crypticpy/phct/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.2...HEAD
+[1.9.0-rc.2]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.1...v1.9.0-rc.2
+[1.9.0-rc.1]: https://github.com/crypticpy/phct/compare/v1.8.1...v1.9.0-rc.1
+[1.8.1]: https://github.com/crypticpy/phct/compare/v1.8.0...v1.8.1
+[1.8.0]: https://github.com/crypticpy/phct/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/crypticpy/phct/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/crypticpy/phct/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/crypticpy/phct/compare/v1.5.0...v1.6.0

@@ -49,7 +49,7 @@ The catalog is a **working tool, not a brochure**. It spends its ink on the data
 │ [screenshot 16:9 — band omitted if none]  ★ Featured
 ├──────────────────────────────────────┤
 │ CHICAGO DPH · PILOT                  │  meta line (≤2 segments, weight order)
-│ Syndromic Signal Triage Assistant    │  h3, 18/24, 2 lines max — the ONLY link
+│ Permit Application Intake Triage     │  h3, 18/24, 2 lines max — the ONLY link
 │ ↗ Cuts brief turnaround 3 days → 1 hr│  card:line (impact), semibold
 │ LLM workflow that reads daily ESSENCE│  summary, 2-line clamp, muted
 │ alerts and drafts a triage note…     │
@@ -75,10 +75,10 @@ Search: `role="combobox"` + `aria-expanded/controls/activedescendant`, `listbox`
 ## Entry page
 
 ```
-Home / Use cases / Overdose Spike Brief
+Home / Use cases / Service Request Routing
 ┌────────────────────────────────────────────┬──────────────────┐
 │ SOURCE CODE · PILOT                        │ REUSE THIS       │ sticky
-│ Overdose Spike Situational Brief Generator │ ▸ View code      │
+│ Service Request Routing Assistant          │ ▸ View code      │
 │ ↗ One-line impact, 20px                    │ ▸ Live demo      │
 │ Philadelphia DPH · published Mar 2026 · updated … │ ▸ Deck (PDF)│
 │ ┌────────────────────────────────────────┐ │ ▸ Other resources│

@@ -21,12 +21,15 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import * as yaml from 'js-yaml';
 import { renderDefaults, OUTPUT_PATH as DEFAULTS_PATH } from './build_defaults.mjs';
+import { GENERATOR_OUTPUTS } from './lib/generated_paths.mjs';
 
 const ROOT = process.cwd();
-const ISSUE_TEMPLATE_PATH = '.github/ISSUE_TEMPLATE/new-entry.yml';
-const CONFIG_PATH = '_config.yml';
-const CONTACT_LINKS_PATH = '.github/ISSUE_TEMPLATE/config.yml';
-const SITE_DATA_PATH = '_data/site.yml';
+const [SITE_DATA_PATH, generatedDefaultsPath, ISSUE_TEMPLATE_PATH, CONFIG_PATH, CONTACT_LINKS_PATH] =
+  GENERATOR_OUTPUTS;
+
+if (generatedDefaultsPath !== DEFAULTS_PATH) {
+  throw new Error(`Generator path mismatch: ${generatedDefaultsPath} !== ${DEFAULTS_PATH}`);
+}
 
 const check = process.argv.slice(2).some((arg) => arg === '--check');
 const changes = [];

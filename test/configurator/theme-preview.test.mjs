@@ -84,6 +84,6 @@ test('previewCopy prefers the answers and falls back to neutral copy', () => {
 });
 
 test('previewCopy derives the mark from orgShort before the site name and caps it at four characters', () => {
-  assert.equal(previewCopy({ siteName: 'Catalog', orgShort: 'BCHCX' }).mark, 'BCHC');
+  assert.equal(previewCopy({ siteName: 'Catalog', orgShort: 'Civic AI CoP' }).mark, 'Civi');
   assert.equal(previewCopy({ siteName: 'Catalog' }).mark, 'Cata');
 });

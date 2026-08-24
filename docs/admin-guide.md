@@ -20,6 +20,10 @@ Day-to-day operation of a site built from this template: repository setup, revie
 - [ ] Configure branding/theme/schema via `/setup/` or `npm run setup` (see the [README](../README.md) quick start and [configuration reference](configuration.md)). With no terminal, paste the wizard's three `_data/*.yml` files into the **Apply setup (creates PR)** issue form and merge the pull request it opens.
 - [ ] Clear the demo content: `npm run eject:samples`, or the **Remove the demo content** checkbox on that same Apply setup issue. Until it is gone every page carries a *Demo content* banner — that is deliberate, and it is the only thing telling a visitor that "Baytown Metro Health District" is fictional. The same step switches the `governance` module off; rewrite `_data/governance.yml` as your own review process and policies, then set `governance: true` again. It also removes the showcase — `_showcase/`, `_data/showcase.yml` and `assets/images/showcase/`, the landing page and example sites the template publishes about itself (see [the showcase](configuration.md#the-showcase)). Your fork never builds those anyway: your home page is your catalog.
 - [ ] Optional: **`CONTENT_BOT_TOKEN`** — a fine-grained personal access token that makes the checks on generated pull requests run without a click. See [Checks on a generated pull request](#checks-on-a-generated-pull-request) below for what it changes and what to grant it.
+- [ ] Before the first PHCT upgrade: **`PHCT_UPDATE_TOKEN`** — a separate, repository-scoped
+  credential that may update `.github/workflows`. The protected updater fails before opening a
+  branch when a release needs this permission and the secret is absent. Follow
+  [Workflow token required for workflow updates](upgrading.md#workflow-token-required-for-workflow-updates).
 - [ ] Optional: custom domain — add a `CNAME` file at the repo root; the `pages.yml` build detects it and serves from the domain root.
 
 ## Who can submit
@@ -108,6 +112,23 @@ The template handles this without a token: after opening the pull request, each 
 
 Give it a short expiry and re-issue it on a calendar reminder; the workflows fall back to `GITHUB_TOKEN` and the dispatch path the moment the secret is absent, so an expired token degrades rather than breaks. The token's user becomes the author of every content commit, so use a machine account if you would rather that not be a person's name. [SECURITY.md](../SECURITY.md) covers the trust this delegates.
 
+### PHCT updates use a separate token
+
+`CONTENT_BOT_TOKEN` deliberately lacks permission to change Actions workflows. The **Update from
+PHCT** workflow uses `PHCT_UPDATE_TOKEN` instead because parent releases normally update files
+under `.github/workflows/`. Keep that higher-privilege credential repository-scoped, short-lived,
+and owned by the release or machine account. The exact permissions and setup path are in
+[Workflow token required for workflow updates](upgrading.md#workflow-token-required-for-workflow-updates).
+
+Without that secret, a release that changes workflows stops with an actionable run summary before
+the candidate toolchain, full verification, push, or pull request. Releases that do not change
+workflows retain the built-in-token fallback.
+
+The credential is not available while candidate code runs. After verification, the updater moves
+the exact commit through a digest-checked Git bundle into a fresh publication runner that never
+executes the candidate, and only that isolated job receives the token for push and pull-request
+operations.
+
 ## Editing or removing an existing entry
 
 - **Small edit**: every entry page has a **Suggest an edit on GitHub** link (bottom of the page) that opens the file directly in GitHub's editor, pre-targeted at `catalog/<slug>/index.md` on the configured branch. Commit directly or via a PR.
@@ -141,7 +162,7 @@ That is the whole protocol. `verified` is a reserved key like `updated`: optiona
 
 ## The monthly catalog metrics
 
-The governance page can carry a short "How the catalog is doing" block — submissions opened, entries published, distinct contributing organizations and review turnaround, by quarter — so the coalition can see at a glance whether the catalog is being used and how quickly review moves. The figures come from this repository's own issues and pull requests; nothing is installed on the site and no analytics vendor is involved.
+The governance page can carry a short "How the catalog is doing" block — submissions opened, entries published, distinct contributing organizations and review turnaround, by quarter — so maintainers can see at a glance whether the catalog is being used and how quickly review moves. The figures come from this repository's own issues and pull requests; nothing is installed on the site and no analytics vendor is involved.
 
 **The workflow.** `.github/workflows/metrics.yml` runs at 07:30 UTC on the 2nd of each month (and on demand from the Actions tab). It runs `scripts/metrics.mjs`, which reads the repository through two REST calls and counts, over the last four calendar quarters:
 
@@ -229,6 +250,10 @@ All four cohort/event workflows follow the same pattern as new-entry: issue → 
 **Build failing (`Build & Deploy` workflow red on `main`)**
 - Check the Actions log for the failing step. Common culprits: invalid YAML in `_data/*.yml` (run `npm run validate` locally first), a schema change that broke `npm run generate`, or `bundle exec jekyll doctor` flagging a broken permalink/URL.
 - `npm run validate` mirrors the CI content gate locally (YAML parse of every `_data/*.yml`, plus the two Ruby checks) — run it before pushing schema or data changes.
+- If **Coverage evidence** is red, download its artifact and inspect `summary.json` plus the
+  matching TAP file. Run `npm run coverage` with the exact toolchain; add tests for the changed
+  behavior or have a maintainer explicitly review a justified floor change. Never lower a floor
+  merely to make the workflow green.
 
 **Pull request not created after an issue was opened**
 - Confirm the issue actually carries the expected label (`content:new-entry`, etc.) — GitHub only applies labels from an issue form if they already exist in the repo (see setup checklist above).

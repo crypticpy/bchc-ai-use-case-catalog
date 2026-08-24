@@ -1,10 +1,10 @@
 ### Title
 
-Overdose spike situational brief generator
+Service request routing assistant
 
 ### Summary
 
-Drafts a daily situational brief from overdose surveillance feeds so the epi team starts from a draft instead of a blank page.
+Transcribes and translates incoming service requests, assigns a category and urgency, and opens the work order so intake staff start from a draft instead of a blank form.
 
 ### Result in one line
 
@@ -59,7 +59,7 @@ Guided setup, Human review built in
 
 ### Source code
 
-https://github.com/example-org/overdose-brief
+https://github.com/example-org/request-routing
 
 ### Live site or demo
 
@@ -67,7 +67,7 @@ _No response_
 
 ### Documentation or write-up
 
-https://example.org/docs/overdose-brief
+https://example.org/docs/request-routing
 
 ### Other resources
 

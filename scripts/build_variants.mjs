@@ -7,7 +7,7 @@
  *   node scripts/build_variants.mjs --keep          leave the scratch trees for inspection
  *
  * Why: `validate.yml` and `quality.yml` build exactly one configuration — the
- * shipped BCHC one, with `events`, `cohorts` and `resources` off. So three of
+ * shipped `ai-use-cases` one, with `events`, `cohorts` and `resources` off. So three of
  * the four presets have never been through Liquid at all, and six layouts and
  * includes are never rendered by anything in CI. Every schema-driven string
  * ("Submit {{ singular | with_article }}") is unverified outside the one noun
@@ -26,6 +26,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { performance } from 'node:perf_hooks';
 
 import { seedFixtureEntries } from './seed_fixture_entries.mjs';
 import { copyTree, readYaml, removeEntries, run, writeYaml } from './lib/build-tree.mjs';
@@ -44,7 +45,7 @@ export const ROOT = process.env.BUILD_VARIANTS_ROOT
  * replaces them with ones generated from the variant's own schema, and `none`
  * empties the catalog so the empty state renders.
  *
- * @type {{id: string, preset: string|null, modules: object|null,
+ * @type {{id: string, preset: string|null, modules: object|null, demo?: boolean,
  *         entries: 'keep'|'fixtures'|'none', build: boolean,
  *         expectFrontMatter: 'pass'|'fail', why: string}[]}
  */
@@ -57,6 +58,16 @@ export const VARIANTS = [
     build: true,
     expectFrontMatter: 'pass',
     why: 'the configuration this repository ships and CI already builds',
+  },
+  {
+    id: 'shipped-live-mode',
+    preset: null,
+    modules: null,
+    demo: false,
+    entries: 'keep',
+    build: true,
+    expectFrontMatter: 'pass',
+    why: 'the shipped entries with demo mode disabled, proving real contacts and resources stay live',
   },
   {
     id: 'all-modules',
@@ -111,10 +122,17 @@ export const VARIANTS = [
 
 /* -------------------------------------------------------------------------- */
 
+function timedRun(command, args, options) {
+  const started = performance.now();
+  const result = run(command, args, options);
+  return { ...result, duration_ms: Math.round(performance.now() - started) };
+}
+
 /** Turn on/off modules in a scratch `_data/site.yml`. Comments are not preserved. */
-function patchModules(file, modules) {
+function patchSite(file, { modules, demo }) {
   const site = readYaml(file);
-  site.modules = { ...(site.modules ?? {}), ...modules };
+  if (modules) site.modules = { ...(site.modules ?? {}), ...modules };
+  if (typeof demo === 'boolean') site.demo = demo;
   writeYaml(file, site);
 }
 
@@ -124,7 +142,7 @@ function patchModules(file, modules) {
  * @param {object} variant one of {@link VARIANTS}.
  * @param {{scratchRoot: string, log?: (message: string) => void}} options
  * @returns {{variant: object, dir: string, siteDir: string|null, steps:
- *           {name: string, ok: boolean, output: string}[], ok: boolean}}
+ *           {name: string, ok: boolean, output: string, duration_ms: number}[], ok: boolean}}
  *   `ok` is false when a step that was expected to pass did not.
  */
 export function buildVariant(variant, { scratchRoot, log = () => {} }) {
@@ -132,8 +150,9 @@ export function buildVariant(variant, { scratchRoot, log = () => {} }) {
   fs.rmSync(dir, { recursive: true, force: true });
   const steps = [];
   const step = (name, result) => {
-    steps.push({ name, ok: result.ok, output: result.output ?? '' });
-    log(`  ${result.ok ? 'ok  ' : 'FAIL'} ${variant.id} · ${name}`);
+    steps.push({ name, ok: result.ok, output: result.output ?? '', duration_ms: result.duration_ms ?? 0 });
+    const elapsed = result.duration_ms === undefined ? '' : ` (${result.duration_ms}ms)`;
+    log(`  ${result.ok ? 'ok  ' : 'FAIL'} ${variant.id} · ${name}${elapsed}`);
     return result.ok;
   };
 
@@ -150,12 +169,16 @@ export function buildVariant(variant, { scratchRoot, log = () => {} }) {
   if (variant.preset) {
     const ok = step(
       `setup --preset ${variant.preset}`,
-      run(process.execPath, ['scripts/setup.mjs', '--preset', variant.preset, '--out', dir], { cwd: ROOT })
+      timedRun(process.execPath, ['scripts/setup.mjs', '--preset', variant.preset, '--out', dir], {
+        cwd: ROOT,
+      })
     );
     if (!ok) return { variant, dir, siteDir: null, steps, ok: false };
   }
 
-  if (variant.modules) patchModules(path.join(dir, '_data', 'site.yml'), variant.modules);
+  if (variant.modules || typeof variant.demo === 'boolean') {
+    patchSite(path.join(dir, '_data', 'site.yml'), variant);
+  }
 
   if (variant.entries !== 'keep') {
     removeEntries(dir);
@@ -164,13 +187,14 @@ export function buildVariant(variant, { scratchRoot, log = () => {} }) {
 
   // The issue template and the wizard defaults are derived from _data; a
   // variant that skipped this would be testing a tree CI would reject.
-  step('generate', run(process.execPath, [path.join(dir, 'scripts', 'generate.mjs')], { cwd: dir }));
+  step('generate', timedRun(process.execPath, [path.join(dir, 'scripts', 'generate.mjs')], { cwd: dir }));
 
-  const frontMatter = run('ruby', [path.join('scripts', 'check_front_matter.rb')], { cwd: dir });
+  const frontMatter = timedRun('ruby', [path.join('scripts', 'check_front_matter.rb')], { cwd: dir });
   const frontMatterAsExpected = variant.expectFrontMatter === 'fail' ? !frontMatter.ok : frontMatter.ok;
   step(`check_front_matter (expected to ${variant.expectFrontMatter})`, {
     ok: frontMatterAsExpected,
     output: frontMatter.output,
+    duration_ms: frontMatter.duration_ms,
   });
 
   let siteDir = null;
@@ -178,7 +202,7 @@ export function buildVariant(variant, { scratchRoot, log = () => {} }) {
     siteDir = path.join(dir, '_site');
     step(
       'jekyll build',
-      run(
+      timedRun(
         'bundle',
         ['exec', 'jekyll', 'build', '--destination', siteDir, '--strict_front_matter', '--quiet'],
         {

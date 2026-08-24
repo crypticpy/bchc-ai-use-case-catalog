@@ -1,6 +1,6 @@
 # Documentation
 
-Fifteen documents, four different readers. Find your row.
+Twenty-one documents, four different readers. Find your row.
 
 | Page | Who it is for | When to read it |
 |---|---|---|
@@ -11,13 +11,19 @@ Fifteen documents, four different readers. Find your row.
 | [admin-guide.md](admin-guide.md) | The maintainer of a live site | Day to day: reviewing submissions, editing and removing entries, screenshots, cohorts and events, troubleshooting. |
 | [contributor-guide.md](contributor-guide.md) | Someone at a member organization with something to share | Before submitting: what the form asks, what reviewers check hardest, how long review takes, and what happens after an entry is live. Linked from the site's Governance page. |
 | [upgrading.md](upgrading.md) | The maintainer of a fork | When a new template release is out: what is yours, what is the template's, and the merge recipe that keeps the two apart. |
+| [release-readiness-plan.md](release-readiness-plan.md) | PHCT and BCHC release maintainers | The parent audit, remediation, release train, and protected downstream-update plan for preparing the wider BCHC demo and keeping future releases synchronized. |
+| [release-readiness-status.md](release-readiness-status.md) | Release owners, reviewers, and BCHC sponsors | Dated verification evidence, defects fixed during the audit, remaining human/live-repository blockers, and the final go/no-go rule. |
 | [incidents.md](incidents.md) | The maintainer, under pressure | The day something is public that should not be: a takedown request, a leaked screenshot, a credential in an entry. |
 | [glossary.md](glossary.md) | Anyone hitting a word they do not use this way | Entry, slug, facet, card slot, module, preset, scaffold. |
 | [decisions.md](decisions.md) | Someone changing the template | Before arguing with a choice — the reasoning is here, not in the commit log. |
 | [images.md](images.md) | Someone wondering why a screenshot has five siblings | The responsive-image pipeline: `npm run images`, what gets committed and why, and how to use `picture.html` in a template. |
 | [compare.md](compare.md) | Someone changing the compare tray or the print brief | How the shortlist, `/compare/` and the print stylesheet fit together, and the one rule that keeps them schema-driven. |
+| [performance.md](performance.md) | Release maintainers and performance contributors | The supported catalog ceiling, deterministic 0–1,000-entry fixture matrix, enforced budgets, current evidence, and the condition for raising the ceiling. |
+| [supply-chain.md](supply-chain.md) | Release and security maintainers | Dependency vulnerability and license gates, exception rules, CodeQL, and the CycloneDX release SBOM. |
+| [maintaining.md](maintaining.md) | Primary, backup, and incoming maintainers | Routine schedule, parent release train, BCHC update, rollback, backup/restore, ownership transfer, and escalation. |
 | [design-system.md](design-system.md) | Someone building UI | Tokens, component classes, browser support. Pair it with `/styleguide/` on the running site. |
 | [design-brief.md](design-brief.md) | Nobody, urgently | Historical: the 2026 brief that produced the current design. Kept because it explains intent; `design-system.md` is what shipped. |
+| [ecosystem.md](ecosystem.md) | Anyone asking "which repository is which" | The map of the repository family: the template, the BCHC deployment, what is archived, and which settings make each behave differently. |
 | [roadmap.md](roadmap.md) | Someone asking "what was built, and when" | A build log of the v1.0/v1.1 phases, all complete. |
 
 Outside this folder: [README](../README.md) (what the template is),

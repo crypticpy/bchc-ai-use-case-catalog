@@ -14,6 +14,8 @@ Local assigns are prefixed `fv_` so nothing leaks into the caller's scope.
 {%- endcomment -%}
 {%- assign fv_f = include.field -%}
 {%- if include.value == nil -%}{%- assign fv_v = include.entry[fv_f.key] -%}{%- else -%}{%- assign fv_v = include.value -%}{%- endif -%}
+{%- assign fv_demo_sample = false -%}
+{%- if site.data.site.demo and page.sample -%}{%- assign fv_demo_sample = true -%}{%- endif -%}
 {%- case fv_f.type -%}
 
   {%- when 'select' -%}
@@ -53,7 +55,11 @@ Local assigns are prefixed `fv_` so nothing leaks into the caller's scope.
     {%- endif -%}
 
   {%- when 'url' -%}
+    {%- if fv_demo_sample -%}
+    <span class="inline-flex items-center gap-1.5 font-medium text-brand-muted">{% include icon.html name='info' size='sm' %}<span>{{ fv_f.label | escape }}</span><span class="text-xs font-normal">Demo placeholder — not live</span></span>
+    {%- else -%}
     <a class="inline-flex items-baseline gap-1.5 font-medium text-brand-primary hover:underline" href="{{ fv_v | escape }}" target="_blank" rel="noopener noreferrer">{{ fv_f.label | escape }}<span class="link-host text-xs font-normal text-brand-muted">{{ fv_v | link_host | escape }}</span><span class="sr-only"> (opens in a new tab)</span>{% include icon.html name='external-link' size='xs' class='self-center' %}</a>
+    {%- endif -%}
 
   {%- when 'links' -%}
     {%- assign fv_links = fv_v -%}
@@ -64,6 +70,14 @@ Local assigns are prefixed `fv_` so nothing leaks into the caller's scope.
         {%- assign fv_label = fv_l.label | default: fv_url -%}
         {%- if fv_url and fv_url != '' -%}
         <li>
+          {%- if fv_demo_sample -%}
+          <span class="link-row">
+            <span class="flex min-w-0 items-center gap-3">
+              {% include icon.html name='info' size='sm' class='shrink-0 text-brand-muted' %}
+              <span class="flex min-w-0 flex-col"><span class="truncate">{{ fv_label | escape }}</span><span class="text-xs font-normal text-brand-muted">Sample resource — not live</span></span>
+            </span>
+          </span>
+          {%- else -%}
           <a class="link-row group" href="{{ fv_url | escape }}" target="_blank" rel="noopener noreferrer">
             <span class="flex min-w-0 items-center gap-3">
               {% include icon.html name='link' size='sm' class='shrink-0 text-brand-primary' %}
@@ -72,6 +86,7 @@ Local assigns are prefixed `fv_` so nothing leaks into the caller's scope.
             <span class="sr-only">(opens in a new tab)</span>
             {% include icon.html name='external-link' size='sm' class='shrink-0 text-brand-primary' %}
           </a>
+          {%- endif -%}
         </li>
         {%- endif -%}
       {%- endfor -%}
@@ -109,7 +124,11 @@ Local assigns are prefixed `fv_` so nothing leaks into the caller's scope.
     {%- endif -%}
 
   {%- when 'email' -%}
+    {%- if fv_demo_sample -%}
+    <span class="inline-flex items-center gap-1.5 font-medium text-brand-muted">{% include icon.html name='info' size='sm' %}<span>Fictional contact — demo only</span></span>
+    {%- else -%}
     <a class="inline-flex items-center gap-1.5 font-medium text-brand-primary hover:underline" href="mailto:{{ fv_v | escape }}">{% include icon.html name='mail' size='sm' %}<span class="break-all">{{ fv_v | escape }}</span></a>
+    {%- endif -%}
 
   {%- when 'date' -%}
     <span class="tabular">{{ fv_v | date: '%B %-d, %Y' | escape }}</span>

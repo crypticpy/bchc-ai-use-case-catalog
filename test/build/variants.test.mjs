@@ -261,6 +261,108 @@ describe('preset build matrix', { skip: ready.ok ? false : ready.reason, concurr
   });
 
   test(
+    'shipped: sample entry contacts and resources are visibly non-live in demo mode',
+    { skip: needs('shipped') },
+    () => {
+      const { dir, siteDir } = built.get('shipped');
+      const schema = yaml.load(fs.readFileSync(path.join(dir, '_data', 'schema.yml'), 'utf8'));
+      const entryPath = schema.entry?.path ?? 'catalog';
+      const catalogDir = path.join(dir, entryPath);
+      const fields = schema.fields ?? [];
+      let checked = 0;
+
+      for (const item of fs.readdirSync(catalogDir, { withFileTypes: true })) {
+        const source = path.join(catalogDir, item.name, 'index.md');
+        if (!item.isDirectory() || !fs.existsSync(source)) continue;
+        const front = yaml.load(fs.readFileSync(source, 'utf8').split(/^---\s*$/m)[1] ?? '') ?? {};
+        if (!front.sample) continue;
+
+        const document = page(siteDir, `${entryPath}/${item.name}`);
+        const hrefs = [...document.querySelectorAll('a[href]')].map((anchor) => anchor.getAttribute('href'));
+        const body = document.body.textContent.replace(/\s+/g, ' ');
+        const urls = fields
+          .filter((field) => field.type === 'url' && front[field.key])
+          .map((field) => front[field.key]);
+        const emails = fields
+          .filter((field) => field.type === 'email' && front[field.key])
+          .map((field) => front[field.key]);
+        const resources = fields
+          .filter((field) => field.type === 'links' && Array.isArray(front[field.key]))
+          .flatMap((field) => front[field.key])
+          .map((link) => link?.url ?? link)
+          .filter(Boolean);
+
+        for (const url of [...urls, ...resources]) {
+          assert.ok(!hrefs.includes(url), `${item.name} makes sample URL ${url} clickable`);
+        }
+        for (const email of emails) {
+          assert.ok(
+            !hrefs.some((href) => href.startsWith(`mailto:${email}`)),
+            `${item.name} makes fictional contact ${email} clickable`
+          );
+        }
+        if (urls.length) assert.match(body, /Demo placeholder — not live/);
+        if (resources.length) assert.match(body, /Sample resource — not live/);
+        if (emails.length) assert.match(body, /Fictional contact — demo only/);
+        checked += 1;
+      }
+
+      assert.ok(checked > 0, 'the shipped catalog has no sample entries to exercise demo safety');
+    }
+  );
+
+  test(
+    'shipped-live-mode: entry contacts and resources become live when demo mode is disabled',
+    { skip: needs('shipped-live-mode') },
+    () => {
+      const { dir, siteDir } = built.get('shipped-live-mode');
+      const schema = yaml.load(fs.readFileSync(path.join(dir, '_data', 'schema.yml'), 'utf8'));
+      const entryPath = schema.entry?.path ?? 'catalog';
+      const catalogDir = path.join(dir, entryPath);
+      const fields = schema.fields ?? [];
+      let checked = 0;
+
+      for (const item of fs.readdirSync(catalogDir, { withFileTypes: true })) {
+        const source = path.join(catalogDir, item.name, 'index.md');
+        if (!item.isDirectory() || !fs.existsSync(source)) continue;
+        const front = yaml.load(fs.readFileSync(source, 'utf8').split(/^---\s*$/m)[1] ?? '') ?? {};
+        if (!front.sample) continue;
+
+        const document = page(siteDir, `${entryPath}/${item.name}`);
+        const hrefs = [...document.querySelectorAll('a[href]')].map((anchor) => anchor.getAttribute('href'));
+        const body = document.body.textContent.replace(/\s+/g, ' ');
+        const urls = fields
+          .filter((field) => field.type === 'url' && front[field.key])
+          .map((field) => front[field.key]);
+        const emails = fields
+          .filter((field) => field.type === 'email' && front[field.key])
+          .map((field) => front[field.key]);
+        const resources = fields
+          .filter((field) => field.type === 'links' && Array.isArray(front[field.key]))
+          .flatMap((field) => front[field.key])
+          .map((link) => link?.url ?? link)
+          .filter(Boolean);
+
+        for (const url of [...urls, ...resources]) {
+          assert.ok(hrefs.includes(url), `${item.name} does not link to live URL ${url}`);
+        }
+        for (const email of emails) {
+          assert.ok(
+            hrefs.some((href) => href.startsWith(`mailto:${email}`)),
+            `${item.name} does not link to live contact ${email}`
+          );
+        }
+        assert.doesNotMatch(body, /Demo placeholder — not live/);
+        assert.doesNotMatch(body, /Sample resource — not live/);
+        assert.doesNotMatch(body, /Fictional contact — demo only/);
+        checked += 1;
+      }
+
+      assert.ok(checked > 0, 'the live-mode variant has no entries to exercise live links');
+    }
+  );
+
+  test(
     'shipped: the governance page renders every block from _data/governance.yml and the footer links to it',
     { skip: needs('shipped') },
     () => {

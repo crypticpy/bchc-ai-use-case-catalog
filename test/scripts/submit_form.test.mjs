@@ -171,9 +171,9 @@ function fillRequired(ctx) {
 
 test('the card preview mirrors what has been typed', async () => {
   const ctx = await boot();
-  answer(ctx, 'title', 'Overdose spike brief');
+  answer(ctx, 'title', 'Service request routing');
   answer(ctx, 'summary', 'A daily brief for the response team.');
-  assert.equal(ctx.document.querySelector('[data-preview-title]').textContent, 'Overdose spike brief');
+  assert.equal(ctx.document.querySelector('[data-preview-title]').textContent, 'Service request routing');
   assert.equal(
     ctx.document.querySelector('[data-preview-summary]').textContent,
     'A daily brief for the response team.'
@@ -257,7 +257,7 @@ test('the progress rail says how many problems each section has', async () => {
 test('the review step reads the answers back before anything is sent', async () => {
   const ctx = await boot();
   fillRequired(ctx);
-  answer(ctx, 'title', 'Overdose spike brief');
+  answer(ctx, 'title', 'Service request routing');
   submitForm(ctx);
 
   const panel = ctx.form.querySelector('[data-review]');
@@ -268,7 +268,7 @@ test('the review step reads the answers back before anything is sent', async () 
   Array.from(ctx.form.querySelectorAll('[data-section]')).forEach((section) => {
     assert.equal(section.hidden, true);
   });
-  assert.match(panel.textContent, /Overdose spike brief/);
+  assert.match(panel.textContent, /Service request routing/);
   assert.match(panel.textContent, /What happens next/);
   // Optional questions left blank are shown as such rather than dropped.
   assert.match(panel.textContent, /Not answered/);
@@ -298,7 +298,7 @@ test('a bad email is caught on blur', async () => {
 test('a complete form opens a prefilled issue URL', async () => {
   const ctx = await boot();
   fillRequired(ctx);
-  answer(ctx, 'title', 'Overdose spike brief');
+  answer(ctx, 'title', 'Service request routing');
   sendToGitHub(ctx);
 
   assert.equal(ctx.form.querySelector('[data-error-summary]').hidden, true);
@@ -306,7 +306,7 @@ test('a complete form opens a prefilled issue URL', async () => {
   const url = new ctx.window.URL(ctx.opened[0]);
   assert.equal(url.hostname, 'github.com');
   assert.equal(url.searchParams.get('template'), 'new-entry.yml');
-  assert.match(url.searchParams.get('title'), /Overdose spike brief$/);
+  assert.match(url.searchParams.get('title'), /Service request routing$/);
   assert.equal(url.searchParams.get('title_key'), null);
   assert.equal(url.searchParams.get('contact_email'), 'someone@example.org');
   // A multi-select is a dropdown now, and GitHub prefills those: the answer
@@ -347,7 +347,7 @@ test('the Markdown fallback keeps the answers GitHub cannot prefill', async () =
 
 test('YAML front matter renders lists and links as blocks', async () => {
   const ctx = await boot();
-  answer(ctx, 'title', 'Overdose spike brief');
+  answer(ctx, 'title', 'Service request routing');
   answer(ctx, 'ai_tools', 'Azure OpenAI\nLangChain');
   answer(ctx, 'screenshots', 'https://example.org/shot.png | The queue view');
   const yaml = ctx.window.SubmitForm.yamlFrontMatter(ctx.window.SubmitForm.readFields(ctx.form));

@@ -1,0 +1,37 @@
+# Site-wide events shown on /events/ (when modules.events is on) and the home page.
+# Cohort-specific events live in _data/cohorts/<year>.yml.
+- id: alumni-lightning-talks
+  name: "Alumni lightning talks"
+  date: 2026-09-24
+  time: "12:00–1:00 PM"
+  location: "Online"
+  url: "https://example.org/events/alumni-lightning-talks"
+  type: "Webinar"
+  description: "Five minutes each from four past teams on what happened to their project after the showcase."
+- id: info-session-2027
+  name: "Information session: 2027 cohort"
+  date: 2026-10-07
+  time: "12:00–1:00 PM"
+  location: "Online"
+  url: "https://example.org/events/2027-info-session"
+  type: "Webinar"
+  description: "What the programme asks of a team, what it gives back, and how to pick a question that fits."
+- id: applications-close-2027
+  name: "Applications close for the 2027 cohort"
+  date: 2026-11-13
+  type: "Deadline"
+  description: "Teams of two to four apply together with a question they want to work on."
+- id: data-clinic-drop-in
+  name: "Data clinic drop-in"
+  date: 2026-12-02
+  time: "2:00–4:00 PM"
+  location: "Training room 2"
+  type: "Session"
+  description: "Open bench with the coaches. Bring a stuck query, a messy join or a chart nobody understands."
+- id: open-data-workshop
+  name: "Working with published open data"
+  date: 2026-05-20
+  time: "1:00–4:00 PM"
+  location: "Training room 2"
+  type: "Workshop"
+  description: "Half-day workshop on finding, joining and citing public datasets, open to everyone."

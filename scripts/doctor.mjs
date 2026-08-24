@@ -107,7 +107,9 @@ function main() {
   report(
     chrome ? 'PASS' : 'WARN',
     'Browser quality tools',
-    chrome ? `${chrome} is available` : 'Chrome/Chromium is needed only for a11y, flows, and Lighthouse'
+    chrome
+      ? `${chrome} is available`
+      : 'Chrome/Chromium is needed only for a11y, flows, Lighthouse, and interaction performance'
   );
 
   console.log(

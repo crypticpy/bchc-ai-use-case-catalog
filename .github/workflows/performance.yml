@@ -1,20 +1,124 @@
-# GitHub registers manually dispatched workflow paths from the default branch.
-# The PHCT update replaces this fail-closed registration stub on its branch;
-# dispatching that ref then runs the candidate's complete performance workflow.
 name: Performance and scale
 
 on:
+  workflow_call:
+    inputs:
+      counts:
+        description: Comma-separated fixture sizes from 0,1,10,100,500,1000
+        required: false
+        default: "0,1,10,100,500,1000"
+        type: string
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      counts:
+        description: Comma-separated fixture sizes from 0,1,10,100,500,1000
+        required: false
+        default: "0,1,10,100,500,1000"
+        type: string
 
-permissions: {}
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  registration:
-    name: Replace this registration stub through a PHCT update
+  scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Ruby from .ruby-version
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          bundler-cache: true
+
+      - name: Setup Node from .node-version
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
+
+      - name: Install npm dependencies and build CSS
+        run: |
+          npm ci
+          npm run build:css
+
+      - name: Build deterministic scale fixtures
+        env:
+          DISPATCH_COUNTS: ${{ inputs.counts }}
+          PERFORMANCE_SITE: ${{ runner.temp }}/phct-performance-site
+        run: |
+          counts="${DISPATCH_COUNTS:-0,1,10,100,500,1000}"
+          node scripts/performance_fixture.mjs --counts "$counts" --output performance-report.json --site-output "$PERFORMANCE_SITE"
+
+      - name: Locate the runner's Chrome
+        run: |
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium-browser || command -v chromium)"
+          test -n "$CHROME" || { echo "no Chrome on this runner"; exit 1; }
+          echo "PUPPETEER_EXECUTABLE_PATH=$CHROME" >> "$GITHUB_ENV"
+          "$CHROME" --version
+
+      - name: Install puppeteer for interaction measurements
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "1"
+        run: |
+          version="$(node -p "require('./quality/package.json').devDependencies.puppeteer")"
+          npm install --no-save --no-audit --no-fund "puppeteer@$version"
+
+      - name: Enforce supported-scale interaction budgets
+        env:
+          PERFORMANCE_SITE: ${{ runner.temp }}/phct-performance-site
+        run: |
+          if [[ -d "$PERFORMANCE_SITE" ]]; then
+            npm run performance:interactions -- --site "$PERFORMANCE_SITE" --report performance-report.json
+          else
+            echo "::notice::No supported-scale browser fixture was requested; interaction budgets were not measured."
+          fi
+
+      - name: Upload scale evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: performance-${{ github.sha }}
+          path: performance-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  status:
+    name: Report the dispatched run on its commit
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    needs: [scale]
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+
     steps:
-      - name: Refuse to report a bootstrap stub as a release gate
-        run: |
-          echo "::error title=PHCT update required::This registration stub is not a performance gate. Run it only on a branch where the protected PHCT updater has installed the candidate workflow."
-          exit 1
+      - name: Post a commit status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const passed = ${{ toJSON(needs.scale.result) }} === 'success';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: passed ? 'success' : 'failure',
+              context: 'Performance and scale (dispatch)',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: passed ? 'Scale budgets passed' : 'Scale budgets reported problems',
+            });

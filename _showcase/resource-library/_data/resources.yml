@@ -1,0 +1,25 @@
+# Curated resource groups for /resources/ (when modules.resources is on).
+# The Resource Library preset ships with that module off, because the catalog
+# itself is the library — this file is here so that turning the module on shows
+# something coherent rather than the template's own default list.
+- group: "How this library works"
+  description: "Start here if you are new, or if you are about to suggest something."
+  items:
+    - title: "What gets into the library, and what does not"
+      url: "https://example.org/library/inclusion-criteria"
+      type: "Guide"
+      description: "The four things a maintainer checks before an item is published."
+    - title: "How to suggest a resource"
+      url: "https://example.org/library/suggesting"
+      type: "Guide"
+      description: "What to have ready before you open the form."
+- group: "For maintainers"
+  description: "The review side of the library."
+  items:
+    - title: "Reviewer checklist"
+      url: "https://example.org/library/reviewer-checklist"
+      type: "Template"
+    - title: "Retiring an item that has gone stale"
+      url: "https://example.org/library/retiring-items"
+      type: "Guide"
+      description: "When to update the entry, when to mark it superseded, and when to leave it alone."
