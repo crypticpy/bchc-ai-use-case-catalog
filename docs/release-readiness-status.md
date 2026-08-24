@@ -1,25 +1,23 @@
 # PHCT and BCHC release-readiness status
 
-- Evidence date: 2026-08-22
+- Evidence date: 2026-08-24
 - PHCT starting baseline: `c9fcb223826f2fc8c945d894420c16a2b8ff5da0`
-- PHCT candidate: [`v1.9.0-rc.1`](https://github.com/crypticpy/phct/releases/tag/v1.9.0-rc.1)
-  is published at immutable commit `4b02b7b19a2dc793d313d37da49acff66811e691` after
-  [PR #14](https://github.com/crypticpy/phct/pull/14) and the release-record-only
-  [PR #15](https://github.com/crypticpy/phct/pull/15) merged; implementation head
-  `8518694e25587492df757ede305aaa618abcf925` passed the exact-head
-  [aggregate release run](https://github.com/crypticpy/phct/actions/runs/32574830126),
-  [performance run](https://github.com/crypticpy/phct/actions/runs/32574830014), and
-  [browser-quality run](https://github.com/crypticpy/phct/actions/runs/32574830026); the final merge
-  tree also passed Pages, performance, browser quality, CodeQL, and supply-chain runs
-- BCHC baseline: `7ea8659ffeb4de7c1f8f53eb93e4d74a15d4fc31`; the protected updater
-  bootstrap from [PR #2](https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/2) is merged at
-  `ee49145a4c5d4768212b0ca6b6125fa6272207dd`. The first
-  [real candidate run](https://github.com/crypticpy/bchc-ai-use-case-catalog/actions/runs/32593617661)
-  resolved the immutable tag, preserved all 116 protected paths, regenerated the deployment,
-  passed `npm run verify`, and retained the preview/checksum artifact; GitHub then refused the
-  branch push because its built-in token cannot update `.github/workflows`
+- PHCT candidate: `v1.9.0-rc.3`, cut from protected `main` at the merge of the stepped
+  submission form ([PR #30](https://github.com/crypticpy/phct/pull/30), all seven
+  ruleset-required contexts plus scale, audit, and CodeQL green at the merged head) and this
+  release pull request. It supersedes
+  [`v1.9.0-rc.2`](https://github.com/crypticpy/phct/releases/tag/v1.9.0-rc.2), published at
+  immutable commit `bb2e44714969d261ce77860ddd27af8c5d9626d0` with its 326-component SBOM,
+  whose exact-head evidence below remains the last full-matrix record.
+- BCHC consumed rc.2: the
+  [real rc.2 updater run](https://github.com/crypticpy/bchc-ai-use-case-catalog/actions/runs/32599759546)
+  resolved the immutable tag and full SHA, preserved all 116 protected paths byte-for-byte,
+  regenerated the deployment, and opened green candidate
+  [PR #4](https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/4) at
+  `2017cda8b731ae52103c6b44232496d2c2fc8662`, which has since merged; the published BCHC demo
+  is locked to `v1.9.0-rc.2` pending the rc.3 update.
 - Automated code baseline: **green**
-- Wider-demo candidate: **no-go until the dedicated update-token remediation and live demo gates pass**
+- Wider-demo candidate: **no-go until parent interface polish and the remaining manual/live demo gates pass**
 - Stable release and BCHC handoff: **no-go until the human and live-repository gates below pass**
 
 The current milestone is wider-demo readiness for PHCT and BCHC's clearly labelled fictional-data
@@ -43,10 +41,10 @@ that updater succeeds.
 | Area | Result | Evidence |
 |---|---|---|
 | Reproducible toolchain | Pass | Node 22.22.2, npm 10.9.4, Ruby 3.3.11, and Bundler 4.0.11 are exact-pinned and checked by `npm run doctor`. |
-| Live pull-request CI | Pass at implementation heads | PHCT exact-head runs at `8518694` passed Validate, 598 Node tests/3 suites, coverage, the complete representative scale and Chrome interaction matrix, Supply chain, both CodeQL languages, workflow lint, pa11y, assistive flows, and desktop/mobile Lighthouse. A [fresh Codex review](https://github.com/crypticpy/phct/pull/14#issuecomment-5380581250) found no major issues after both final findings were fixed and answered inline. All checks triggered by BCHC head `cea6cae` are green. PHCT PRs #14/#15 and BCHC bootstrap PR #2 merged with project-owner authorization. |
+| Live pull-request CI | Pass at reviewed heads | The rc.2 implementation retained the full Validate, coverage, preset matrix, scale/Chrome, supply-chain, CodeQL, workflow-lint, pa11y, assistive-flow, and desktop/mobile Lighthouse gates. PHCT PRs #17/#20 passed protected CI and review. The generated metrics head `9a486f6` then passed all seven ruleset-required contexts plus browser quality through trusted dispatches before PR #19 was intentionally closed unmerged. Every check on BCHC rc.2 update head `2017cda` is green. |
 | PHCT release verification | Pass | `npm run verify` completed at `8518694`: 598 Node tests across 601 TAP items including 3 suites, 203 Ruby tests with 509 assertions, 98 build-matrix tests, coverage, generated-file checks, preset/module/showcase builds, CSS, Jekyll, license, security-exception, SBOM, image, and internal-link gates. |
 | Code coverage | Pass locally and in exact-head CI | Pinned runtime coverage passed reviewed regression floors: complete loaded Node production code 84.81% lines / 75.94% branches / 80.07% functions; focused security parsers 90.54% / 80.55% / 93.59%; updater and release-lock logic 72.79% / 77.39% / 87.76%; loaded Ruby production code 93.29% lines / 85.13% branches / 77.69% methods. Six Ruby CLI sources exercised by subprocess or integration gates are explicitly inventoried, and any new unrepresented Ruby source fails the gate. Validate retains JSON and raw TAP artifacts even when a floor fails. |
-| Exact BCHC update rehearsal | Pass | An unrelated-history clone at BCHC `cea6cae` reconciled 405 template-owned paths to PHCT `8518694`, preserved 180 deployment-owned paths, kept all 116 protected files byte-identical, and passed the same 598 Node tests / 601 TAP items, 203 Ruby tests with 509 assertions, coverage floors, 98 build tests, production Jekyll, and built-site links. The protected BCHC snapshot retained SHA-256 `63ba86ba3b4495f486c1d8e440f129ea20403e2a6672585e1b1579cdcbb08232`. Its real `/bchc-ai-use-case-catalog` project path passed the browser performance gate with zero findings. |
+| Exact BCHC update rehearsal | Pass for rc.2 | The real rc.2 updater run resolved `v1.9.0-rc.2` to full SHA `bb2e44714969d261ce77860ddd27af8c5d9626d0`, kept all 116 protected files byte-identical, regenerated BCHC-owned deployment output, and opened candidate PR #4 at `2017cda8b731ae52103c6b44232496d2c2fc8662`. The complete downstream required-check set was green, and the PR has since merged, locking the published BCHC demo to `v1.9.0-rc.2`. Repeat the same rehearsal and checksum gate for the rc.3 update. |
 | Dependency vulnerabilities | Pass | The exact-head Supply chain job passed parsed npm and Bundler audits with zero active exceptions; critical or unidentified findings cannot be waived, and stale/expired/unused exceptions fail closed. |
 | Software bill of materials | Pass | The current lockfiles produce 326 CycloneDX components and 327 globally unique references including the application. Repeated npm package/version rows retain every lock path, Ruby platforms have qualified PURLs, and duplicate references fail generation. |
 | Secret scanning | Pass | Gitleaks v8.30.1 found no leaks in either working tree or the complete history of either repository. |
@@ -57,7 +55,7 @@ that updater succeeds.
 | Scale and interaction matrix | Pass at supported ceiling | The exact-head Linux run completed deterministic 0, 1, 10, 100, 500, and 1,000-entry builds plus real Chrome at 390×844/4× CPU. All enforced release budgets passed through the supported 100-entry ceiling; the retained report records zero release findings. |
 | Supported 100-entry target | Pass | Linux CI measured a 13,004 ms build under `/phct-performance`, 523 files/20,861,404 bytes, 61,182-byte gzip catalog, 8,894 DOM nodes, 24,914-byte gzip CSS, 40,870-byte gzip catalog JavaScript, 16,913-byte gzip search data, and 20,622-byte comparison data. Chrome measured 177.0 ms warm-search p95 and 51.5 ms filter p95 against reviewed 250/100 ms limits; BCHC's real project path measured 88.2/15.2 ms locally. |
 | Higher-scale characterization | Informational finding | At 500 entries the Linux run built in 63.1 seconds with an 83,990-byte search payload, while the catalog reached 155,156 bytes gzip and 36,860 DOM nodes. At 1,000 entries it built in 166.7 seconds and produced a 108,558,639-byte artifact plus a 264,761-byte/71,819-node catalog. Pagination or incremental rendering is required before claiming support above 100 entries. |
-| Protected downstream content | Pass in exact-head rehearsal | The machine-readable ownership manifest, ordered merge rules, protected-file checksums, generated-file regeneration, and immutable parent lock protected all 116 BCHC files in the `cea6cae` → `8518694` rehearsal. A real tagged-update pull request remains required. |
+| Protected downstream content | Pass in real tagged update | The machine-readable ownership manifest, ordered merge rules, protected-file checksums, generated-file regeneration, and immutable parent lock protected all 116 BCHC files in the real `v1.9.0-rc.2` updater run and generated PR #4. Repeat the same checksum gate for the final candidate and stable update. |
 
 Local Lighthouse and scale reports were written under `/tmp` and are intentionally ephemeral.
 The release candidate's GitHub Actions runs must retain their reports and SBOM as reviewable CI
@@ -115,45 +113,42 @@ artifacts.
 - Repaired stale BCHC documentation paths and moved the BCHC status ledger into its protected
   documentation namespace.
 
-The live updater push failure is a P1 release-path finding. A focused pre-merge review then found
-that the first remediation persisted the privileged token during candidate checkout; re-review
-also caught that delaying the secret within the same job still left it exposed to candidate-created
-hooks or processes. The corrected `v1.9.0-rc.2` code verifies without the privileged credential,
-commits with hooks disabled, and transfers the exact commit through a digest-checked Git bundle to
-a fresh runner that never checks out or executes it. Only that isolated job receives the token for
-push and pull-request operations. The gate remains open until BCHC configures that credential and
-the corrected candidate creates a green update pull request. No other automated P0 or P1 defect is
-known at this checkpoint.
+The earlier live updater push failure was a P1 release-path finding. The corrected
+`v1.9.0-rc.2` code verifies without the privileged credential, commits with hooks disabled, and
+transfers the exact commit through a digest-checked Git bundle to a fresh runner that never checks
+out or executes it. Only that isolated job receives the token for push and pull-request operations.
+BCHC configured the credential and the corrected candidate created a green update pull request.
+No automated P0 or P1 defect is known at this checkpoint.
 
 ## Release blockers still open
 
 | ID | Required evidence | Owner | Status |
 |---|---|---|---|
-| RR-H01 | Review these changes and obtain green required CI plus independent human approval in PHCT and BCHC. | PHCT maintainer | Complete for the candidate — the project owner authorized the PRs, PHCT PRs #14/#15 and BCHC PR #2 merged, and their required checks passed. |
-| RR-H02 | Tag an immutable PHCT release candidate, run the actual BCHC update workflow, review the checksum report and generated changes, then prove revert/rollback of the update pull request. | PHCT maintainer | In progress — `v1.9.0-rc.1` is immutable at `4b02b7b`; the real BCHC run preserved all 116 files and passed the complete non-browser suite, then exposed the missing workflow-capable push credential. Fix the preflight upstream, configure the dedicated token, issue a corrected candidate, create its update PR, and prove rollback. |
+| RR-H01 | Review these changes and obtain green required CI plus independent human approval in PHCT and BCHC. | PHCT maintainer | In progress — the project owner authorized routine PR work, reviewed parent PRs have merged with green required checks, and BCHC rc.2 PR #4 is green. The final generated BCHC update still requires human review and merge. |
+| RR-H02 | Tag an immutable PHCT release candidate, run the actual BCHC update workflow, review the checksum report and generated changes, then prove revert/rollback of the update pull request. | PHCT maintainer | Complete for rc.2 — immutable `v1.9.0-rc.2` resolved to `bb2e447`, the updater run preserved all 116 protected files, candidate PR #4 is green, and rollback evidence is retained. Repeat this gate for the final candidate and stable tag. |
 | RR-H03 | Complete a real issue → pull request → media processing → review → merge → Pages deploy → notification rehearsal in both repositories. Use non-sensitive test content and remove it afterward. | Repository admins | Open |
-| RR-H04 | Name a BCHC product owner and backup technical maintainer; grant least-privilege access; update `CODEOWNERS`, `MAINTAINERS.md`, and the private contact system. | BCHC sponsor | Open |
-| RR-H05 | Correct and verify branch rules, required checks/approval, Pages environment protection, Actions permissions, secrets/variables, domain/DNS, security settings, labels, and notifications against `docs/bchc/operations-inventory.yml`. | Repository admins | Open — read-only API audit completed; the hardening findings below remain. |
+| RR-H04 | Name a BCHC product owner and backup technical maintainer; grant least-privilege access; update `CODEOWNERS`, `MAINTAINERS.md`, and the private contact system. | BCHC sponsor | Deferred until organizational handoff; it is not a wider-demo prerequisite. |
+| RR-H05 | Correct and verify branch rules, required checks/approval, Pages environment protection, Actions permissions, secrets/variables, domain/DNS, security settings, labels, and notifications against `docs/bchc/operations-inventory.yml`. | Repository admins | In progress — repository and Pages protections, Actions permissions, selected actions, security features, and immutable parent tags/releases are hardened. Sync the exact live inventory through the final BCHC update and confirm DNS/notifications manually. |
 | RR-H06 | Manually test current Firefox, Safari, Edge, iOS Safari, and Android Chrome plus VoiceOver and NVDA; verify 200%/400% zoom, keyboard-only use, visible focus, forced colors, reduced motion, and representative long/empty/error content. | Accessibility reviewer | Open |
 | RR-H07 | Perform the documented bad-deploy rollback, content takedown, credential-response, repository backup, and restore drills; record timestamps, participants, gaps, and corrections. | Primary and backup maintainers | Open |
 | RR-H08 | Run the approved candidate on the intended Pages configuration for one business day with no unresolved P0/P1 defect and review Actions/Pages behavior before the wider demo. | Release owner | Open |
 | RR-H09 | Check presentation-critical external links and contact destinations from the deployed candidate; record any intentionally unreachable or staging-only target. | BCHC content owner | Open |
 
 The authenticated 2026-08-22 API audit confirmed that both repositories are public, use `main`,
-publish Pages through Actions with HTTPS, and have secret scanning and push protection enabled.
-It also found release-blocking hardening gaps: PHCT has no branch protection or ruleset; BCHC's
-all-branch ruleset blocks deletion and non-fast-forward updates but does not require a pull request,
-approval, conversation resolution, or CI. Both repositories allow all Actions, default workflow
-permissions to write, allow Actions to approve pull requests, lack tag rules, and have Dependabot
-alerts/security updates disabled. PHCT has private vulnerability reporting and CodeQL analysis;
-BCHC has neither yet. Pages environments use branch-policy protection only, neither repository has
-a custom domain, and repository-level secret lists are empty. BCHC also has no repository
-variables; PHCT has `CATALOG_METRICS=false` and `CATALOG_SHOWCASE=true`.
+and publish Pages through Actions with HTTPS. Both now enforce pull requests, strict required
+checks, stale-review dismissal, resolved conversations, deletion protection, and non-fast-forward
+protection on `main`; their Pages environments accept only `main`. PHCT protects version tags and
+future releases are immutable. Both repositories use read-only default workflow permissions and
+allow Actions to create or approve pull requests through GitHub's combined switch; project
+workflows use creation but do not approve or merge themselves. Allowed actions are restricted and
+third-party actions are full-SHA pinned. Dependabot alerts and security updates, private
+vulnerability reporting, secret scanning, push protection, and CodeQL are enabled in both
+repositories.
 
-The configured `gh` token remains invalid, although the existing HTTPS Git credential permitted
-this authenticated audit and workflow dispatch. Re-authenticate `gh` for a maintainable release
-path. Notification delivery and DNS ownership still require human confirmation. Never record a
-credential value in this evidence file or the operations inventory.
+The PHCT live metrics rehearsal proved that the built-in token can open a protected pull request,
+trusted dispatches can publish every canonical required status, and the automation cannot bypass
+review or merge itself. Notification delivery and DNS ownership still require human confirmation.
+Never record a credential value in this evidence file or the operations inventory.
 
 ## Candidate decision rule
 

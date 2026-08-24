@@ -30,10 +30,16 @@
       nothing left unpreloaded. When body and heading are the same family the loop still
       emits one link, because the pair is matched once. Other families come from
       google_fonts_url and are not preloaded here. {%- endcomment -%}
-  {%- assign hd_font_files = "Inter:Inter-Variable|Source Sans 3:SourceSans3-Variable|Source Serif 4:SourceSerif4-Variable" | split: "|" -%}
+  {%- assign hd_body_font = site.data.theme.fonts.body -%}
+  {%- assign hd_heading_font = site.data.theme.fonts.heading -%}
+  {%- if hd_body_font == 'Source Sans 3' -%}{%- assign hd_body_font = 'PHCT Sans' -%}{%- endif -%}
+  {%- if hd_body_font == 'Source Serif 4' -%}{%- assign hd_body_font = 'PHCT Serif' -%}{%- endif -%}
+  {%- if hd_heading_font == 'Source Sans 3' -%}{%- assign hd_heading_font = 'PHCT Sans' -%}{%- endif -%}
+  {%- if hd_heading_font == 'Source Serif 4' -%}{%- assign hd_heading_font = 'PHCT Serif' -%}{%- endif -%}
+  {%- assign hd_font_files = "Inter:Inter-Variable|PHCT Sans:PHCTSans-Variable|PHCT Serif:PHCTSerif-Variable" | split: "|" -%}
   {%- for hd_pair in hd_font_files -%}
     {%- assign hd_parts = hd_pair | split: ":" -%}
-    {%- if site.data.theme.fonts.body == hd_parts[0] or site.data.theme.fonts.heading == hd_parts[0] %}
+    {%- if hd_body_font == hd_parts[0] or hd_heading_font == hd_parts[0] %}
   <link rel="preload" as="font" type="font/woff2" href="{{ '/assets/fonts/' | append: hd_parts[1] | append: '.woff2' | relative_url }}" crossorigin>
     {%- endif -%}
   {%- endfor %}

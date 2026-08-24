@@ -44,6 +44,7 @@ Run these before opening a pull request; `validate.yml` and `quality.yml` run th
 | `npm run coverage` | Uses the pinned runtimes' built-in coverage over the complete Node and Ruby suites, plus focused security-parser and parent-updater Node suites. It enforces reviewed regression floors and writes raw TAP plus JSON under `coverage/`; percentages are evidence, not a substitute for behavioral, fuzz, browser, accessibility, or human review. |
 | `npm run test:ruby` | Minitest for the Ruby plugins and validators (`test/plugins/**/*_test.rb`, `test/scripts/**/*_test.rb`). |
 | `npm run validate` | Every `_data/*.yml` parses; every entry's front matter passes `scripts/check_front_matter.rb`; no oversize files. |
+| `npm run licenses:check` | Every npm/gem license is approved and every copied JavaScript, generated icon, and bundled font matches its reviewed SHA-256, license, provenance, and notice section. |
 | `npm run build:css && bundle exec jekyll build` | The site builds without Liquid errors. |
 | `npm run a11y` | pa11y-ci (axe + HTML_CodeSniffer, WCAG 2 AA) over the pages in `quality/pa11yci.js` (sample entry URLs are discovered from the built site). Needs the built site served on port 4173: `node scripts/serve_built_site.mjs --directory _site &`. |
 | `npm run test:flows` | The assistive-technology flow tests (`test/a11y/flows.test.mjs`): keyboard-only walkthroughs — home → catalog → filter → entry → Back, search → result, the submission form's errors, the setup wizard's first step change — asserting focus order, a visible focus ring, live-region announcements and no dead ends. Needs the same served build as `npm run a11y`, plus puppeteer (`npm install --no-save puppeteer@$(node -p "require('./quality/package.json').devDependencies.puppeteer")`). Point it elsewhere with `FLOW_BASE_URL`. |
@@ -83,6 +84,13 @@ subprocess-only CLI fails the gate. Change a floor only with an explained, revie
    `docs/content-model.md`; new workflows/scripts → `ARCHITECTURE.md` and `docs/admin-guide.md`;
    a new document → a row in `docs/index.md`. A choice a future contributor would otherwise argue
    with → `docs/decisions.md`. User-facing changes get a line in `CHANGELOG.md`.
+9. **Treat vendored files as reviewed releases.** Before replacing a copied script, generated icon
+   include, or bundled font, review the exact upstream license and version. Update
+   `THIRD_PARTY_NOTICES.md` and `quality/vendored-assets.json` with the same change, then run `npm
+   run licenses:check`. Never refresh a digest without explaining and reviewing the changed bytes.
+   Copied JavaScript must retain a `.min.js` suffix: the gate discovers the generated icon include
+   and scans every such script and bundled `.woff2` recursively, so an unmanifested addition fails
+   closed.
 
 ## Adding a schema hint or field type (walkthrough)
 

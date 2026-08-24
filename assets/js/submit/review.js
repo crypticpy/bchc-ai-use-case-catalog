@@ -113,6 +113,9 @@
       host.hidden = true;
     }
     setFormVisible(form, true);
+    // Un-hiding everything is right for the flat form; when the stepper is
+    // running, assets/js/submit.js re-applies the one-section-at-a-time view.
+    if (typeof ns.afterExitReview === 'function') ns.afterExitReview(form);
   };
 
   /** The long "what happens next", cloned out of the Liquid-rendered template. */
@@ -225,7 +228,9 @@
         .forEach((field) => {
           answerRow(field, () => {
             back();
-            ns.focusField(field);
+            // The field may be on another step, or hidden by the short form;
+            // revealField (assets/js/submit.js) brings it on screen first.
+            (ns.revealField || ns.focusField)(field);
           }).forEach((node) => rows.push(node));
         });
       return el('section', { class: 'card' }, [

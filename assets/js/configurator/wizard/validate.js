@@ -6,13 +6,18 @@
  * field row they blame, so following the link lands on an expanded row.
  */
 
-import { COLOR_QUESTIONS, isHexColor, motionProblems, validateSchema } from '../core.js';
+import {
+  COLOR_QUESTIONS,
+  isHexColor,
+  isRepositoryIdentity,
+  motionProblems,
+  validateSchema,
+} from '../core.js';
 import { expandField, fieldToggleId } from '../steps/field-rows.js';
 import { answerFieldId } from './controls.js';
 import { enabledFields, schemaFields, state, STEPS } from './state.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const REPOSITORY = /^[\w.-]+\/[\w.-]+$/;
 
 /**
  * A link the browser will follow. `new URL()` accepts `mailto:` and `data:`
@@ -57,7 +62,7 @@ function basicsProblems() {
       target: answerFieldId('contactEmail'),
     });
   }
-  if (answers.repository && !REPOSITORY.test(answers.repository)) {
+  if (!isRepositoryIdentity(answers.repository)) {
     problems.push({
       message: 'GitHub repository must be in the form owner/repo.',
       target: answerFieldId('repository'),

@@ -188,14 +188,23 @@ export const RADIUS_CHOICES = [
   { id: 'round', name: 'Round', description: 'Generously rounded — friendly, consumer-like.' },
 ];
 
-export const FONT_CHOICES = [
+export const BODY_FONT_CHOICES = [
   { id: 'Inter', name: 'Inter', description: 'Bundled. Neutral, excellent at small sizes.' },
-  { id: 'Source Sans 3', name: 'Source Sans 3', description: 'Bundled. Slightly warmer, good for headings.' },
+  { id: 'PHCT Sans', name: 'PHCT Sans', description: 'Bundled. Slightly warmer than Inter.' },
   {
     id: 'other',
     name: 'Something else',
     description: 'Any family, loaded from a Google Fonts URL you provide.',
   },
+];
+
+export const HEADING_FONT_CHOICES = [
+  {
+    id: 'PHCT Serif',
+    name: 'PHCT Serif',
+    description: 'Bundled title face derived from Source Serif 4.',
+  },
+  ...BODY_FONT_CHOICES,
 ];
 
 /** The index of `id` in `choices`, or 0 when it is not one of them. */
@@ -286,8 +295,8 @@ export async function askAnswers(asker, base, { core, gitRepository }) {
 
   const headingChoice = await asker.choose(
     'Heading font:',
-    FONT_CHOICES,
-    indexOfChoice(FONT_CHOICES, base.theme.fonts.heading)
+    HEADING_FONT_CHOICES,
+    indexOfChoice(HEADING_FONT_CHOICES, core.normalizeBundledFontName(base.theme.fonts.heading))
   );
   if (headingChoice.id === 'other') {
     answers.headingFont = await asker.text('Heading font family name', base.theme.fonts.heading);
@@ -300,8 +309,8 @@ export async function askAnswers(asker, base, { core, gitRepository }) {
 
   const bodyChoice = await asker.choose(
     'Body font:',
-    FONT_CHOICES,
-    indexOfChoice(FONT_CHOICES, base.theme.fonts.body)
+    BODY_FONT_CHOICES,
+    indexOfChoice(BODY_FONT_CHOICES, core.normalizeBundledFontName(base.theme.fonts.body))
   );
   if (bodyChoice.id === 'other') {
     answers.bodyFont = await asker.text('Body font family name', base.theme.fonts.body);

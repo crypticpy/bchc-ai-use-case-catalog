@@ -17,7 +17,12 @@
 (function (ns) {
   'use strict';
 
-  /** Bump the version segment when the stored shape changes. */
+  /**
+   * Bump the version segment when the stored shape changes *incompatibly*.
+   * The optional `ui` key (stepper position, short-form mode) rode in without
+   * a bump on purpose: readers on either side ignore keys they don't know, so
+   * a bump would only have thrown away everyone's saved answers.
+   */
   const KEY_PREFIX = 'catalog-template:submit-draft:v2';
   const DEBOUNCE_MS = 500;
 
@@ -72,10 +77,13 @@
    * Wire autosave, the restore bar and the draft buttons.
    * @param {HTMLFormElement} form
    * @param {object[]} fields descriptors from readFields
-   * @param {() => void} onRestore called after a draft is written into the form
+   * @param {(ui: object|null) => void} onRestore called after a draft is
+   *   written into the form, with the draft's saved UI state (or null)
+   * @param {(() => object|null)|undefined} uiState reads the UI state (stepper
+   *   position, short-form mode) to store beside the answers
    * @returns {{save: Function, clear: Function, flush: Function}}
    */
-  ns.initDraft = function initDraft(form, fields, onRestore) {
+  ns.initDraft = function initDraft(form, fields, onRestore, uiState) {
     const key = storageKey(form);
     const memory = store();
     const status = form.querySelector('[data-draft-status]');
@@ -125,8 +133,11 @@
         return;
       }
       const stamp = new Date().toISOString();
+      const payload = { saved: stamp, fields: data };
+      const ui = uiState ? uiState() : null;
+      if (ui) payload.ui = ui;
       try {
-        memory.setItem(key, JSON.stringify({ saved: stamp, fields: data }));
+        memory.setItem(key, JSON.stringify(payload));
       } catch (error) {
         savedAt = '';
         setStatus('This browser would not save a draft. Copy your answers before leaving.');
@@ -153,13 +164,17 @@
       if (bar) bar.hidden = true;
     }
 
-    /** @returns {{saved: string, fields: object}|null} the stored draft, if any */
+    /** @returns {{saved: string, fields: object, ui: object|null}|null} the stored draft, if any */
     function read() {
       if (!memory) return null;
       try {
         const parsed = JSON.parse(memory.getItem(key) || 'null');
         if (!parsed || !parsed.fields) return null;
-        return { saved: String(parsed.saved || ''), fields: parsed.fields };
+        return {
+          saved: String(parsed.saved || ''),
+          fields: parsed.fields,
+          ui: parsed.ui && typeof parsed.ui === 'object' ? parsed.ui : null,
+        };
       } catch (error) {
         return null;
       }
@@ -198,7 +213,7 @@
               ' saved for questions this form no longer asks, so it was left behind.'
             : '')
       );
-      onRestore();
+      onRestore(draft.ui);
       savedAt = '';
       save();
     }

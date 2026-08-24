@@ -11,6 +11,8 @@ scripts:
   - "/assets/js/submit/draft.js"
   - "/assets/js/submit/handoff.js"
   - "/assets/js/submit/review.js"
+  - "/assets/js/submit/steps.js"
+  - "/assets/js/submit/shortform.js"
   - "/assets/js/submit.js"
 ---
 {%- comment -%}
@@ -33,6 +35,19 @@ scripts:
     [data-preview-panel]      the card preview; hidden until the JS opens it, so
                               it never appears as a dead panel without scripts
     [data-section=<key>]      one form step
+      [data-step-nav]         its Back / Next bar; assets/js/submit/steps.js
+                              shows one section at a time and drives these
+                              (data-step-action="back|next"). Ships hidden and
+                              is removed when the schema has a single section.
+    [data-step-finish]        the submit controls (check-your-answers, email,
+                              copy buttons); the stepper shows it on the last
+                              step only. The status live regions, draft buttons
+                              and fallback sit outside it on purpose — hiding a
+                              role="status" region silences it
+    [data-shortform]          the hide-optional-questions bar, with
+                              [data-shortform-toggle] and [data-shortform-note]
+                              (assets/js/submit/shortform.js); removed at boot
+                              when every question is required
     [data-review]             empty container the "check your answers" step and
                               the confirmation panel are rendered into
     [data-review-next]        <template> holding the full "what happens next"
@@ -227,6 +242,16 @@ scripts:
     </div>
 
     {%- comment -%}
+      The short form: one button hides every optional question, for anyone
+      daunted by the full form (assets/js/submit/shortform.js). A scripting
+      feature — removed at boot when every question is required.
+    {%- endcomment -%}
+    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1" data-shortform data-js-only hidden data-form-chrome>
+      <button type="button" class="btn-secondary btn-sm" data-shortform-toggle>Hide the optional questions</button>
+      <p class="text-xs text-brand-muted" role="status" data-shortform-note hidden></p>
+    </div>
+
+    {%- comment -%}
       No `role="alert"`: the panel takes focus the moment it fills, so an
       assistive technology reads it as the new focus target. Announcing it as a
       live region as well makes it arrive twice.
@@ -246,7 +271,11 @@ scripts:
     {%- assign group_fields = ff | fields_in_group: g.key %}
     <section class="form-section" id="section-{{ g.key }}" aria-labelledby="heading-{{ g.key }}" data-section="{{ g.key }}">
       <p class="eyebrow">Section {{ forloop.index }} of {{ form_groups.size }}</p>
-      <h2 class="section-title mt-1" id="heading-{{ g.key }}">{{ g.title }}</h2>
+      {%- comment -%}
+        tabindex="-1": the stepper moves focus here on every step change, so
+        the change itself is the announcement — no live region needed.
+      {%- endcomment -%}
+      <h2 class="section-title focus-target mt-1" id="heading-{{ g.key }}" tabindex="-1">{{ g.title }}</h2>
       {%- if g.description %}<p class="section-lead mt-1">{{ g.description }}</p>{% endif %}
 
       <div class="mt-6 space-y-7">
@@ -385,28 +414,48 @@ scripts:
         </div>
         {%- endfor %}
       </div>
+
+      {%- comment -%}
+        Stepped navigation (assets/js/submit/steps.js). Without scripts the
+        form is one long page, so this ships hidden; the container carries the
+        data-js-only reveal, and the stepper manages the two buttons itself.
+      {%- endcomment -%}
+      <div class="mt-8 flex flex-wrap items-center gap-3" data-step-nav data-js-only hidden>
+        <button type="button" class="btn-secondary" data-step-action="back">Back</button>
+        <button type="button" class="btn-primary" data-step-action="next">Next section {% include icon.html name='arrow-right' size='sm' %}</button>
+      </div>
     </section>
     {%- endfor %}
 
     <div class="space-y-4 border-t border-brand-line pt-6" data-form-chrome>
-      <div class="rounded-lg border border-brand-line bg-surface-base p-4 text-sm text-brand-muted" role="status" data-submit-status hidden></div>
-
       <p class="field-note" role="status" data-length-note hidden></p>
 
-      <div class="flex flex-wrap items-center gap-3">
-        {%- comment -%}With no repository this button only leads to the review panel, which
-        is a scripting feature — so without scripts it leads nowhere and ships hidden, like
-        the copy and draft buttons below it.{%- endcomment -%}
-        <button type="submit" class="btn-primary"{% if gh_repo == '' %} data-js-only hidden{% endif %}>Check your answers {% include icon.html name='arrow-right' size='sm' %}</button>
-        {%- comment -%}Only offered when there is somewhere for the email to go.{%- endcomment -%}
-        {%- if fallback_email != '' %}
-        <button type="button" class="btn-secondary" data-action="email" data-js-only hidden>Email it instead</button>
-        {%- endif %}
+      {%- comment -%}
+        Only the submit controls wait for the last step. The live regions, the
+        draft buttons and the fallback stay outside [data-step-finish]: hiding
+        a role="status" region silences it, and autosave feedback, the length
+        warning and the submit status (which the fallback's copy button also
+        writes to, from any step) belong to every step, not just the send-off.
+      {%- endcomment -%}
+      <div class="rounded-lg border border-brand-line bg-surface-base p-4 text-sm text-brand-muted" role="status" data-submit-status hidden></div>
+
+      <div class="space-y-4" data-step-finish>
+        <div class="flex flex-wrap items-center gap-3">
+          {%- comment -%}With no repository this button only leads to the review panel, which
+          is a scripting feature — so without scripts it leads nowhere and ships hidden, like
+          the copy and draft buttons below it.{%- endcomment -%}
+          <button type="submit" class="btn-primary"{% if gh_repo == '' %} data-js-only hidden{% endif %}>Check your answers {% include icon.html name='arrow-right' size='sm' %}</button>
+          {%- comment -%}Only offered when there is somewhere for the email to go.{%- endcomment -%}
+          {%- if fallback_email != '' %}
+          <button type="button" class="btn-secondary" data-action="email" data-js-only hidden>Email it instead</button>
+          {%- endif %}
+        </div>
+        <div class="flex flex-wrap items-center gap-2" data-js-only hidden>
+          <button type="button" class="btn-ghost btn-sm" data-action="copy-markdown">Copy as Markdown</button>
+          <button type="button" class="btn-ghost btn-sm" data-action="copy-yaml">Copy as YAML front matter</button>
+        </div>
       </div>
-      <div class="flex flex-wrap items-center gap-2" data-js-only hidden>
-        <button type="button" class="btn-ghost btn-sm" data-action="copy-markdown">Copy as Markdown</button>
-        <button type="button" class="btn-ghost btn-sm" data-action="copy-yaml">Copy as YAML front matter</button>
-      </div>
+
       <div class="flex flex-wrap items-center gap-2" data-js-only hidden>
         <button type="button" class="btn-ghost btn-sm" data-draft-action="save">Save and come back later</button>
         <button type="button" class="btn-ghost btn-sm" data-draft-action="clear">Delete the saved draft</button>

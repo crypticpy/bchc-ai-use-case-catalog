@@ -74,7 +74,7 @@ export const cohortPortal = {
   }),
   theme: theme(
     { primary: '#44499C', primary_dark: '#22254E', secondary: '#008743', accent: '#FF8F00' },
-    { heading: 'Source Sans 3', body: 'Inter' }
+    { heading: 'PHCT Sans', body: 'Inter' }
   ),
   schema: {
     entry: {

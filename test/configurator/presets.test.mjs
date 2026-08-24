@@ -15,6 +15,7 @@ const EXPECTED_FILES = [
   '_data/navigation.yml',
   '_config.yml',
   '.github/ISSUE_TEMPLATE/new-entry.yml',
+  '.github/ISSUE_TEMPLATE/config.yml',
 ];
 
 for (const preset of presets) {

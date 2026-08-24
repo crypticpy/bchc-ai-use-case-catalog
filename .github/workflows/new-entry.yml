@@ -273,7 +273,7 @@ jobs:
             exit 0
           fi
           echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
-          for workflow in validate.yml quality.yml; do
+          for workflow in validate.yml quality.yml lint-workflows.yml; do
             if gh workflow run "$workflow" --ref "$BRANCH"; then
               echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
             else

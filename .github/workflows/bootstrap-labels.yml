@@ -41,6 +41,7 @@ jobs:
           create "verification"               "8250DF" "Entries due to be re-confirmed with their contact"
           create "bug"                        "D1242F" "Reproducible defect in shared PHCT behavior"
           create "accessibility"              "0E8A16" "Accessibility barrier or conformance defect"
+          create "documentation"              "1D76DB" "Unclear, incomplete, inaccurate, or outdated guidance"
           create "enhancement"                "A2EEEF" "Proposed reusable capability or improvement"
           # Review-tier labels for the pull requests the entry scaffolder opens
           # (new-entry.yml). `review:intake` goes on every scaffolded pull

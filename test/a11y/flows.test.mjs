@@ -72,6 +72,54 @@ async function settledListbox(page) {
   }
 }
 
+/**
+ * Assert the template's stricter touch contract (44 × 44 CSS px below `lg`)
+ * against real rendered boxes. Static CSS assertions miss cascade/order bugs,
+ * and axe applies WCAG's narrower 24px rule rather than this design system's
+ * mobile baseline.
+ */
+async function assertTouchTargets(page, selector, context) {
+  const result = await page.evaluate((query) => {
+    const clean = (value) => String(value).replace(/\s+/g, ' ').trim();
+    const visible = (node) => {
+      const style = getComputedStyle(node);
+      const box = node.getBoundingClientRect();
+      return box.width > 0 && box.height > 0 && style.visibility !== 'hidden';
+    };
+    const nodes = [...document.querySelectorAll(query)].filter(visible);
+    return {
+      count: nodes.length,
+      failures: nodes
+        .map((node) => {
+          const box = node.getBoundingClientRect();
+          return {
+            node: `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}${
+              node.classList.length ? `.${[...node.classList].join('.')}` : ''
+            }`,
+            name: clean(
+              node.getAttribute('aria-label') ||
+                node.labels?.[0]?.textContent ||
+                node.textContent ||
+                node.getAttribute('title') ||
+                ''
+            ).slice(0, 100),
+            width: Number(box.width.toFixed(1)),
+            height: Number(box.height.toFixed(1)),
+          };
+        })
+        .filter(({ width, height }) => width < 44 || height < 44),
+    };
+  }, selector);
+  assert.ok(result.count > 0, `${context}: "${selector}" matched no visible target`);
+  assert.deepEqual(
+    result.failures,
+    [],
+    `${context}: target below 44 × 44 CSS px:\n${result.failures
+      .map(({ node, name, width, height }) => `  ${node} "${name}" — ${width} × ${height}`)
+      .join('\n')}`
+  );
+}
+
 describe('assistive-technology flows', { skip: SKIP, concurrency: false }, () => {
   /** @type {import('puppeteer').Browser} */
   let browser;
@@ -291,6 +339,123 @@ describe('assistive-technology flows', { skip: SKIP, concurrency: false }, () =>
     await page.close();
   });
 
+  test('shared touch-layout actions meet the 44 × 44 touch-target contract', async (t) => {
+    if (emptyCatalog) return t.skip(CATALOG_SKIP);
+    const viewports = [
+      ['phone', { width: 390, height: 844 }],
+      ['tablet', { width: 768, height: 1024 }],
+    ];
+
+    for (const [label, viewport] of viewports) {
+      const home = await openPage(browser, '/', viewport);
+      // Shortlist and wizard state persist by design; clear them so each
+      // responsive pass starts from the same visitor state.
+      await home.evaluate(() => localStorage.clear());
+      await assertTouchTargets(
+        home,
+        '.site-brand, .hero-search-btn, .browse-option, .browse-all, .section-link, .footer-link',
+        `${label} home`
+      );
+      await home.close();
+
+      const catalog = await openPage(browser, catalogPath, viewport);
+      await catalog.waitForSelector('.compare-toggle');
+      await assertTouchTargets(
+        catalog,
+        '.site-brand, main .btn-sm, .compare-toggle, .view-toggle, .results-select, .search-box, [data-sheet-open], .footer-link',
+        `${label} catalog`
+      );
+
+      // Search suggestions are generated only after input, so explicitly open
+      // the listbox before measuring the rows changed by the touch fix.
+      await catalog.focus('#catalog-search');
+      await catalog.keyboard.type('data');
+      await catalog.waitForFunction(
+        () =>
+          document.querySelector('#catalog-search')?.getAttribute('aria-expanded') === 'true' &&
+          document.querySelectorAll('#search-listbox [role="option"]').length > 0
+      );
+      await settledListbox(catalog);
+      await assertTouchTargets(catalog, '.search-option', `${label} catalog search suggestions`);
+      await catalog.keyboard.press('Escape');
+      await catalog.evaluate(() => {
+        const input = document.querySelector('#catalog-search');
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await catalog.waitForFunction(
+        () => document.querySelectorAll('[data-entry-grid] > [data-entry]:not([hidden])').length >= 2
+      );
+
+      // Open the modal through its real keyboard activation, then measure the
+      // controls that only have boxes while the sheet is in the top layer.
+      await catalog.evaluate(() => document.querySelector('[data-sheet-open]').focus());
+      await catalog.keyboard.press('Enter');
+      await catalog.waitForSelector('[data-filter-sheet][open]');
+      await assertTouchTargets(
+        catalog,
+        '[data-filter-sheet] .filter-group-toggle, [data-filter-sheet] .filter-pill, [data-filter-sheet] .filter-showall, [data-filter-sheet] .icon-btn, [data-filter-sheet] .btn',
+        `${label} catalog filter sheet`
+      );
+      await catalog.keyboard.press('Escape');
+
+      // Selecting two entries exposes the fixed tray and its remove targets;
+      // the same browser context carries that shortlist onto /compare/.
+      await catalog.evaluate(() => {
+        const toggles = [...document.querySelectorAll('.compare-toggle')].slice(0, 2);
+        for (const toggle of toggles) toggle.click();
+      });
+      await catalog.waitForSelector('.compare-tray');
+      await assertTouchTargets(
+        catalog,
+        '.compare-tray-remove, .compare-tray-actions .btn-sm',
+        `${label} comparison tray`
+      );
+      const entryPath = await catalog.evaluate(
+        () => new URL(document.querySelector('[data-entry] .entry-title a').href).pathname
+      );
+      await catalog.close();
+
+      const compare = await openPage(browser, '/compare/', viewport);
+      await compare.waitForSelector('.compare-head-remove');
+      await assertTouchTargets(
+        compare,
+        '[data-compare-app] a, [data-compare-app] button, main .btn-sm',
+        `${label} comparison page`
+      );
+      await compare.close();
+
+      const entry = await openPage(browser, entryPath, viewport);
+      await assertTouchTargets(
+        entry,
+        '.site-brand, .breadcrumb-link, .toc-link, .entry-action-link, .rail-link, main .btn-sm, .footer-link',
+        `${label} entry`
+      );
+      await entry.close();
+
+      const az = await openPage(browser, `${catalogPath}a-z/`, viewport);
+      await assertTouchTargets(az, '.az-jump a, .az-tags a', `${label} A–Z directory`);
+      await az.close();
+
+      const submit = await openPage(browser, '/submit/', viewport);
+      await assertTouchTargets(
+        submit,
+        '.site-brand, .preview-summary, .field-input, .field-option, main .btn, .footer-link',
+        `${label} submission form`
+      );
+      await submit.close();
+
+      const setup = await openPage(browser, '/setup/', viewport);
+      await setup.click('#wizard-steps button[data-step="fields"]');
+      await setup.waitForSelector('.schema-field-toggle');
+      await assertTouchTargets(setup, '.schema-field-toggle', `${label} setup entry model`);
+      // Do not leave the geometry pass on step 6 for the independent wizard
+      // journey below; persistence is product behavior, test isolation is ours.
+      await setup.evaluate(() => localStorage.clear());
+      await setup.close();
+    }
+  });
+
   test('the submission form reports its errors where a reader is', async () => {
     const page = await openPage(browser, '/submit/');
 
@@ -298,13 +463,14 @@ describe('assistive-technology flows', { skip: SKIP, concurrency: false }, () =>
     // read twice if it is. Same decision as the setup wizard's summary.
     assert.deepEqual(await liveness(page, '[data-error-summary]'), { role: null, live: null });
 
-    // Tabbed to, not clicked, and by role rather than by label: the button says
-    // "Check your answers" here, and every deployment relabels it.
-    const submit = await tabUntil(page, (stop) => stop.submits, {
-      what: 'the submit button',
+    // With more than one section the form opens as steps, so the way forward
+    // is the first step's Next button — the submit control waits on the last
+    // step. Tabbed to, not clicked.
+    const next = await tabUntil(page, (stop) => stop.tag === 'button' && stop.text === 'Next section', {
+      what: 'the Next button',
       max: 150,
     });
-    assertUsableStops(submit.trail, 'submit');
+    assertUsableStops(next.trail, 'submit');
 
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => !document.querySelector('[data-error-summary]').hidden);
@@ -386,16 +552,49 @@ describe('assistive-technology flows', { skip: SKIP, concurrency: false }, () =>
       `the inline error "${marked[0].summary}" stayed after the field was answered`
     );
 
-    // Tabbing on from the first answer reaches the second section without a
-    // single unusable stop in between — how many stops that takes is the
-    // schema's business.
-    const here = (await focusStop(page)).within.find((id) => id.startsWith('section-'));
-    const onward = await tabUntil(
-      page,
-      (stop) => stop.within.some((id) => id.startsWith('section-') && id !== here),
-      { what: `a section after ${here}`, max: 60 }
-    );
+    // Answer the rest of the step the way the schema wrote each control, then
+    // move on. A clean step's Next is a step change, and a step change is a
+    // page change to a reader: the new section's heading takes focus and the
+    // rail marks exactly one step as current — the same contract as the setup
+    // wizard below.
+    await page.evaluate(() => {
+      const fire = (node, type) => node.dispatchEvent(new Event(type, { bubbles: true }));
+      const section = document.querySelector('[data-section]:not([hidden])');
+      section.querySelectorAll('[data-field][data-required="true"]').forEach((wrap) => {
+        const select = wrap.querySelector('select');
+        const boxes = wrap.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+        const text = wrap.querySelector('input:not([type="radio"]):not([type="checkbox"]), textarea');
+        if (select) {
+          const option = [...select.options].find((item) => item.value !== '');
+          if (option) select.value = option.value;
+          fire(select, 'change');
+        } else if (boxes.length > 0) {
+          const box = [...boxes].find((item) => item.value && !item.hasAttribute('data-clear'));
+          if (box && !box.checked) {
+            box.checked = true;
+            fire(box, 'change');
+          }
+        } else if (text && !text.value) {
+          text.value = 'A keyboard-only walkthrough';
+          fire(text, 'input');
+        }
+      });
+    });
+    const here = await page.evaluate(() => document.querySelector('[data-section]:not([hidden]) h2').id);
+    const onward = await tabUntil(page, (stop) => stop.tag === 'button' && stop.text === 'Next section', {
+      what: 'the Next button again',
+      max: 60,
+    });
     assertUsableStops(onward.trail, 'submit');
+    await page.keyboard.press('Enter');
+    const arrived = await focusStop(page);
+    assert.match(arrived.id ?? '', /^heading-/, `Next put focus on ${describeStop(arrived)}`);
+    assert.notEqual(arrived.id, here, 'Next left focus on the step it came from');
+    assert.equal(
+      await page.evaluate(() => document.querySelectorAll('.progress-link[aria-current="step"]').length),
+      1,
+      'exactly one rail link claims to be the current step'
+    );
 
     await page.close();
   });

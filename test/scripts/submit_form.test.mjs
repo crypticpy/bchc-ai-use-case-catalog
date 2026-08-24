@@ -23,6 +23,8 @@ const SCRIPTS = [
   'assets/js/submit/draft.js',
   'assets/js/submit/handoff.js',
   'assets/js/submit/review.js',
+  'assets/js/submit/steps.js',
+  'assets/js/submit/shortform.js',
   'assets/js/submit.js',
 ];
 
@@ -35,9 +37,10 @@ test.after(() => booted.forEach((dom) => dom.window.close()));
 /**
  * A booted submit page. The scripts are evaluated only once the document is
  * complete, mirroring the deferred <script> tags the layout emits.
- * @param {{popupBlocked?: boolean, draft?: object}} [options]
+ * @param {{popupBlocked?: boolean, draft?: object, ui?: object}} [options]
  *   popupBlocked makes window.open return null the way a pop-up blocker does;
- *   draft seeds a saved draft in localStorage before the scripts boot.
+ *   draft seeds a saved draft in localStorage before the scripts boot, and ui
+ *   rides beside it as the draft's stored UI state (step, short-form mode).
  * @returns {Promise<object>}
  */
 async function boot(options = {}) {
@@ -68,10 +71,9 @@ async function boot(options = {}) {
   const form = window.document.querySelector('[data-submit-form]');
   const draftKey = 'catalog-template:submit-draft:v2:' + form.dataset.draftKey;
   if (options.draft) {
-    window.localStorage.setItem(
-      draftKey,
-      JSON.stringify({ saved: new Date().toISOString(), fields: options.draft })
-    );
+    const stored = { saved: new Date().toISOString(), fields: options.draft };
+    if (options.ui) stored.ui = options.ui;
+    window.localStorage.setItem(draftKey, JSON.stringify(stored));
   }
 
   SCRIPTS.forEach((rel) => window.eval(fs.readFileSync(path.join(ROOT, rel), 'utf8')));
@@ -91,11 +93,27 @@ async function boot(options = {}) {
 const settle = () => new Promise((resolve) => setTimeout(resolve, 700));
 
 /**
- * Press the form's primary button, which opens "check your answers".
+ * Submit the form once. Before the last step that is a request to move on
+ * (the stepper treats implicit submission as Next); on the last step it opens
+ * "check your answers".
  * @param {object} ctx from boot()
  */
 function submitForm(ctx) {
   ctx.form.dispatchEvent(new ctx.window.Event('submit', { bubbles: true, cancelable: true }));
+}
+
+/**
+ * Walk forward through every step to "check your answers". Fails the test if
+ * a step's validation blocks the walk.
+ * @param {object} ctx from boot()
+ */
+function toReview(ctx) {
+  const cap = ctx.form.querySelectorAll('[data-section]').length + 1;
+  for (let i = 0; i < cap; i += 1) {
+    submitForm(ctx);
+    if (!ctx.form.querySelector('[data-review]').hidden) return;
+  }
+  assert.fail('never reached the review step — a step blocked the walk');
 }
 
 /**
@@ -113,9 +131,9 @@ function press(ctx, label) {
   return button;
 }
 
-/** Fill everything required, then go through the review step to GitHub. */
+/** Walk a filled form through every step and the review to GitHub. */
 function sendToGitHub(ctx) {
-  submitForm(ctx);
+  toReview(ctx);
   press(ctx, 'Send to GitHub');
 }
 
@@ -145,11 +163,28 @@ function answer(ctx, key, value) {
   const wrap = ctx.form.querySelector('[data-field="' + key + '"]');
   const type = wrap.dataset.type;
   if (type === 'select' || type === 'multiselect') {
-    const choice = Array.from(wrap.querySelectorAll('input[value]')).find((input) =>
+    const inputs = Array.from(wrap.querySelectorAll('input[value]'));
+    if (inputs.length === 0) {
+      // A select with many options renders as a dropdown, not radios.
+      const select = wrap.querySelector('select');
+      const option = Array.from(select.options).find((candidate) =>
+        value ? candidate.value === value : candidate.value !== ''
+      );
+      select.value = option ? option.value : '';
+      select.dispatchEvent(new ctx.window.Event('change', { bubbles: true }));
+      return;
+    }
+    const choice = inputs.find((input) =>
       value ? input.value === value : input.value && !input.hasAttribute('data-clear')
     );
     choice.checked = true;
     choice.dispatchEvent(new ctx.window.Event('change', { bubbles: true }));
+    return;
+  }
+  if (type === 'boolean') {
+    const box = wrap.querySelector('input[type="checkbox"]');
+    box.checked = value !== '' && value !== false;
+    box.dispatchEvent(new ctx.window.Event('change', { bubbles: true }));
     return;
   }
   const control = wrap.querySelector('input, textarea');
@@ -157,16 +192,27 @@ function answer(ctx, key, value) {
   control.dispatchEvent(new ctx.window.Event('input', { bubbles: true }));
 }
 
+/** Fill one required question with something plausible. @param {object} ctx @param {Element} wrap */
+function fillWrap(ctx, wrap) {
+  const key = wrap.dataset.field;
+  const type = wrap.dataset.type;
+  if (type === 'email') answer(ctx, key, 'someone@example.org');
+  else if (type === 'url') answer(ctx, key, 'https://example.org');
+  else if (type === 'select' || type === 'multiselect') answer(ctx, key, '');
+  else if (type === 'boolean') answer(ctx, key, 'true');
+  else answer(ctx, key, 'Value for ' + key);
+}
+
 /** Fill every required field with something plausible. @param {object} ctx */
 function fillRequired(ctx) {
-  ctx.form.querySelectorAll('[data-required="true"]').forEach((wrap) => {
-    const key = wrap.dataset.field;
-    const type = wrap.dataset.type;
-    if (type === 'email') answer(ctx, key, 'someone@example.org');
-    else if (type === 'url') answer(ctx, key, 'https://example.org');
-    else if (type === 'select' || type === 'multiselect') answer(ctx, key, '');
-    else answer(ctx, key, 'Value for ' + key);
-  });
+  ctx.form.querySelectorAll('[data-required="true"]').forEach((wrap) => fillWrap(ctx, wrap));
+}
+
+/** Fill only one step's required questions. @param {object} ctx @param {string} sectionKey */
+function fillSection(ctx, sectionKey) {
+  ctx.form
+    .querySelectorAll('[data-section="' + sectionKey + '"] [data-required="true"]')
+    .forEach((wrap) => fillWrap(ctx, wrap));
 }
 
 test('the card preview mirrors what has been typed', async () => {
@@ -211,17 +257,30 @@ test('submitting an empty form is blocked and announced', async () => {
   assert.equal(summary.getAttribute('role'), null);
   assert.equal(summary.getAttribute('tabindex'), '-1');
   const links = [...summary.querySelectorAll('.error-summary-link')];
-  assert.ok(links.length >= 10);
-  // Every link points at something real: a control id or the field wrapper.
+  assert.ok(links.length >= 5, 'every required question in the step is listed');
+  // Every link points at something real, and only at the step being left:
+  // problems on later steps are that step's business when it is reached.
   for (const link of links) {
     const href = link.getAttribute('href');
     assert.notEqual(href, '#', `${link.textContent} links nowhere`);
-    assert.ok(ctx.document.querySelector(href), `${href} is not on the page`);
+    const target = ctx.document.querySelector(href);
+    assert.ok(target, `${href} is not on the page`);
+    assert.equal(target.closest('[data-section]').dataset.section, 'about');
   }
   const title = ctx.form.querySelector('[data-field="title"] input');
   assert.equal(title.getAttribute('aria-invalid'), 'true');
   assert.equal(ctx.opened.length, 0);
+  assert.equal(ctx.form.querySelector('[data-section]').hidden, false, 'still on the first step');
   assert.equal(ctx.form.querySelector('[data-review]').hidden, true, 'no review step until it is valid');
+});
+
+test('following a summary link leaves the summary up for the other problems', async () => {
+  const ctx = await boot();
+  submitForm(ctx);
+  const summary = ctx.form.querySelector('[data-error-summary]');
+  summary.querySelector('.error-summary-link').click();
+  assert.equal(summary.hidden, false);
+  assert.equal(ctx.document.activeElement.closest('[data-field]').dataset.field, 'title');
 });
 
 test('error messages name the question and say what to do', async () => {
@@ -245,20 +304,23 @@ test('aria-invalid marks the control at fault, not every box in the group', asyn
   assert.equal(marked[0], wrap.querySelector('input:not([data-clear])'));
 });
 
-test('the progress rail says how many problems each section has', async () => {
+test('a blocked step paints its problem count on the rail', async () => {
   const ctx = await boot();
   submitForm(ctx);
-  const badges = Array.from(ctx.document.querySelectorAll('[data-progress-errors]'));
-  const shown = badges.filter((badge) => !badge.hidden);
-  assert.ok(shown.length > 0, 'at least one section has problems');
-  shown.forEach((badge) => assert.match(badge.textContent, /^\d+ to fix$/));
+  const badge = ctx.document.querySelector('[data-progress-link="about"] [data-progress-errors]');
+  assert.equal(badge.hidden, false);
+  assert.match(badge.textContent, /^\d+ to fix$/);
+  // Steps the attempt never validated carry no badge yet.
+  ctx.document
+    .querySelectorAll('[data-progress-link]:not([data-progress-link="about"]) [data-progress-errors]')
+    .forEach((other) => assert.equal(other.hidden, true));
 });
 
 test('the review step reads the answers back before anything is sent', async () => {
   const ctx = await boot();
   fillRequired(ctx);
   answer(ctx, 'title', 'Service request routing');
-  submitForm(ctx);
+  toReview(ctx);
 
   const panel = ctx.form.querySelector('[data-review]');
   assert.equal(panel.hidden, false);
@@ -277,10 +339,11 @@ test('the review step reads the answers back before anything is sent', async () 
 test('Change takes you back to the question it belongs to', async () => {
   const ctx = await boot();
   fillRequired(ctx);
-  submitForm(ctx);
+  toReview(ctx);
   const rows = Array.from(ctx.form.querySelectorAll('[data-review] dl > dd button'));
   rows[0].click();
   assert.equal(ctx.form.querySelector('[data-review]').hidden, true);
+  // The question is on the first step, so the stepper is brought back there.
   assert.equal(ctx.form.querySelector('[data-section]').hidden, false);
   assert.equal(ctx.document.activeElement, ctx.form.querySelector('[data-field="title"] input'));
 });
@@ -644,6 +707,184 @@ test('the questions mark what is optional rather than what is required', async (
   const required = ctx.form.querySelector('[data-field="title"]');
   assert.doesNotMatch(required.textContent, /\(optional\)/);
   assert.equal(ctx.form.querySelectorAll('.field-required').length, 0, 'no REQUIRED pills remain');
+});
+
+test('the form opens as one step at a time', async () => {
+  const ctx = await boot();
+  const sections = Array.from(ctx.form.querySelectorAll('[data-section]'));
+  assert.ok(sections.length > 1, 'the fixture schema has more than one section');
+  assert.equal(sections[0].hidden, false);
+  sections.slice(1).forEach((section) => assert.equal(section.hidden, true));
+
+  // The first step has no Back, the closing block waits for the last step.
+  const nav = sections[0].querySelector('[data-step-nav]');
+  assert.equal(nav.hidden, false);
+  assert.equal(nav.querySelector('[data-step-action="back"]').hidden, true);
+  assert.equal(nav.querySelector('[data-step-action="next"]').hidden, false);
+  assert.equal(ctx.form.querySelector('[data-step-finish]').hidden, true);
+
+  // The rail marks the current step, wizard-style.
+  const first = ctx.document.querySelector('[data-progress-link="' + sections[0].dataset.section + '"]');
+  assert.equal(first.getAttribute('aria-current'), 'step');
+});
+
+test('Next moves on when the step is clean, and Back returns freely', async () => {
+  const ctx = await boot();
+  const sections = Array.from(ctx.form.querySelectorAll('[data-section]'));
+  fillSection(ctx, sections[0].dataset.section);
+  sections[0].querySelector('[data-step-action="next"]').click();
+
+  assert.equal(sections[0].hidden, true);
+  assert.equal(sections[1].hidden, false);
+  // The heading takes focus: the step change is its own announcement.
+  const heading = sections[1].querySelector('h2');
+  assert.equal(ctx.document.activeElement, heading);
+  assert.equal(heading.getAttribute('tabindex'), '-1');
+  assert.match(ctx.form.querySelector('[data-progress-section]').textContent, /\S/);
+
+  // Back is free even though the step it returns through is now incomplete.
+  sections[1].querySelector('[data-step-action="back"]').click();
+  assert.equal(sections[0].hidden, false);
+  assert.equal(ctx.document.activeElement, sections[0].querySelector('h2'));
+});
+
+test('a step with problems cannot be left forward', async () => {
+  const ctx = await boot();
+  const sections = Array.from(ctx.form.querySelectorAll('[data-section]'));
+  sections[0].querySelector('[data-step-action="next"]').click();
+  assert.equal(sections[0].hidden, false, 'the move is refused');
+  assert.equal(ctx.form.querySelector('[data-error-summary]').hidden, false);
+});
+
+test('a forward jump on the rail validates the steps it would skip', async () => {
+  const ctx = await boot();
+  const sections = Array.from(ctx.form.querySelectorAll('[data-section]'));
+  fillSection(ctx, sections[0].dataset.section);
+  // Jump from step 1 to step 3: step 2 is empty, so the jump stops there.
+  ctx.document.querySelector('[data-progress-link="' + sections[2].dataset.section + '"]').click();
+  assert.equal(sections[2].hidden, true);
+  assert.equal(sections[1].hidden, false);
+  assert.equal(ctx.form.querySelector('[data-error-summary]').hidden, false);
+  const badge = ctx.document.querySelector(
+    '[data-progress-link="' + sections[1].dataset.section + '"] [data-progress-errors]'
+  );
+  assert.equal(badge.hidden, false);
+});
+
+test('Enter before the last step moves on instead of submitting', async () => {
+  const ctx = await boot();
+  const sections = Array.from(ctx.form.querySelectorAll('[data-section]'));
+  fillSection(ctx, sections[0].dataset.section);
+  submitForm(ctx);
+  assert.equal(sections[1].hidden, false);
+  assert.equal(ctx.form.querySelector('[data-review]').hidden, true);
+  assert.equal(ctx.opened.length, 0);
+});
+
+test('the short form hides unanswered optional questions and skips emptied steps', async () => {
+  const ctx = await boot();
+  const toggle = ctx.form.querySelector('[data-shortform-toggle]');
+  toggle.click();
+
+  assert.equal(ctx.form.querySelector('[data-field="impact"]').hidden, true, 'optional hides');
+  assert.equal(ctx.form.querySelector('[data-field="title"]').hidden, false, 'required stays');
+  assert.equal(toggle.textContent, 'Show every question');
+  const note = ctx.form.querySelector('[data-shortform-note]');
+  assert.equal(note.hidden, false);
+  assert.match(note.textContent, /^\d+ optional questions hidden\.$/);
+
+  // A step with no required questions has nothing left: the rail dims it and
+  // refuses to go there.
+  const cost = ctx.document.querySelector('[data-progress-link="cost"]');
+  assert.equal(cost.dataset.skipped, 'true');
+  assert.equal(cost.getAttribute('aria-disabled'), 'true');
+  cost.click();
+  assert.equal(ctx.form.querySelector('[data-section="cost"]').hidden, true);
+  assert.equal(ctx.form.querySelector('[data-section]').hidden, false, 'still on the first step');
+
+  toggle.click();
+  assert.equal(ctx.form.querySelector('[data-field="impact"]').hidden, false);
+  assert.equal(note.hidden, true);
+  assert.equal(cost.dataset.skipped, 'false');
+});
+
+test('the short form keeps answered optional questions on screen', async () => {
+  const ctx = await boot();
+  answer(ctx, 'impact', 'Cut triage time in half');
+  ctx.form.querySelector('[data-shortform-toggle]').click();
+  assert.equal(ctx.form.querySelector('[data-field="impact"]').hidden, false);
+});
+
+test('moving on saves the step and the short-form mode with the draft', async () => {
+  const ctx = await boot();
+  const sections = Array.from(ctx.form.querySelectorAll('[data-section]'));
+  fillSection(ctx, sections[0].dataset.section);
+  sections[0].querySelector('[data-step-action="next"]').click();
+  await settle();
+  assert.deepEqual(ctx.storedDraft().ui, { step: sections[1].dataset.section, short: false });
+});
+
+test('a restored draft reopens on the step it was left at, in the same mode', async () => {
+  const ctx = await boot({ draft: { title: 'Saved earlier' }, ui: { step: 'build', short: true } });
+  ctx.form.querySelector('[data-draft-action="restore"]').click();
+  assert.equal(ctx.form.querySelector('[data-section="build"]').hidden, false);
+  assert.equal(ctx.form.querySelector('[data-field="impact"]').hidden, true, 'short mode is back on');
+  assert.equal(ctx.form.querySelector('[data-shortform-toggle]').textContent, 'Show every question');
+});
+
+test('review Change reveals a question the short form hid', async () => {
+  const ctx = await boot();
+  ctx.form.querySelector('[data-shortform-toggle]').click();
+  fillRequired(ctx);
+  toReview(ctx);
+
+  const wrap = ctx.form.querySelector('[data-field="impact"]');
+  const question = wrap.dataset.question;
+  // The Change button says which question it changes in sr-only text beside it.
+  const row = Array.from(ctx.form.querySelectorAll('[data-review] dl > dd')).find(
+    (dd) => dd.querySelector('button') && dd.textContent.includes(question)
+  );
+  assert.ok(row, 'the hidden question still has a review row');
+  row.querySelector('button').click();
+  assert.equal(wrap.hidden, false, 'the short form gives the question back');
+  assert.equal(wrap.closest('[data-section]').hidden, false);
+  assert.equal(ctx.document.activeElement, wrap.querySelector('input, textarea'));
+});
+
+test('the draft controls and status regions live on every step, not the last', async () => {
+  const ctx = await boot();
+  // Hiding a role="status" region silences it, so none of these may sit in
+  // the [data-step-finish] block the stepper hides until the last step.
+  // [data-submit-status] is here too: the copy-out fallback stays visible on
+  // every step once shown, and its Copy button writes its feedback there.
+  ['[data-draft-status]', '[data-length-note]', '[data-submit-status]', '[data-draft-action="save"]'].forEach(
+    (selector) => {
+      const node = ctx.form.querySelector(selector);
+      assert.equal(node.parentElement.closest('[hidden]'), null, selector + ' is inside a hidden block');
+    }
+  );
+  // ...while the submit controls do wait for the last step.
+  const submit = ctx.form.querySelector('button[type="submit"]');
+  assert.ok(submit.closest('[data-step-finish]'), 'the submit button waits with the finish block');
+  assert.equal(ctx.form.querySelector('[data-step-finish]').hidden, true);
+});
+
+test('a last-step problem list survives following a cross-step link', async () => {
+  const ctx = await boot();
+  const sections = Array.from(ctx.form.querySelectorAll('[data-section]'));
+  fillRequired(ctx);
+  for (let i = 0; i < sections.length - 1; i += 1) submitForm(ctx);
+  assert.equal(sections[sections.length - 1].hidden, false, 'the walk reached the last step');
+
+  // Break an answer back on step 1, then ask for the full check.
+  answer(ctx, 'title', '');
+  submitForm(ctx);
+  const summary = ctx.form.querySelector('[data-error-summary]');
+  assert.equal(summary.hidden, false);
+  summary.querySelector('.error-summary-link').click();
+  assert.equal(summary.hidden, false, 'the other problems are still listed');
+  assert.equal(sections[0].hidden, false, 'the link went back to the problem’s step');
+  assert.equal(ctx.document.activeElement, ctx.form.querySelector('[data-field="title"] input'));
 });
 
 test('only radio groups get a way to un-pick themselves', async () => {

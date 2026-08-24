@@ -35,14 +35,14 @@ jobs:
           persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
+        uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           languages: ${{ matrix.language }}
           build-mode: none
           queries: security-extended
 
       - name: Analyze repository
-        uses: github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
+        uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
         with:
           category: /language:${{ matrix.language }}
 
@@ -62,12 +62,22 @@ jobs:
         with:
           script: |
             const passed = ${{ toJSON(needs.analyze.result) }} === 'success';
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: passed ? 'success' : 'failure',
-              context: 'CodeQL (dispatch)',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: passed ? 'CodeQL passed' : 'CodeQL reported problems',
-            });
+            const targetUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // A reusable-workflow dispatch prefixes matrix check names with the
+            // caller job. Publish the same canonical contexts as a normal PR so
+            // generated PRs satisfy the repository's required-status rules.
+            for (const statusContext of [
+              'Analyze javascript-typescript',
+              'Analyze ruby',
+              'CodeQL (dispatch)',
+            ]) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: passed ? 'success' : 'failure',
+                context: statusContext,
+                target_url: targetUrl,
+                description: passed ? 'CodeQL passed' : 'CodeQL reported problems',
+              });
+            }

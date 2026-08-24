@@ -113,12 +113,17 @@ jobs:
         with:
           script: |
             const passed = ${{ toJSON(needs.scale.result) }} === 'success';
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: passed ? 'success' : 'failure',
-              context: 'Performance and scale (dispatch)',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: passed ? 'Scale budgets passed' : 'Scale budgets reported problems',
-            });
+            const targetUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // Match the canonical PR check name as well as the human-readable
+            // dispatch summary so required checks work for generated PRs.
+            for (const statusContext of ['scale', 'Performance and scale (dispatch)']) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: passed ? 'success' : 'failure',
+                context: statusContext,
+                target_url: targetUrl,
+                description: passed ? 'Scale budgets passed' : 'Scale budgets reported problems',
+              });
+            }

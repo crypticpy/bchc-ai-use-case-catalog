@@ -45,7 +45,7 @@ test('themeVars writes rgb triplets, quoted fonts and the radius scale', () => {
   assert.match(css, /--c-primary-dark: 18 48 90;/);
   assert.match(css, /--c-secondary: 15 99 87;/);
   assert.match(css, /--c-accent: 224 122 47;/);
-  assert.match(css, /--font-heading: "Source Sans 3";/);
+  assert.match(css, /--font-heading: "PHCT Sans";/);
   assert.match(css, /--font-body: "Inter";/);
   assert.match(css, /--radius-xs: 0\.375rem;.*--radius-sm: 0\.75rem;.*--radius-2xl: 2\.5rem;/);
 });

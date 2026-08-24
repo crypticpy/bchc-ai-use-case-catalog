@@ -2,7 +2,7 @@
    Focus: solid 2px `primary` ring + 2px ground-coloured offset (see base.css) —
    the offset is what keeps the ring readable on a primary-filled button. */
 @layer components {
-  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-pill px-5 py-2.5 text-sm font-semibold transition-colors duration-fast ease-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card sm:min-h-[40px]; }
+  .btn { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-pill px-5 py-2.5 text-sm font-semibold transition-colors duration-fast ease-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card lg:min-h-[40px]; }
   .btn-primary { @apply btn bg-brand-primary text-white hover:bg-brand-primary-dark focus-visible:ring-brand-primary; }
   /* Host label after an action button's text ("Repository github.com"): weight and
      size carry the hierarchy — never opacity, which fails contrast on the light button. */
@@ -13,7 +13,7 @@
   /* The one solid button on a dark ground: the hero's primary action. Everything
      else there is a ghost, so the eye has one place to land. */
   .btn-on-dark-solid { @apply btn bg-white text-brand-primary-dark hover:bg-brand-on-dark focus-visible:ring-white focus-visible:ring-offset-brand-primary-dark; }
-  .btn-sm { @apply min-h-[36px] px-4 py-1.5 text-xs sm:min-h-[32px]; }
+  .btn-sm { @apply min-h-[44px] px-4 py-1.5 text-xs lg:min-h-[32px]; }
   /* Icon-only control (44px target under lg, 36 above). Always give it aria-label. */
   .icon-btn { @apply inline-flex h-11 w-11 items-center justify-center rounded-pill text-brand-muted transition-colors duration-fast hover:bg-brand-ink/5 hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card lg:h-9 lg:w-9; }
 }

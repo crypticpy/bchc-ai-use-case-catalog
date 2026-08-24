@@ -162,6 +162,16 @@
   };
 
   /**
+   * Validate one section's fields — the stepper's forward gate.
+   * @param {object[]} fields
+   * @param {string} sectionKey a [data-section] key
+   * @returns {Array<{field: object, message: string}>} the problems found
+   */
+  ns.validateSection = function validateSection(fields, sectionKey) {
+    return ns.validateAll(fields.filter((field) => field.section === sectionKey));
+  };
+
+  /**
    * Fill and reveal the error summary, then move focus to it.
    * @param {HTMLElement} summary the [data-error-summary] element
    * @param {Array<{field: object, message: string}>} problems
@@ -188,7 +198,9 @@
         link.textContent = problem.message;
         link.addEventListener('click', (event) => {
           event.preventDefault();
-          ns.focusField(problem.field);
+          // revealField (assets/js/submit.js) first brings the field on screen
+          // — its step forward, its optional question un-hidden — then focuses.
+          (ns.revealField || ns.focusField)(problem.field);
         });
         item.appendChild(link);
         list.appendChild(item);

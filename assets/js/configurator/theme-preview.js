@@ -15,6 +15,7 @@
 
 import { el } from './dom.js';
 import { isHexColor, parseHexColor } from './color.js';
+import { normalizeBundledFontName } from './fonts.js';
 
 /**
  * Corner-radius scales, keyed by the `theme.radius` answer, in the order
@@ -60,8 +61,10 @@ export function themeVars(answers = {}) {
     const { r, g, b } = parseHexColor(value);
     decls.push(`${cssVar}: ${r} ${g} ${b}`);
   }
-  if (answers.headingFont) decls.push(`--font-heading: ${JSON.stringify(String(answers.headingFont))}`);
-  if (answers.bodyFont) decls.push(`--font-body: ${JSON.stringify(String(answers.bodyFont))}`);
+  if (answers.headingFont)
+    decls.push(`--font-heading: ${JSON.stringify(normalizeBundledFontName(answers.headingFont))}`);
+  if (answers.bodyFont)
+    decls.push(`--font-body: ${JSON.stringify(normalizeBundledFontName(answers.bodyFont))}`);
   const radii = RADIUS_SCALES[answers.radius];
   if (radii) {
     RADIUS_STEPS.forEach((step, i) => decls.push(`--radius-${step}: ${radii[i]}`));

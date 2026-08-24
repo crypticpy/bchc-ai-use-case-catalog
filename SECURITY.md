@@ -122,7 +122,7 @@ owner, an organization member or a collaborator. See
 it applies *becomes* the site's configuration, so the workflow refuses to run
 for anyone outside `OWNER`/`MEMBER`/`COLLABORATOR` whatever `SUBMISSIONS_OPEN`
 says. Its blast radius is bounded the same way everything else is —
-`renderFiles()` returns a fixed set of six repo-relative paths, so the script
+`renderFiles()` returns a fixed set of seven repo-relative paths, so the script
 cannot write outside them, and the result is still only a pull request.
 
 ## What you should still do

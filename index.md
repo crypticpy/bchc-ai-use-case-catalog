@@ -138,7 +138,7 @@ leads with; remaining facets fill in only if fewer than four qualify.
         </li>
         {%- endfor %}
       </ul>
-      <a class="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-white underline-offset-4 hover:underline" href="{{ catalog_url | relative_url }}">See all {{ total }} {{ plural | downcase }} {% include icon.html name='arrow-right' size='sm' %}</a>
+      <a class="section-link mt-4 gap-1 text-sm font-semibold text-white underline-offset-4 hover:underline" href="{{ catalog_url | relative_url }}">See all {{ total }} {{ plural | downcase }} {% include icon.html name='arrow-right' size='sm' %}</a>
     </aside>
     {%- endif %}
   </div>
@@ -167,10 +167,10 @@ the eye reads "here is how the collection is organised" before the first entry. 
           <ul role="list" class="mt-3 space-y-1">
             {% for opt in bf.options limit: 6 %}
               {% assign om = bf | option_meta: opt %}{% assign own = bf.option_meta[opt] %}
-              <li><a class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-brand-ink transition-colors duration-120 ease-brand hover:bg-brand-primary/5 hover:text-brand-primary" href="{{ catalog_url | relative_url }}?{{ bkey }}={{ opt | slugify }}" title="{{ opt | escape }}"><span class="inline-flex w-4 shrink-0 justify-center text-brand-muted" aria-hidden="true">{% if own.icon %}{% include icon.html name=own.icon size='xs' %}{% endif %}</span>{{ om.short }}</a></li>
+              <li><a class="browse-option" href="{{ catalog_url | relative_url }}?{{ bkey }}={{ opt | slugify }}" title="{{ opt | escape }}"><span class="inline-flex w-4 shrink-0 justify-center text-brand-muted" aria-hidden="true">{% if own.icon %}{% include icon.html name=own.icon size='xs' %}{% endif %}</span>{{ om.short }}</a></li>
             {% endfor %}
           </ul>
-          <a class="mt-auto inline-block px-2 pt-3 text-xs font-semibold text-brand-primary hover:underline" href="{{ catalog_url | relative_url }}">{% if bf.options.size > 6 %}All {{ bf.options.size }} options{% else %}Open the catalog{% endif %}</a>
+          <a class="browse-all" href="{{ catalog_url | relative_url }}">{% if bf.options.size > 6 %}All {{ bf.options.size }} options{% else %}Open the catalog{% endif %}</a>
         </div>
       {% endfor %}
     </div>
@@ -187,7 +187,7 @@ the eye reads "here is how the collection is organised" before the first entry. 
       <div class="flex items-center gap-4">
         {%- comment -%} The only browse-all link above the fold at lg+, where the
         "Recently added" section (which also carries one) is hidden. {%- endcomment -%}
-        <a class="inline-flex items-center gap-1 text-sm font-semibold text-brand-primary hover:underline" href="{{ catalog_url | relative_url }}">Browse all {{ total }} {{ plural | downcase }} {% include icon.html name='arrow-right' size='sm' %}</a>
+        <a class="section-link gap-1 text-sm font-semibold text-brand-primary hover:underline" href="{{ catalog_url | relative_url }}">Browse all {{ total }} {{ plural | downcase }} {% include icon.html name='arrow-right' size='sm' %}</a>
         <div class="flex items-center gap-2">
           <button type="button" class="icon-btn border border-brand-line-strong" data-carousel-prev aria-label="Previous">{% include icon.html name='chevron-left' size='sm' %}</button>
           <button type="button" class="icon-btn border border-brand-line-strong" data-carousel-next aria-label="Next">{% include icon.html name='chevron-right' size='sm' %}</button>
@@ -209,7 +209,7 @@ the eye reads "here is how the collection is organised" before the first entry. 
   <section aria-labelledby="recent-heading"{% if recent_hidden_lg %} class="lg:hidden"{% endif %}>
     <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
       <h2 id="recent-heading" class="section-title">Recently added</h2>
-      <a class="inline-flex items-center gap-1 text-sm font-semibold text-brand-primary hover:underline" href="{{ catalog_url | relative_url }}">Browse all {{ total }} {{ plural | downcase }} {% include icon.html name='arrow-right' size='sm' %}</a>
+      <a class="section-link gap-1 text-sm font-semibold text-brand-primary hover:underline" href="{{ catalog_url | relative_url }}">Browse all {{ total }} {{ plural | downcase }} {% include icon.html name='arrow-right' size='sm' %}</a>
     </div>
     {% assign recent_count = cfg.home.recent_count | default: 6 %}
     <ul role="list" class="entry-grid">

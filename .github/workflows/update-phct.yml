@@ -301,6 +301,7 @@ jobs:
             push --force-with-lease origin "$CANDIDATE_COMMIT:refs/heads/$BRANCH"
 
       - name: Open or update the human-reviewed pull request
+        id: pull-request
         env:
           GH_TOKEN: ${{ secrets.PHCT_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
           BRANCH: ${{ needs.update.outputs.branch }}
@@ -346,15 +347,18 @@ jobs:
           open_pr="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
           if [ -n "$open_pr" ]; then
             gh pr edit "$open_pr" --title "Update PHCT to $RELEASE" --body-file "$RUNNER_TEMP/phct-pr-body.md"
+            pr_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$open_pr"
           else
-            gh pr create --base "$BASE_BRANCH" --head "$BRANCH" --title "Update PHCT to $RELEASE" --body-file "$RUNNER_TEMP/phct-pr-body.md"
+            pr_url="$(gh pr create --base "$BASE_BRANCH" --head "$BRANCH" --title "Update PHCT to $RELEASE" --body-file "$RUNNER_TEMP/phct-pr-body.md")"
           fi
+          printf 'url=%s\n' "$pr_url" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch checks when the built-in token opened the pull request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UPDATE_TOKEN_CONFIGURED: ${{ secrets.PHCT_UPDATE_TOKEN != '' }}
           BRANCH: ${{ needs.update.outputs.branch }}
+          PR_URL: ${{ steps.pull-request.outputs.url }}
         run: |
           set -euo pipefail
           if [ "$UPDATE_TOKEN_CONFIGURED" = "true" ]; then
@@ -364,7 +368,60 @@ jobs:
           # These two entrypoints exist in every supported downstream release.
           # The candidate validate.yml fans out to its Performance, Supply
           # chain, and CodeQL reusable workflows on the selected branch.
+          dispatched_workflows=""
+          failed_workflows=""
           for workflow in validate.yml quality.yml; do
-            gh workflow run "$workflow" --ref "$BRANCH"
+            dispatched=false
+            error_log="$RUNNER_TEMP/phct-dispatch-${workflow%.yml}.log"
+            for attempt in 1 2 3; do
+              : > "$error_log"
+              if timeout --signal=TERM 45s gh workflow run "$workflow" --ref "$BRANCH" 2> "$error_log"; then
+                dispatched=true
+                dispatched_workflows="${dispatched_workflows}${dispatched_workflows:+, }$workflow"
+                break
+              else
+                status=$?
+              fi
+
+              if [ "$status" -eq 124 ]; then
+                reason="timed out after 45 seconds"
+              else
+                reason="GitHub CLI exited with status $status"
+              fi
+              echo "::warning title=Check dispatch attempt failed::$workflow attempt $attempt of 3 $reason."
+              tail -n 5 "$error_log" >&2 || true
+              if [ "$attempt" -lt 3 ]; then
+                sleep "$((attempt * 5))"
+              fi
+            done
+
+            if [ "$dispatched" != "true" ]; then
+              failed_workflows="${failed_workflows}${failed_workflows:+, }$workflow"
+            fi
           done
+
+          if [ -n "$failed_workflows" ]; then
+            {
+              echo "### Required update checks need attention"
+              echo
+              echo "The verified update pull request already exists: $PR_URL"
+              echo
+              echo "**Main is unchanged. Do not merge the pull request until every required check is green.**"
+              echo
+              echo "GitHub did not accept these workflow dispatches after three attempts: \`$failed_workflows\`."
+              if [ -n "$dispatched_workflows" ]; then
+                echo "These dispatches succeeded: \`$dispatched_workflows\`."
+              fi
+              echo
+              echo "To recover without code changes:"
+              echo "1. Open **Actions → Validate Content → Run workflow**, select \`$BRANCH\`, and run it if \`validate.yml\` is listed above."
+              echo "2. Open **Actions → Quality (a11y + Lighthouse) → Run workflow**, select \`$BRANCH\`, and run it if \`quality.yml\` is listed above."
+              echo "3. Wait for Validate Content, Performance, Supply chain, CodeQL, and Quality to finish, then review the pull request normally."
+              echo
+              echo "If GitHub reports an API outage or rate limit, wait for service to recover and rerun this updater; it safely updates the same branch and pull request."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Required update checks were not dispatched::The update pull request exists and main is unchanged. Do not merge it; follow the recovery steps in this run summary."
+            exit 1
+          fi
+
           echo "Validate Content (including Performance, Supply chain, and CodeQL) and Quality were dispatched on \`$BRANCH\`." >> "$GITHUB_STEP_SUMMARY"

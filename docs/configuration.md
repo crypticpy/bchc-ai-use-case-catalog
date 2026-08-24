@@ -117,6 +117,13 @@ The "Email it instead" button only renders when there is an address to send to:
 `submit.fallback_email`, or `organization.contact_email` when that is blank.
 Clear both to drop the button and send everyone through GitHub.
 
+The shape of the form follows the schema, with nothing to configure here: when
+`schema.groups` has more than one group the form opens as one step per group
+(Back/Next, with the progress rail jumping between steps), and a "Hide the
+optional questions" toggle offers a required-only short form whenever the
+schema has optional fields. See
+[content-model.md → Groups](content-model.md#groups).
+
 ### Footer
 
 ```yaml
@@ -173,7 +180,7 @@ colors:
   warn: "#B45309"           # caution only: sensitive-data indicators, validation errors
 
 fonts:
-  heading: "Source Serif 4"  # bundled: "Source Serif 4", "Source Sans 3", "Inter"; any other name needs google_fonts_url
+  heading: "PHCT Serif"  # bundled: "PHCT Serif", "PHCT Sans", "Inter"; any other name needs google_fonts_url
   body: "Inter"
   google_fonts_url: ""       # a Google Fonts <link> href, when using a non-bundled font
 
@@ -182,7 +189,12 @@ radius: "soft"                # sharp | soft | round
 
 Colors are hex values. `_includes/theme.html` converts each one to an `R G B` triple (via the `hex_to_rgb` Liquid filter in `_plugins/theme_filters.rb`) and emits them as CSS custom properties (`--c-primary`, `--c-line-strong`, `--c-warn`, …) that Tailwind's `rgb(var(--c-x) / <alpha>)` utility classes read — so changing a hex value here re-themes the whole site on the next build, no CSS edits required. Keep text/background pairs at WCAG AA contrast (4.5:1 for body text); the setup wizards warn if `on_dark` on `primary_dark` falls under 4.5:1, and `npm run validate` fails if `ink`, `muted` or `primary` fall under 4.5:1 on `surface_tint`.
 
-Headings default to the bundled serif (Source Serif 4) over an Inter body. For an all-sans site set `fonts.heading: "Source Sans 3"` — the wizard's Look step offers all three bundled families.
+Headings default to the bundled PHCT Serif over an Inter body. For an all-sans site set
+`fonts.heading: "PHCT Sans"` — the wizard's Look step offers all three bundled families. PHCT
+Serif and PHCT Sans are renamed, modified OFL subsets of Adobe's Source families; see
+[`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). The renderer accepts the legacy values
+`Source Serif 4` and `Source Sans 3` so an older protected `theme.yml` keeps the same appearance,
+but new configuration should use the PHCT family names.
 
 Each color has one job, and the templates rely on that (see [`docs/design-brief.md`](design-brief.md)):
 
@@ -298,7 +310,7 @@ Written, not authored: `scripts/metrics.mjs` counts the last four calendar quart
 
 ## The three ways to configure
 
-All three read/write the same six files (`_data/site.yml`, `_data/theme.yml`, `_data/schema.yml`, `_data/navigation.yml`, `_config.yml`, `.github/ISSUE_TEMPLATE/new-entry.yml`) using the same shared logic in `assets/js/configurator/core.js`, so they always produce equivalent output.
+All three read/write the same seven files (`_data/site.yml`, `_data/theme.yml`, `_data/schema.yml`, `_data/navigation.yml`, `_config.yml`, `.github/ISSUE_TEMPLATE/new-entry.yml`, `.github/ISSUE_TEMPLATE/config.yml`) using the same shared logic in `assets/js/configurator/core.js`, so they always produce equivalent output.
 
 Their starting point — the defaults both wizards open with — is not hand-maintained JavaScript. `assets/js/configurator/defaults.generated.js` is produced from `_data/site.yml`, `_data/theme.yml`, `_data/schema.yml` and `_data/navigation.yml` by `npm run generate`, so the wizards can never drift from the YAML that actually builds the site. Do not edit it; a `--check` run in CI fails the build if it is stale.
 
@@ -338,13 +350,13 @@ Same four presets (`ai-use-cases`, `cohort-portal`, `resource-library`, `blank`)
 
 ### The Apply setup issue — the browser wizard, finished
 
-`/setup/` hands back finished files but cannot commit them, so the last mile used to be six manual
+`/setup/` hands back finished files but cannot commit them, so the last mile used to be seven manual
 pastes into GitHub's file editor. `.github/ISSUE_TEMPLATE/apply-setup.yml` closes that: paste
 `_data/site.yml`, `_data/theme.yml` and `_data/schema.yml` from the wizard's review step into one
 issue, and `.github/workflows/apply-setup.yml` runs `scripts/apply_setup_from_issue.mjs`, which
 calls the same `renderFiles()` and opens a pull request.
 
-- Only three files are pasted. The other three are *derived* from them, so the generated half can
+- Only three files are pasted. The other four are *derived* from them, so the generated half can
   never drift from the pasted half — however stale the tab the maintainer copied from.
 - Invalid YAML, a schema `validateSchema()` rejects, and a palette that fails WCAG AA are all
   refused with a comment on the issue, before a pull request exists. Edit the issue and it retries.
@@ -354,7 +366,7 @@ calls the same `renderFiles()` and opens a pull request.
   pasted YAML becomes the site's configuration, so this is the one content workflow that is not
   open to the public. It is still only ever a pull request.
 
-After hand-editing any `_data/*.yml` file directly (without going through a wizard), run `npm run generate`. It regenerates `.github/ISSUE_TEMPLATE/new-entry.yml` and `assets/js/configurator/defaults.generated.js`, and resyncs `_config.yml`'s title and description. It is idempotent, and `npm run generate -- --check` is the CI gate that fails when a generated file is out of date — so regenerate and commit in the same change.
+After hand-editing any `_data/*.yml` file directly (without going through a wizard), run `npm run generate`. It regenerates `.github/ISSUE_TEMPLATE/new-entry.yml`, the issue chooser's canonical safety routes, and `assets/js/configurator/defaults.generated.js`, and resyncs `_config.yml`'s title and description. This also migrates an older chooser after a PHCT update while retaining your `github.repository` identity and using your configured `github.branch` for repository-file links. It is idempotent, and `npm run generate -- --check` is the CI gate that fails when a generated file is out of date — so regenerate and commit in the same change.
 
 ## The showcase
 

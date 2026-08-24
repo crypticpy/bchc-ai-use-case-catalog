@@ -4,9 +4,10 @@
  *
  * The include exposes a stable, semantic icon vocabulary (`shield`, `rocket`,
  * `lock`…) that `_data/schema.yml` `icon:` and `option_meta.icon` refer to, and
- * maps each name to a Heroicons file. Add a name here, run `node scripts/build_icons.mjs`,
- * commit the regenerated include. Icons render inline as `<svg aria-hidden="true">`;
- * callers add visible or sr-only text.
+ * maps each name to a Heroicons file. Add a name here, run `node scripts/build_icons.mjs`, update
+ * the `_includes/icon.html` digest in `quality/vendored-assets.json`, review the diff and notices,
+ * then run `npm run licenses:check`. Icons render inline as `<svg aria-hidden="true">`; callers
+ * add visible or sr-only text.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -125,4 +126,6 @@ out.push(
 out.push('{%- endcase -%}');
 out.push('</svg>');
 writeFileSync(join(root, '_includes', 'icon.html'), out.join('\n') + '\n');
-console.log(`icon.html: ${names.length} icons`);
+console.log(
+  `icon.html: ${names.length} icons — review the diff and update quality/vendored-assets.json before committing`
+);

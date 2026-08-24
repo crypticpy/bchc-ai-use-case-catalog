@@ -60,9 +60,13 @@
    * @param {HTMLElement} root
    * @param {HTMLFormElement} form
    * @param {object[]} fields
-   * @returns {{update: () => void, errors: (problems: object[]) => void}}
+   * @param {boolean} observe track the scrolled-to section with an
+   *   IntersectionObserver — right for the flat form, wrong under the stepper,
+   *   which paints aria-current and the mobile bar itself
+   * @returns {{update: () => void, errors: (problems: object[]) => void,
+   *   sectionErrors: (key: string, found: number) => void}}
    */
-  function initProgress(root, form, fields) {
+  function initProgress(root, form, fields, observe) {
     const links = Array.from(root.querySelectorAll('[data-progress-link]'));
     const count = root.querySelector('[data-progress-count]');
     const lineText = form.querySelector('[data-progress-line]');
@@ -70,7 +74,7 @@
     const total = links.length;
 
     const sections = Array.from(form.querySelectorAll('[data-section]'));
-    if (typeof IntersectionObserver === 'function' && sections.length > 0) {
+    if (observe && typeof IntersectionObserver === 'function' && sections.length > 0) {
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -108,6 +112,20 @@
       });
     }
 
+    /**
+     * Rewrite one section's rail badge — the stepper's per-step counterpart
+     * to paintErrors, which repaints every badge from a full-form validate.
+     * @param {string} key
+     * @param {number} found
+     */
+    function paintSectionErrors(key, found) {
+      const link = links.find((candidate) => candidate.dataset.progressLink === key);
+      const badge = link ? link.querySelector('[data-progress-errors]') : null;
+      if (!badge) return;
+      badge.textContent = found > 0 ? found + ' to fix' : '';
+      badge.hidden = found === 0;
+    }
+
     return {
       update: function update() {
         let done = 0;
@@ -123,6 +141,7 @@
         if (lineText) lineText.textContent = message;
       },
       errors: paintErrors,
+      sectionErrors: paintSectionErrors,
     };
   }
 
@@ -147,8 +166,17 @@
     // this page's messages are the better ones.
     form.setAttribute('novalidate', 'novalidate');
 
+    // More than one section and the stepper takes over: one section at a
+    // time, Next/Back, the rail as step navigation. A single-group schema
+    // keeps the flat form (initSteps also returns null for it).
+    const stepping = typeof ns.initSteps === 'function' && form.querySelectorAll('[data-section]').length > 1;
+    let stepper = null;
+    let shortform = null;
+    // True while revealField is steering the stepper (see onMove below).
+    let revealing = false;
+
     const paintPreview = ns.initPreview(root.documentElement || root, fields);
-    const progress = initProgress(root.documentElement || root, form, fields);
+    const progress = initProgress(root.documentElement || root, form, fields, !stepping);
     const paintProgress = progress.update;
     const titleField = fields.find((field) => field.wrap.dataset.role === 'title');
 
@@ -185,12 +213,87 @@
       draft.save();
     }
 
-    draft = ns.initDraft(form, fields, function afterRestore() {
-      fields.filter((field) => field.type === 'images').forEach(ns.renderImagePreviews);
-      paintPreview();
-      paintProgress();
-      paintLength();
-    });
+    draft = ns.initDraft(
+      form,
+      fields,
+      function afterRestore(ui) {
+        fields.filter((field) => field.type === 'images').forEach(ns.renderImagePreviews);
+        // Visibility before position: the short-form recompute decides which
+        // sections still have anything to show before the stepper lands on one.
+        if (shortform) {
+          if (ui && typeof ui.short === 'boolean') shortform.set(ui.short);
+          else shortform.refresh();
+        }
+        if (stepper && ui && ui.step) stepper.show(ui.step, true);
+        paintPreview();
+        paintProgress();
+        paintLength();
+      },
+      function uiState() {
+        if (!stepper && !shortform) return null;
+        const ui = {};
+        if (stepper) ui.step = stepper.current();
+        if (shortform) ui.short = shortform.enabled();
+        return ui;
+      }
+    );
+
+    shortform = ns.initShortForm
+      ? ns.initShortForm(form, fields, {
+          onChange: function () {
+            if (stepper) stepper.apply(false);
+            draft.save();
+          },
+        })
+      : null;
+
+    stepper = stepping
+      ? ns.initSteps(form, fields, {
+          isSectionAvailable: function (key) {
+            return !shortform || shortform.sectionVisible(key);
+          },
+          validateSection: function (key) {
+            return ns.validateSection(fields, key);
+          },
+          onProblems: function (key, problems) {
+            progress.sectionErrors(key, problems.length);
+            ns.renderSummary(summary, problems);
+          },
+          onClean: function (key) {
+            progress.sectionErrors(key, 0);
+          },
+          onMove: function () {
+            // A move made to fix a listed problem keeps the list up — the
+            // other links still have work to do (see revealField below).
+            if (!revealing) ns.hideSummary(summary);
+            draft.save();
+          },
+        })
+      : null;
+
+    /**
+     * Bring a field on screen — its optional question un-hidden, its step the
+     * current one — then focus it. The error summary and the review's Change
+     * buttons both land here; on the flat form it is just focusField.
+     * @param {object} field
+     */
+    ns.revealField = function revealField(field) {
+      if (shortform) shortform.reveal(field);
+      // Moving to the field's step must not dismiss the error summary the
+      // link came from — the last step's full check can list problems across
+      // several steps, and following the first link must keep the rest.
+      if (stepper && field.section && stepper.current() !== field.section) {
+        revealing = true;
+        stepper.show(field.section, false);
+        revealing = false;
+      }
+      ns.focusField(field);
+    };
+
+    // Leaving the review un-hides the whole form; put the current step back.
+    ns.afterExitReview = function afterExitReview() {
+      if (stepper) stepper.apply(true);
+    };
 
     ns.initRepeatables(fields, refresh);
 
@@ -277,6 +380,12 @@
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
+      // Implicit submission (Enter in a text input) before the last step is a
+      // request to move on, not to review six sections' worth of answers.
+      if (stepper && !stepper.isLast()) {
+        stepper.next();
+        return;
+      }
       const problems = ns.validateAll(fields);
       progress.errors(problems);
       if (problems.length > 0) {
@@ -301,6 +410,9 @@
      * @param {string} url
      */
     function showFallback(message, url) {
+      // The copy-out box lives in the closing block, which the stepper shows
+      // on the last step only — stand there before pointing at it.
+      if (stepper) stepper.showLast();
       if (fallbackBody) fallbackBody.value = ns.markdownBody(fields);
       if (fallbackLink) {
         if (url) fallbackLink.href = url;
@@ -350,9 +462,16 @@
 
     // Copying, emailing and saving a draft all need scripting, so the markup
     // ships them hidden rather than leaving dead buttons on a page without JS.
+    // On a flat form the Back/Next bars would be dead buttons with scripting
+    // too — drop them before the reveal reaches them.
+    if (!stepper) {
+      form.querySelectorAll('[data-step-nav]').forEach((node) => node.remove());
+    }
     root.querySelectorAll('[data-js-only]').forEach((node) => {
       node.hidden = false;
     });
+    // After the reveal, so the first paint of Back/Next wins over it.
+    if (stepper) stepper.apply(false);
 
     // The preview is a scripting feature: reveal it only now, and start it
     // collapsed on narrow screens so it doesn't push the form down.

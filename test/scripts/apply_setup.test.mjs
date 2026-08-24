@@ -126,6 +126,15 @@ test('a missing repository or name is named in the error, not discovered later',
     errors.some((line) => line.includes('`github.repository` is required')),
     errors.join('\n')
   );
+
+  const malformed = configErrors({
+    ...shipped,
+    site: { ...shipped.site, github: { repository: 'not-a-repository' } },
+  });
+  assert.ok(
+    malformed.some((line) => line.includes('form "owner/repo"')),
+    malformed.join('\n')
+  );
 });
 
 test('an invalid schema is refused with the field named', () => {
@@ -149,9 +158,10 @@ test('a palette that fails contrast is refused here, not on the pull request', (
   );
 });
 
-test('exactly the six configurator-owned files are written, and no others', () => {
+test('exactly the seven configurator-owned files are written, and no others', () => {
   const files = filesFor(ROOT, shipped);
   assert.deepEqual(Object.keys(files).sort(), [
+    '.github/ISSUE_TEMPLATE/config.yml',
     '.github/ISSUE_TEMPLATE/new-entry.yml',
     '_config.yml',
     '_data/navigation.yml',
@@ -180,9 +190,27 @@ test('_config.yml is patched, not replaced', () => {
 test('the derived files come out of the pasted ones, so they cannot drift', () => {
   const renamed = {
     ...shipped,
-    site: { ...shipped.site, name: 'Rewritten Catalog' },
+    site: {
+      ...shipped.site,
+      name: 'Rewritten Catalog',
+      github: { repository: 'example/community-catalog', branch: 'release/catalog-v2' },
+    },
   };
   const files = filesFor(ROOT, renamed);
   assert.match(files['_data/site.yml'], /Rewritten Catalog/);
   assert.match(files['_config.yml'], /Rewritten Catalog/, '_config.yml follows site.yml');
+  const chooser = yaml.load(files['.github/ISSUE_TEMPLATE/config.yml']);
+  assert.ok(
+    chooser.contact_links.some(
+      (link) => link.url === 'https://github.com/example/community-catalog/security/advisories/new'
+    ),
+    'the issue chooser follows site.yml repository identity'
+  );
+  assert.ok(
+    chooser.contact_links.some(
+      (link) =>
+        link.url === 'https://github.com/example/community-catalog/blob/release/catalog-v2/SECURITY.md'
+    ),
+    'the issue chooser follows site.yml branch identity'
+  );
 });

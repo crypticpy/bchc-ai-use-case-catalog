@@ -34,8 +34,14 @@ existed still builds. {%- endcomment -%}
     defined in assets/css/components/base.css for the two bundled families only. A family
     loaded from fonts.google_fonts_url names a face that does not exist, which the font
     stack skips — so this is safe for every value. {%- endcomment -%}
-    {%- assign th_fh = th_theme.fonts.heading | default: 'Source Serif 4' -%}
+    {%- assign th_fh = th_theme.fonts.heading | default: 'PHCT Serif' -%}
     {%- assign th_fb = th_theme.fonts.body | default: 'Inter' -%}
+    {%- comment -%} Deployments own theme.yml, so releases cannot rewrite older family names.
+    Normalize the two pre-1.9 aliases here without presenting the upstream Reserved Font Name. {%- endcomment -%}
+    {%- if th_fh == 'Source Serif 4' -%}{%- assign th_fh = 'PHCT Serif' -%}{%- endif -%}
+    {%- if th_fh == 'Source Sans 3' -%}{%- assign th_fh = 'PHCT Sans' -%}{%- endif -%}
+    {%- if th_fb == 'Source Serif 4' -%}{%- assign th_fb = 'PHCT Serif' -%}{%- endif -%}
+    {%- if th_fb == 'Source Sans 3' -%}{%- assign th_fb = 'PHCT Sans' -%}{%- endif -%}
     --font-heading: "{{ th_fh }}", "{{ th_fh }} Fallback";
     --font-body: "{{ th_fb }}", "{{ th_fb }} Fallback";
     --measure: {{ th_theme.type.measure | default: '36rem' }};

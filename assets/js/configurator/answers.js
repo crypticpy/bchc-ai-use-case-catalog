@@ -9,6 +9,7 @@
 
 import { isPlainObject } from './yaml-emit.js';
 import { defaultConfig } from './default-config.js';
+import { BUNDLED_FONT_NAMES, normalizeBundledFontName } from './fonts.js';
 import { normalizeMotion } from './motion.js';
 
 /**
@@ -117,8 +118,8 @@ export function answersFromConfig(config) {
     submitFallbackEmail: site.submit?.fallback_email ?? '',
     footerAbout: site.footer?.about ?? '',
     copyright: site.footer?.copyright ?? '',
-    headingFont: theme.fonts?.heading ?? 'Source Serif 4',
-    bodyFont: theme.fonts?.body ?? 'Inter',
+    headingFont: normalizeBundledFontName(theme.fonts?.heading ?? BUNDLED_FONT_NAMES.serif),
+    bodyFont: normalizeBundledFontName(theme.fonts?.body ?? BUNDLED_FONT_NAMES.inter),
     googleFontsUrl: theme.fonts?.google_fonts_url ?? '',
     radius: theme.radius ?? 'soft',
     // `null` when the file has no `motion:` block; the Liquid defaults cover it.
@@ -187,8 +188,8 @@ export function applyAnswers(baseConfig, answers = {}) {
   }
 
   theme.fonts = theme.fonts || {};
-  theme.fonts.heading = pick(answers, 'headingFont', theme.fonts.heading);
-  theme.fonts.body = pick(answers, 'bodyFont', theme.fonts.body);
+  theme.fonts.heading = normalizeBundledFontName(pick(answers, 'headingFont', theme.fonts.heading));
+  theme.fonts.body = normalizeBundledFontName(pick(answers, 'bodyFont', theme.fonts.body));
   theme.fonts.google_fonts_url = pick(answers, 'googleFontsUrl', theme.fonts.google_fonts_url);
   theme.radius = pick(answers, 'radius', theme.radius);
   // Optional block: an answer adds or replaces it, and never deletes one the

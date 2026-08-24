@@ -19,7 +19,7 @@
      Collapsed rows show a summary line; the controls live behind the toggle. */
   .schema-field-row { @apply px-4 py-3; }
   .schema-field-head { @apply flex flex-wrap items-center gap-3; }
-  .schema-field-toggle { @apply flex flex-1 flex-wrap items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-brand-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary; }
+  .schema-field-toggle { @apply flex min-h-[44px] flex-1 flex-wrap items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-brand-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary lg:min-h-[24px]; }
   .schema-field-name { @apply font-heading text-sm font-semibold text-brand-ink; }
   .schema-field-caret { @apply ml-auto shrink-0 text-brand-muted transition-transform duration-120; }
   .schema-field-caret.is-open { @apply rotate-90; }
