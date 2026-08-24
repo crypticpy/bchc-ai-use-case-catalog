@@ -10,8 +10,8 @@
 # cuts of the same family and removes the failure mode where a Tailwind
 # `font-medium` somewhere pulls a fourth file nobody preloaded.
 #
-# Everything happens in a scratch directory; only the two .woff2 files are
-# copied into assets/fonts/ (three files). Needs python3 and curl. No repo dependency: this
+# Everything happens in a scratch directory; only the three .woff2 files are
+# copied into assets/fonts/. Needs python3 and curl. No repo dependency: this
 # runs by hand when a font is upgraded, not in CI.
 set -euo pipefail
 
@@ -97,6 +97,87 @@ subset() {
     --output-file="$2"
 }
 
+# The Adobe licenses reserve the word "Source". Subsetting is a Modified Version
+# under the OFL, so the two derivatives need their own presented and embedded
+# family names. The original copyright, RFN declaration, and provenance remain
+# in the metadata and THIRD_PARTY_NOTICES.md. Inter declares no Reserved Font
+# Name, but receives the same machine-readable license fields.
+finish_font_metadata() {
+  # finish_font_metadata <woff2> <family-or-empty> <PostScript-family-or-empty> <upstream> <version>
+  .venv/bin/python - "$@" <<'PY'
+import sys
+from fontTools.ttLib import TTFont
+
+path, family, postscript_family, upstream, version = sys.argv[1:]
+font = TTFont(path)
+names = font["name"]
+targets = {
+    (record.platformID, record.platEncID, record.langID)
+    for record in names.names
+    if record.nameID in {1, 4, 6}
+}
+
+def set_name(name_id, value):
+    for platform_id, encoding_id, language_id in targets:
+        names.setName(value, name_id, platform_id, encoding_id, language_id)
+
+if family:
+    replacements = (
+        ("Source Serif 4 Variable", family),
+        ("SourceSerif4Variable", postscript_family),
+        ("Source Sans 3 Variable", family),
+        ("SourceSans3VF", postscript_family),
+        ("Source Serif 4", family),
+        ("Source Sans 3", family),
+    )
+    # Preserve copyright, trademark, provenance, and license records. Textual
+    # attribution may name the upstream; identifiers presented as the font may not.
+    attribution_ids = {0, 7, 10, 11, 13, 14}
+    for record in list(names.names):
+        if record.nameID in attribution_ids:
+            continue
+        try:
+            value = record.toUnicode()
+        except UnicodeDecodeError:
+            continue
+        updated = value
+        for old, new in replacements:
+            updated = updated.replace(old, new)
+        if updated != value:
+            names.setName(updated, record.nameID, record.platformID, record.platEncID, record.langID)
+
+    set_name(1, family)
+    set_name(2, "Regular")
+    set_name(3, f"{version};PHCT;{postscript_family}")
+    set_name(4, family)
+    set_name(6, postscript_family)
+    set_name(10, f"{family} is a modified webfont subset of {upstream}. It was renamed to respect Adobe's Reserved Font Name 'Source'.")
+    set_name(16, family)
+    set_name(17, "Regular")
+
+set_name(13, "This Font Software is licensed under the SIL Open Font License, Version 1.1. The complete license and provenance are distributed in THIRD_PARTY_NOTICES.md.")
+set_name(14, "http://scripts.sil.org/OFL")
+font.save(path)
+
+# Reopen the compressed output and fail before installation if an Adobe RFN
+# survives in a user-facing identifier or the license metadata was lost.
+font = TTFont(path)
+license_ids = {record.nameID for record in font["name"].names}
+if not {13, 14}.issubset(license_ids):
+    raise SystemExit(f"{path}: OFL metadata is incomplete")
+if family:
+    for record in font["name"].names:
+        if record.nameID in {0, 7, 10, 11, 13, 14}:
+            continue
+        try:
+            value = record.toUnicode()
+        except UnicodeDecodeError:
+            continue
+        if "Source" in value:
+            raise SystemExit(f"{path}: Reserved Font Name survives in name ID {record.nameID}: {value}")
+PY
+}
+
 echo "==> narrowing the design space"
 narrow "$INTER_SRC" inter-narrowed.ttf opsz=14 wght=400:700
 narrow "$SOURCE_SANS_SRC" source-sans-narrowed.ttf wght=400:700
@@ -104,15 +185,23 @@ narrow "$SOURCE_SERIF_SRC" source-serif-narrowed.ttf opsz=24 wght=400:700
 
 echo "==> subsetting"
 subset inter-narrowed.ttf Inter-Variable.woff2
-subset source-sans-narrowed.ttf SourceSans3-Variable.woff2
-subset source-serif-narrowed.ttf SourceSerif4-Variable.woff2
+subset source-sans-narrowed.ttf PHCTSans-Variable.woff2
+subset source-serif-narrowed.ttf PHCTSerif-Variable.woff2
+
+echo "==> recording licenses and derivative family names"
+finish_font_metadata Inter-Variable.woff2 "" "" "Inter v4.1" "4.1"
+finish_font_metadata PHCTSans-Variable.woff2 "PHCT Sans" "PHCTSans" "Source Sans 3 v3.052" "3.052"
+finish_font_metadata PHCTSerif-Variable.woff2 "PHCT Serif" "PHCTSerif" "Source Serif 4 v4.005" "4.005"
 
 echo "==> installing into assets/fonts/"
-cp Inter-Variable.woff2 SourceSans3-Variable.woff2 SourceSerif4-Variable.woff2 "$OUT/"
+cp Inter-Variable.woff2 PHCTSans-Variable.woff2 PHCTSerif-Variable.woff2 "$OUT/"
 
 echo
 echo "==> sizes"
-ls -l "$OUT"/*.woff2 | awk '{ printf "%10d  %s\n", $5, $9 }'
+for font_file in "$OUT"/*.woff2; do
+  font_bytes="$(wc -c < "$font_file" | tr -d ' ')"
+  printf "%10d  %s\n" "$font_bytes" "$font_file"
+done
 
 echo
 echo "==> metric overrides for the fallback @font-face blocks in assets/css/components/base.css"
@@ -163,4 +252,5 @@ for path in sys.argv[1:]:
 PY
 
 echo "==> done. Paste the numbers above into assets/css/components/base.css and"
-echo "    re-run 'npm run build:css'. Delete $WORK when finished."
+echo "    re-run 'npm run build:css'. Review and update quality/vendored-assets.json"
+echo "    with the new SHA-256 values. Delete $WORK when finished."

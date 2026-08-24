@@ -180,8 +180,8 @@ export function renderLook() {
           'headingFont',
           'Heading font',
           [
-            { value: 'Source Serif 4', label: 'Source Serif 4 (bundled)' },
-            { value: 'Source Sans 3', label: 'Source Sans 3 (bundled)' },
+            { value: 'PHCT Serif', label: 'PHCT Serif (bundled)' },
+            { value: 'PHCT Sans', label: 'PHCT Sans (bundled)' },
             { value: 'Inter', label: 'Inter (bundled)' },
           ],
           undefined,
@@ -192,7 +192,7 @@ export function renderLook() {
           'Body font',
           [
             { value: 'Inter', label: 'Inter (bundled)' },
-            { value: 'Source Sans 3', label: 'Source Sans 3 (bundled)' },
+            { value: 'PHCT Sans', label: 'PHCT Sans (bundled)' },
           ],
           undefined,
           renderPalette

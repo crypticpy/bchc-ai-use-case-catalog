@@ -25,7 +25,7 @@ private repository needs a paid plan, and a public catalog is the point.
 Fork instead of templating only if you intend to send changes back upstream. A fork carries the
 template's whole history and its open issues; a template copy starts clean.
 
-## 2. Turn on the three GitHub settings
+## 2. Turn on the four GitHub settings
 
 Do these before configuring, because the browser configurator only exists once the site has been
 built and deployed at least once.
@@ -36,6 +36,12 @@ built and deployed at least once.
       tick **Allow GitHub Actions to create and approve pull requests**. Without this, every
       content workflow — `new-entry`, `new-year`, `new-event`, `update-schedule`,
       `update-event-attachments` — runs, does its work, and then fails on the last step.
+- [ ] **Private vulnerability reporting.** Settings → Security → Code security and analysis →
+      **Private vulnerability reporting** → **Enable**. Then open **Issues → New issue → Report a
+      security vulnerability privately** in a signed-out/private window and confirm GitHub shows
+      the private reporting form. If your plan or repository type does not offer that setting,
+      keep the contact inbox below current: the chooser also links to `SECURITY.md`, whose fallback
+      sends reports to `_data/site.yml` → `organization.contact_email` without using a public issue.
 - [ ] **Create the content labels.** Actions tab → **Bootstrap labels** → **Run workflow**. It
       creates `content:new-entry`, `content:new-event`, `content:schedule`,
       `content:event-attachments`, `content:new-year` and `content:site-config` (the Apply setup
@@ -58,16 +64,17 @@ part of the launch; merge them whenever their checks are green.
 ## 3. Configure the site
 
 Two paths, same result — both run the same code (`assets/js/configurator/core.js`) and write the
-same six files:
+same seven files:
 
 | Path | How | Good for |
 |---|---|---|
 | Browser | Open `/setup/` on your deployed site | No terminal. Copy each generated file into GitHub's editor at the end. |
 | Browser → pull request | Open `/setup/`, then paste its files into an **Apply setup** issue | No terminal, and no hand-editing files: the answer comes back as a reviewable pull request. |
-| Terminal | `npm install && npm run setup` | Anyone with a checkout. Writes the files directly; `npm run setup -- --preset <id> --yes` skips every prompt. |
+| Terminal | `npm ci && npm run setup` | Anyone with a checkout. Writes the files directly; `npm run setup -- --preset <id> --yes` skips every prompt. |
 
 Both write `_data/site.yml`, `_data/theme.yml`, `_data/schema.yml`, `_data/navigation.yml`,
-`_config.yml` and `.github/ISSUE_TEMPLATE/new-entry.yml`. Four starting presets ship: AI use case
+`_config.yml`, `.github/ISSUE_TEMPLATE/new-entry.yml` and `.github/ISSUE_TEMPLATE/config.yml`.
+Four starting presets ship: AI use case
 catalog, cohort/program portal, resource library, and blank.
 
 ### The no-terminal path, end to end
@@ -78,7 +85,7 @@ GitHub's file editor is where a launch usually goes wrong. Instead:
 1. Open **Issues → New issue → Apply setup (creates PR)**.
 2. Paste `_data/site.yml`, `_data/theme.yml` and `_data/schema.yml` from the wizard's review step
    into the three boxes (the **Copy** button on each file). You only paste three —
-   `_data/navigation.yml`, `_config.yml` and the submission form are rebuilt from them, so they
+   `_data/navigation.yml`, `_config.yml`, the submission form and the issue chooser are rebuilt from them, so they
    cannot end up out of step with what you pasted.
 3. Tick **Remove the demo content** if you are ready to lose the sample entries (step 4).
 4. Submit. Within a minute the automation replies with a pull request; review the diff and merge.
@@ -222,6 +229,8 @@ request and merge. That is the whole removal mechanism — see
       `_data/site.yml`; or the module left off until it is
 - [ ] Branch protection on `main`: require a pull request before merging
       (see [SECURITY.md](../SECURITY.md), "What you should still do")
+- [ ] Private vulnerability reporting is enabled and its chooser link opens while signed out; or
+      the documented `organization.contact_email` fallback has been tested
 - [ ] You have opened one test submission yourself and merged it (steps 6–7)
 - [ ] Someone other than you has merged a pull request, so the process survives your holiday
 

@@ -61,12 +61,16 @@
   .rail-def { @apply mt-0.5 text-sm text-brand-ink; }
   /* Compact link/mail row: the rail is 280px, so the host wraps under the label
      instead of beside it. */
-  .rail-link { @apply flex items-start gap-2 text-sm font-medium text-brand-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2; }
+  .rail-link { @apply flex min-h-[44px] items-center gap-2 text-sm font-medium text-brand-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 lg:min-h-[24px] lg:items-start; }
   .rail-person { @apply space-y-1; }
 
   /* ---- Table of contents ---------------------------------------------- */
-  .toc-link { @apply block border-l-2 border-brand-line py-1 pl-3 text-sm text-brand-muted transition-colors duration-120 ease-brand hover:text-brand-primary; }
+  .toc-link { @apply flex min-h-[44px] items-center border-l-2 border-brand-line py-1 pl-3 text-sm text-brand-muted transition-colors duration-120 ease-brand hover:text-brand-primary lg:min-h-[24px]; }
   .toc-link[aria-current="true"] { @apply border-brand-primary font-semibold text-brand-primary; }
+
+  /* The two GitHub actions are compact text links on a desktop rail, but on a
+     phone that rail is the primary action block above the article. */
+  .entry-action-link { @apply inline-flex min-h-[44px] items-center gap-1.5 text-brand-primary hover:underline lg:min-h-[24px]; }
 
   /* ---- Gallery -------------------------------------------------------- */
   .gallery-item { @apply relative block w-full overflow-hidden rounded-lg border border-brand-line bg-surface-card transition-colors duration-120 ease-brand hover:border-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2; }

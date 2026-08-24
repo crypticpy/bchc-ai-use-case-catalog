@@ -8,7 +8,7 @@
  * Writes  assets/js/configurator/defaults.generated.js  (wizard defaults)
  * Writes  .github/ISSUE_TEMPLATE/new-entry.yml          (public submission form)
  * Syncs   _config.yml title/description from _data/site.yml (SEO fallbacks)
- * Syncs   .github/ISSUE_TEMPLATE/config.yml contact-link URLs to site.github.repository
+ * Writes  .github/ISSUE_TEMPLATE/config.yml          (public/private report routing)
  * Syncs   _data/site.yml links into this repository's own files (footer guide link)
  *
  * Run this after hand-editing _data/schema.yml or _data/site.yml. It is
@@ -22,6 +22,7 @@ import { pathToFileURL } from 'node:url';
 import * as yaml from 'js-yaml';
 import { renderDefaults, OUTPUT_PATH as DEFAULTS_PATH } from './build_defaults.mjs';
 import { GENERATOR_OUTPUTS } from './lib/generated_paths.mjs';
+import { renderIssueChooser } from '../assets/js/configurator/issue-chooser.js';
 
 const ROOT = process.cwd();
 const [SITE_DATA_PATH, generatedDefaultsPath, ISSUE_TEMPLATE_PATH, CONFIG_PATH, CONTACT_LINKS_PATH] =
@@ -133,15 +134,18 @@ if (fs.existsSync(configFile)) {
   console.warn(`Warning: ${CONFIG_PATH} not found; skipped the title/description sync.`);
 }
 
-// --- 5. issue chooser contact links -----------------------------------------
-// The chooser's "Maintainer guide" link is a plain GitHub URL, so a fork keeps
-// pointing at the template's repository until it is rewritten here.
+// --- 5. issue chooser -------------------------------------------------------
+// This protected downstream file must retain repository identity while still
+// receiving structural safety fixes from newer PHCT releases. Render it from
+// the canonical generator instead of patching whatever older shape survived
+// the update.
 
-const contactFile = path.join(ROOT, CONTACT_LINKS_PATH);
-if (fs.existsSync(contactFile) && ownRepository) {
-  const original = fs.readFileSync(contactFile, 'utf8');
-  const patched = original.replace(/github\.com\/[\w.-]+\/[\w.-]+(?=\/)/g, `github.com/${repository}`);
-  sync(CONTACT_LINKS_PATH, patched, `links point at ${repository}`);
+if (ownRepository) {
+  sync(
+    CONTACT_LINKS_PATH,
+    renderIssueChooser(repository, site.github?.branch),
+    `routing generated for ${repository}`
+  );
 }
 
 // --- report -----------------------------------------------------------------

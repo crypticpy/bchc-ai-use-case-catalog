@@ -7,7 +7,10 @@ Params: entries (required) — used for free-text facet options.
 Local assigns are prefixed `fr_`.
 {%- endcomment -%}
 {%- assign fr_plural = site.data.schema.entry.plural | default: 'Entries' | downcase -%}
-<div class="filter-rail" data-filter-rail>
+{%- comment -%} Firefox puts scrollable containers in sequential focus order by
+default. The rail has no independent action or label, so opt it out while its
+skip link and every filter control remain ordinary keyboard stops. {%- endcomment -%}
+<div class="filter-rail" data-filter-rail tabindex="-1">
   {%- comment -%} The rail is DOM-first on wide screens and every facet option is
   a tab stop, so a keyboard user who only wants the search box would otherwise
   walk sixty-odd buttons to reach it. This lands on the results heading

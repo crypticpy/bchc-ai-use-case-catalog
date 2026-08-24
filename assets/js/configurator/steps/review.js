@@ -20,6 +20,8 @@ const FILE_HELP = {
     'Jekyll build settings. Only the title and description lines change — if you have customised this file, edit those two lines on GitHub instead of pasting the whole thing.',
   '.github/ISSUE_TEMPLATE/new-entry.yml':
     'The GitHub issue form contributors fill in. Generated from the schema.',
+  '.github/ISSUE_TEMPLATE/config.yml':
+    'The issue chooser and private security-reporting routes. Generated from the repository and branch.',
 };
 
 /**
@@ -178,7 +180,7 @@ export function renderReview() {
               })
             : el('span', { text: 'Apply setup issue (Issues → New issue → Apply setup)' }),
           el('span', {
-            text: " and paste _data/site.yml, _data/theme.yml and _data/schema.yml into its three boxes — the automation opens a pull request with all six files. Or paste each file into GitHub's editor:",
+            text: " and paste _data/site.yml, _data/theme.yml and _data/schema.yml into its three boxes — the automation opens a pull request with all seven files. Or paste each file into GitHub's editor:",
           }),
         ]),
       ]),

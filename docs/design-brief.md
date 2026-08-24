@@ -6,7 +6,7 @@ Synthesized from the phase-0 persona panel (product-design principal, civic digi
 > governs *what* the catalog spends its ink on. Three of its surface rules were revised once
 > the tool was working and the question became whether it was pleasant to look at, and
 > `docs/design-system.md` is the current authority for those: (1) headings are a serif
-> (Source Serif 4) over the sans body — the one typographic gesture that keeps a page of
+> (now distributed as PHCT Serif, a renamed derivative of Source Serif 4) over the sans body — the one typographic gesture that keeps a page of
 > controls and facts from reading as a spreadsheet; (2) cards are raised by `shadow-e0`
 > (a 1px `ink/10` ring + faint ambient) instead of a `line` border, and a third ground,
 > `surface_tint`, gives bands and panels an edge without a border; (3) "Featured" is an

@@ -1,6 +1,13 @@
-# The contact-link URLs are kept in sync with github.repository in _data/site.yml by `npm run generate`.
-blank_issues_enabled: true
+# Generated from _data/site.yml by scripts/generate.mjs — do not hand-edit.
+# Regenerate with `npm run generate` after changing github.repository, github.branch, or PHCT.
+blank_issues_enabled: false
 contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/crypticpy/bchc-ai-use-case-catalog/security/advisories/new
+    about: Never put credentials, personal information, PHI, private URLs, or exploit details in a public issue.
+  - name: Security reporting help
+    url: https://github.com/crypticpy/bchc-ai-use-case-catalog/blob/main/SECURITY.md
+    about: Use the documented private email fallback if private vulnerability reporting is not available.
   - name: Maintainer guide
     url: https://github.com/crypticpy/bchc-ai-use-case-catalog/blob/main/docs/admin-guide.md
     about: How submissions become pull requests, how to review them, and how to configure the site.

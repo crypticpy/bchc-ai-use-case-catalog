@@ -3,13 +3,13 @@
  * Apply a site configuration from a GitHub issue, as a pull request.
  *
  * The `/setup/` wizard runs in the browser and hands back finished files, but
- * the last mile has always been manual: download six files, find each one in
+ * the last mile has always been manual: download seven files, find each one in
  * the GitHub file editor, paste, commit. This closes that gap for a maintainer
  * with no terminal — paste the three files the wizard produced into an issue
  * and the answer comes back as a reviewable pull request.
  *
- * Only three files are pasted. `_data/navigation.yml`, `_config.yml` and
- * `.github/ISSUE_TEMPLATE/new-entry.yml` are *derived* from them by
+ * Only three files are pasted. `_data/navigation.yml`, `_config.yml`,
+ * `.github/ISSUE_TEMPLATE/new-entry.yml` and `.github/ISSUE_TEMPLATE/config.yml` are *derived* from them by
  * `renderFiles()` — the same function both configurators use — so the
  * generated half can never drift from the pasted half, however stale the tab
  * the maintainer copied from.
@@ -17,7 +17,8 @@
  * Input (env):   ISSUE_BODY, ISSUE_NUMBER
  * Output:        _data/site.yml, _data/theme.yml, _data/schema.yml,
  *                _data/navigation.yml, _config.yml,
- *                .github/ISSUE_TEMPLATE/new-entry.yml
+ *                .github/ISSUE_TEMPLATE/new-entry.yml,
+ *                .github/ISSUE_TEMPLATE/config.yml
  *                $GITHUB_OUTPUT:  branch, title, files, warnings, summary
  *                $GITHUB_STEP_SUMMARY: the same report, for the run page
  *
@@ -26,7 +27,7 @@
  * Trust model: the workflow that runs this refuses issues from anyone who is
  * not a maintainer, because the pasted YAML becomes the site's configuration.
  * The blast radius is still bounded — `renderFiles()` returns a fixed set of
- * six repo-relative paths, so nothing here can write outside them — and the
+ * seven repo-relative paths, so nothing here can write outside them — and the
  * result is a pull request either way.
  */
 
@@ -130,8 +131,8 @@ export function configErrors(config) {
   const errors = core.validateSchema(config.schema).map((message) => `_data/schema.yml — ${message}`);
   if (!config.site?.name)
     errors.push('_data/site.yml — `name` is required; the header and every page title use it.');
-  if (!config.site?.github?.repository) {
-    errors.push('_data/site.yml — `github.repository` is required, as "owner/repo".');
+  if (!core.isRepositoryIdentity(config.site?.github?.repository)) {
+    errors.push('_data/site.yml — `github.repository` is required in the form "owner/repo".');
   }
   // The same pairs `npm run validate` gates on, checked here so the answer
   // arrives on the issue rather than as a red X on the pull request.

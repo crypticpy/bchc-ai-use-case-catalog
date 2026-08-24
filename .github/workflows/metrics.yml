@@ -2,25 +2,24 @@ name: Catalog metrics
 
 # Once a month, count how the catalog is doing — entry-form submissions
 # opened, entry pull requests merged, distinct contributing organizations and
-# review turnaround, by quarter — write `_data/metrics.json`, commit it, and
-# deploy so the governance page's "How the catalog is doing" block is current.
+# review turnaround, by quarter — write `_data/metrics.json`, and open or update
+# a pull request so the governance page's "How the catalog is doing" block can
+# be reviewed before it is published.
 # The numbers come from this repository's own issues and pull requests through
 # two read-only REST calls (scripts/metrics.mjs); nothing is installed on the
 # site and no analytics vendor is involved.
 #
-# The commit carries `[skip ci]` and the deploy is dispatched explicitly, so it
-# behaves the same with GITHUB_TOKEN (whose pushes never start a workflow) and
-# with CONTENT_BOT_TOKEN (whose pushes would, and would then be cancelled by
-# the dispatch through the `pages` concurrency group anyway). Unchanged figures
-# mean no commit and no deploy.
+# The protected default branch is never pushed directly. With GITHUB_TOKEN the
+# workflow dispatches the release gates on the generated branch; with
+# CONTENT_BOT_TOKEN the pull request triggers them normally. Unchanged figures
+# mean no branch or pull request update.
 #
 # Turn the schedule off by setting the repository variable CATALOG_METRICS to
 # `false` (Settings -> Secrets and variables -> Actions -> Variables), or by
 # deleting this file; a manual run from the Actions tab always works, and its
 # "Preview only" box prints the figures in the run summary without committing
-# anything. A push refused by branch protection is reported in the run
-# summary with the ways out (allow the Actions app to bypass the rule, set
-# CONTENT_BOT_TOKEN, or run `node scripts/metrics.mjs` by hand and commit).
+# anything. A changed result opens or updates one `automation/catalog-metrics`
+# pull request for a maintainer to review and merge.
 
 on:
   schedule:
@@ -45,21 +44,20 @@ jobs:
     if: vars.CATALOG_METRICS != 'false' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
-      # Reading the issues and pull requests the figures are counted from.
+      # Reading issues plus reading PR data and opening the maintenance PR.
       issues: read
-      pull-requests: read
-      # Committing _data/metrics.json …
+      pull-requests: write
+      # Committing _data/metrics.json on a maintenance branch.
       contents: write
-      # … and dispatching Build & Deploy after the commit.
+      # Dispatching the gates when the built-in token authors the PR.
       actions: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The push below needs credentials; the checkout keeps them on purpose.
-          # zizmor: ignore[artipacked]
-          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -99,37 +97,59 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit and deploy the refreshed figures
+      - name: Open or update the refreshed-metrics pull request
+        id: cpr
         if: steps.metrics.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          base: ${{ github.event.repository.default_branch }}
+          branch: automation/catalog-metrics
+          commit-message: "chore(metrics): refresh catalog metrics"
+          title: "Refresh catalog metrics"
+          body: |
+            Automated monthly refresh of `_data/metrics.json` from this
+            repository's issues, pull requests, and published entries.
+
+            Review the figures and merge this pull request to publish them.
+          add-paths: _data/metrics.json
+          delete-branch: true
+
+      - name: Run the required checks on the metrics branch
+        if: steps.cpr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.cpr.outputs.pull-request-branch }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- _data/metrics.json
-          git commit -q -m "chore(metrics): refresh _data/metrics.json [skip ci]"
-          if git push origin "HEAD:${GITHUB_REF_NAME}" 2>/tmp/push-error.txt; then
-            gh workflow run pages.yml --ref "${GITHUB_REF_NAME}"
-            {
-              echo "### Refreshed \`_data/metrics.json\` and dispatched a deploy"
-              echo
-              echo '```json'
-              cat _data/metrics.json
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            {
-              echo "### Could not push \`_data/metrics.json\`"
-              echo
-              echo "The figures changed but the push back to \`${GITHUB_REF_NAME}\` was refused — usually branch protection. Either let the GitHub Actions app bypass the rule, set \`CONTENT_BOT_TOKEN\`, or run \`node scripts/metrics.mjs\` locally and commit the file."
-              echo
-              echo '```'
-              cat /tmp/push-error.txt
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml lint-workflows.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Report the refreshed figures
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+        run: |
+          {
+            echo "### Refreshed \`_data/metrics.json\`"
+            echo
+            echo "Review and merge: $PR_URL"
+            echo
+            echo '```json'
+            cat _data/metrics.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Report unchanged figures
         if: steps.metrics.outputs.changed != 'true' && inputs.dry_run != true

@@ -7,7 +7,7 @@
  *   npm run setup -- --dry-run
  *
  * Asks a handful of questions, then writes _data/site.yml, _data/theme.yml,
- * _data/schema.yml, _data/navigation.yml, _config.yml and the GitHub issue form.
+ * _data/schema.yml, _data/navigation.yml, _config.yml and both GitHub issue-routing files.
  * The same answers -> files logic runs in the browser at /setup/; everything
  * lives in assets/js/configurator/core.js.
  *

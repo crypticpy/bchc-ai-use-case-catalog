@@ -219,6 +219,29 @@ jobs:
         with:
           script: |
             const jobs = ${{ toJSON(needs) }};
+            const targetUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // workflow_dispatch check runs are not attached to a generated PR.
+            // Publish the exact contexts protected-main requires for the three
+            // jobs owned by this workflow; delegated CodeQL and scale workflows
+            // publish their own canonical contexts.
+            const requiredContexts = [
+              ['checks', 'Lint, test and build'],
+              ['build-matrix', 'Build every preset and module combination'],
+              ['coverage', 'Coverage evidence'],
+            ];
+            for (const [jobName, statusContext] of requiredContexts) {
+              const result = jobs[jobName].result;
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: result === 'success' ? 'success' : 'failure',
+                context: statusContext,
+                target_url: targetUrl,
+                description: result === 'success' ? `${statusContext} passed` : `${statusContext}: ${result}`,
+              });
+            }
+
             const failed = Object.entries(jobs).filter(([, job]) => job.result !== 'success');
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
@@ -226,7 +249,7 @@ jobs:
               sha: context.sha,
               state: failed.length === 0 ? 'success' : 'failure',
               context: 'Validate Content (dispatch)',
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              target_url: targetUrl,
               description: (failed.length === 0
                 ? 'All checks passed'
                 : `Failed: ${failed.map(([name]) => name).join(', ')}`

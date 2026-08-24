@@ -109,7 +109,16 @@ When GitHub suppresses pull-request events for the built-in token, the updater d
 `validate.yml` and `quality.yml` entrypoints that exist in every supported deployment. The
 candidate branch's `validate.yml` then calls its own Performance, Supply chain, and CodeQL
 workflows, so newly added gates run before their workflow paths have reached the deployment's
-default branch.
+default branch. Each dispatch has a 45-second limit and is tried up to three times, so a temporary
+GitHub API timeout or rate limit does not immediately strand the update.
+
+If the run ends with **Required update checks were not dispatched**, the verified update branch
+and pull request already exist and `main` is unchanged. Do not merge the pull request yet. The run
+summary names every missing dispatch and links the pull request. From **Actions**, manually run
+**Validate Content** and/or **Quality (a11y + Lighthouse)** on the named `upgrade/phct-*` branch,
+wait for every required check to turn green, and then continue the normal review. You can instead
+rerun **Update from PHCT** after a GitHub outage or rate limit clears; it updates the same branch and
+pull request rather than creating a duplicate.
 
 The workflow is manual-only until the first candidate upgrade and rollback have been rehearsed.
 It never merges its own pull request.

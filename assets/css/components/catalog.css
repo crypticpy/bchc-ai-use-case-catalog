@@ -161,7 +161,7 @@
   /* "Skip filters" at the top of the rail: sr-only until focused, then a small
      pill in the rail's own flow so nothing shifts under the pointer. */
   .rail-skip { @apply sr-only focus:not-sr-only focus:mb-2 focus:inline-flex focus:min-h-[32px] focus:items-center focus:rounded-full focus:bg-brand-primary focus:px-3 focus:text-xs focus:font-semibold focus:text-white focus:outline-none; }
-  .filter-showall { @apply mt-2 inline-flex min-h-[32px] items-center text-xs font-semibold text-brand-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
+  .filter-showall { @apply mt-2 inline-flex min-h-[44px] min-w-[44px] items-center text-xs font-semibold text-brand-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card lg:min-h-[32px] lg:min-w-0; }
   /* The taxonomy's own plain-language glossary (schema `option_meta.description`),
      as a disclosure instead of a `title` tooltip: a tooltip reaches only a hovering
      mouse, and on a pill it also becomes an accessible description that repeats the
@@ -208,7 +208,7 @@
   .search-box::-webkit-search-cancel-button { @apply hidden appearance-none; }
   .search-box { @apply h-11 lg:h-9 w-full rounded-full border border-brand-line-strong bg-surface-card pl-9 pr-3 text-sm text-brand-ink placeholder:text-brand-muted focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary; }
   .search-listbox { @apply absolute left-0 right-0 z-40 mt-1 max-h-72 list-none overflow-y-auto rounded-xl border border-brand-line bg-surface-card p-0 shadow-e2; }
-  .search-option { @apply flex cursor-pointer items-center justify-between gap-3 border-b border-l-4 border-brand-line border-l-transparent px-3 py-2 text-sm last:border-b-0; }
+  .search-option { @apply flex min-h-[44px] cursor-pointer items-center justify-between gap-3 border-b border-l-4 border-brand-line border-l-transparent px-3 py-2 text-sm last:border-b-0 lg:min-h-[36px]; }
   /* A tint alone was 1.18:1 against the neighbouring rows; the rule carries it. */
   .search-option.is-active, .search-option[aria-selected="true"] { @apply border-l-brand-primary bg-brand-primary/15; }
   /* A row that applies a filter is not one more document in a list of
@@ -220,7 +220,7 @@
   /* _layouts/facet-index.html. The jump bar is a real nav of anchors, so it
      works with JavaScript off — which is the point of the whole page. */
   .az-jump { @apply flex flex-wrap gap-1 border-y border-brand-line py-2; }
-  .az-jump a { @apply inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-control px-2 text-sm font-semibold tabular-nums text-brand-primary transition-colors duration-fast hover:bg-brand-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base; }
+  .az-jump a { @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-control px-2 text-sm font-semibold tabular-nums text-brand-primary transition-colors duration-fast hover:bg-brand-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base lg:min-h-[36px] lg:min-w-[36px]; }
   .az-block { @apply mt-6 grid gap-x-6 gap-y-2 sm:grid-cols-[3rem_minmax(0,1fr)]; }
   .az-letter { @apply font-heading text-2xl font-semibold leading-none text-brand-muted; }
   /* A facet's title is a word, not a letter, so it gets its own row rather than
@@ -234,7 +234,7 @@
   .az-list a { @apply font-medium text-brand-primary-dark hover:text-brand-primary hover:underline; }
   .az-note { @apply mt-0.5 block text-xs leading-5 text-brand-muted; }
   .az-tags { @apply m-0 flex list-none flex-wrap gap-1.5 p-0; }
-  .az-tags a { @apply inline-flex min-h-[36px] items-center gap-2 rounded-pill border border-brand-line-strong bg-surface-card px-3.5 text-[13px] font-medium text-brand-ink transition-colors duration-fast hover:border-brand-primary hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base; }
+  .az-tags a { @apply inline-flex min-h-[44px] items-center gap-2 rounded-pill border border-brand-line-strong bg-surface-card px-3.5 text-[13px] font-medium text-brand-ink transition-colors duration-fast hover:border-brand-primary hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base lg:min-h-[36px]; }
   .az-count { @apply text-[11px] tabular-nums text-brand-muted; }
 
   /* ---------- Mobile filter bar + sheet --------------------------------- */

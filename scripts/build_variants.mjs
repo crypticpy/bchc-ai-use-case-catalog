@@ -45,7 +45,9 @@ export const ROOT = process.env.BUILD_VARIANTS_ROOT
  * replaces them with ones generated from the variant's own schema, and `none`
  * empties the catalog so the empty state renders.
  *
- * @type {{id: string, preset: string|null, modules: object|null, demo?: boolean,
+ * @type {{id: string, preset: string|null, modules: object|null, demo?: boolean, themeFonts?: object,
+ *         githubBranch?: string,
+ *         legacyIssueChooser?: boolean,
  *         entries: 'keep'|'fixtures'|'none', build: boolean,
  *         expectFrontMatter: 'pass'|'fail', why: string}[]}
  */
@@ -68,6 +70,27 @@ export const VARIANTS = [
     build: true,
     expectFrontMatter: 'pass',
     why: 'the shipped entries with demo mode disabled, proving real contacts and resources stay live',
+  },
+  {
+    id: 'legacy-font-names',
+    preset: null,
+    modules: null,
+    themeFonts: { heading: 'Source Serif 4', body: 'Source Sans 3' },
+    entries: 'none',
+    build: true,
+    expectFrontMatter: 'pass',
+    why: 'a protected pre-rename theme file must load the current derivative font binaries',
+  },
+  {
+    id: 'legacy-issue-chooser',
+    preset: null,
+    modules: null,
+    legacyIssueChooser: true,
+    githubBranch: 'release/catalog-v2',
+    entries: 'none',
+    build: false,
+    expectFrontMatter: 'pass',
+    why: 'a protected pre-upgrade issue chooser must receive current safety routing during generation',
   },
   {
     id: 'all-modules',
@@ -129,11 +152,19 @@ function timedRun(command, args, options) {
 }
 
 /** Turn on/off modules in a scratch `_data/site.yml`. Comments are not preserved. */
-function patchSite(file, { modules, demo }) {
+function patchSite(file, { modules, demo, githubBranch }) {
   const site = readYaml(file);
   if (modules) site.modules = { ...(site.modules ?? {}), ...modules };
   if (typeof demo === 'boolean') site.demo = demo;
+  if (githubBranch) site.github = { ...(site.github ?? {}), branch: githubBranch };
   writeYaml(file, site);
+}
+
+/** Replace only the font-family values in a scratch `_data/theme.yml`. */
+function patchThemeFonts(file, fonts) {
+  const theme = readYaml(file);
+  theme.fonts = { ...(theme.fonts ?? {}), ...fonts };
+  writeYaml(file, theme);
 }
 
 /**
@@ -162,7 +193,7 @@ export function buildVariant(variant, { scratchRoot, log = () => {} }) {
   // read it (`_config.yml` excludes it from the build).
   fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(dir, 'node_modules'));
 
-  // `--out` writes the wizard's six files into an existing tree and implies
+  // `--out` writes the wizard's seven files into an existing tree and implies
   // `--yes`; it patches the copy's _config.yml rather than overwriting it, so
   // excludes, plugins and defaults survive. Run from ROOT: setup.mjs resolves
   // assets/js/configurator/core.js relative to the working directory.
@@ -176,8 +207,18 @@ export function buildVariant(variant, { scratchRoot, log = () => {} }) {
     if (!ok) return { variant, dir, siteDir: null, steps, ok: false };
   }
 
-  if (variant.modules || typeof variant.demo === 'boolean') {
+  if (variant.modules || typeof variant.demo === 'boolean' || variant.githubBranch) {
     patchSite(path.join(dir, '_data', 'site.yml'), variant);
+  }
+  if (variant.themeFonts) {
+    patchThemeFonts(path.join(dir, '_data', 'theme.yml'), variant.themeFonts);
+  }
+  if (variant.legacyIssueChooser) {
+    fs.writeFileSync(
+      path.join(dir, '.github', 'ISSUE_TEMPLATE', 'config.yml'),
+      'blank_issues_enabled: true\ncontact_links: []\n',
+      'utf8'
+    );
   }
 
   if (variant.entries !== 'keep') {

@@ -19,7 +19,7 @@
         <ul class="mt-4 space-y-2 text-sm text-brand-on-dark/85">
           {% for item in site.data.navigation %}
             {% if item.module %}{% assign ft_enabled = ft_cfg.modules[item.module] %}{% unless ft_enabled %}{% continue %}{% endunless %}{% endif %}
-            <li><a class="transition hover:text-white hover:underline" href="{{ item.url | relative_url }}">{{ item.label }}</a></li>
+            <li><a class="footer-link transition hover:text-white hover:underline" href="{{ item.url | relative_url }}">{{ item.label }}</a></li>
           {% endfor %}
         </ul>
       </div>
@@ -29,13 +29,13 @@
           {% for link in ft_cfg.footer.links %}
             {% if link.module %}{% assign ft_link_enabled = ft_cfg.modules[link.module] %}{% unless ft_link_enabled %}{% continue %}{% endunless %}{% endif %}
             {% if link.url contains '://' %}
-              <li><a class="transition hover:text-white hover:underline" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}<span class="sr-only"> (opens in a new tab)</span></a></li>
+              <li><a class="footer-link transition hover:text-white hover:underline" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">{{ link.label }}<span class="sr-only"> (opens in a new tab)</span></a></li>
             {% else %}
-              <li><a class="transition hover:text-white hover:underline" href="{{ link.url | relative_url }}">{{ link.label }}</a></li>
+              <li><a class="footer-link transition hover:text-white hover:underline" href="{{ link.url | relative_url }}">{{ link.label }}</a></li>
             {% endif %}
           {% endfor %}
           {% if ft_cfg.github.repository and ft_cfg.github.repository != '' %}
-            <li><a class="transition hover:text-white hover:underline" href="https://github.com/{{ ft_cfg.github.repository }}" target="_blank" rel="noopener noreferrer">Source on GitHub<span class="sr-only"> (opens in a new tab)</span></a></li>
+            <li><a class="footer-link transition hover:text-white hover:underline" href="https://github.com/{{ ft_cfg.github.repository }}" target="_blank" rel="noopener noreferrer">Source on GitHub<span class="sr-only"> (opens in a new tab)</span></a></li>
           {% endif %}
         </ul>
         {% if ft_cfg.organization.contact_email and ft_cfg.organization.contact_email != '' %}
@@ -67,7 +67,7 @@
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p>&copy; {{ 'now' | date: '%Y' }} {{ ft_cfg.footer.copyright | default: ft_cfg.organization.name }}</p>
         <p class="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {%- if ft_cfg.modules.catalog != false and ft_entry_count > 0 -%}<a class="inline-flex items-center gap-1 underline underline-offset-2 hover:text-white" href="{{ ft_feed | relative_url }}">{% include icon.html name='rss' size='xs' %}Feed</a><span aria-hidden="true">·</span>{%- endif -%}
+          {%- if ft_cfg.modules.catalog != false and ft_entry_count > 0 -%}<a class="footer-link gap-1 underline underline-offset-2 hover:text-white" href="{{ ft_feed | relative_url }}">{% include icon.html name='rss' size='xs' %}Feed</a><span aria-hidden="true">·</span>{%- endif -%}
           <span>Built with an open, GitHub-managed catalog template.</span>
         </p>
       </div>

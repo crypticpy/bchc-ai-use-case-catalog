@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "notice_file": "THIRD_PARTY_NOTICES.md",
+  "required_notice_markers": [
+    "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007",
+    "3) No Modified Version of the Font Software may use the Reserved Font",
+    "Name(s) unless explicit written permission is granted by the corresponding",
+    "THE FONT SOFTWARE IS PROVIDED \"AS IS\""
+  ],
+  "assets": [
+    {
+      "name": "Lunr.js",
+      "version": "2.3.9",
+      "license": "MIT",
+      "notice_heading": "## Lunr.js 2.3.9",
+      "notice_markers": ["assets/js/lunr.min.js", "Copyright (C) 2013 by Oliver Nightingale", "License: MIT"],
+      "files": [
+        {
+          "path": "assets/js/lunr.min.js",
+          "sha256": "0c50d9002b85780a842afffb567bb54ede402dae7c6dc5997a018614d8044fc8"
+        }
+      ]
+    },
+    {
+      "name": "Heroicons",
+      "version": "2.2.0",
+      "license": "MIT",
+      "notice_heading": "## Heroicons 2.2.0",
+      "notice_markers": ["_includes/icon.html", "Copyright (c) Tailwind Labs, Inc.", "License: MIT"],
+      "files": [
+        {
+          "path": "_includes/icon.html",
+          "sha256": "d9b9885151bcd7eeb346ebe29338e75d97be319b90e0923d015333fd21b7c10c"
+        }
+      ]
+    },
+    {
+      "name": "Inter",
+      "version": "4.1",
+      "license": "OFL-1.1",
+      "notice_heading": "## Inter 4.1",
+      "notice_markers": [
+        "assets/fonts/Inter-Variable.woff2",
+        "Copyright (c) 2016 The Inter Project Authors",
+        "License: SIL Open Font License 1.1"
+      ],
+      "files": [
+        {
+          "path": "assets/fonts/Inter-Variable.woff2",
+          "sha256": "c6c2bd65191919263eb898f3d59645573b87f456139f226e2c5d9730fb92d18c"
+        }
+      ]
+    },
+    {
+      "name": "PHCT Sans",
+      "version": "Source Sans 3.052",
+      "license": "OFL-1.1",
+      "notice_heading": "## PHCT Sans (derived from Source Sans 3.052)",
+      "notice_markers": [
+        "assets/fonts/PHCTSans-Variable.woff2",
+        "Reserved Font Name \"Source\"",
+        "embedded family name is **PHCT Sans**",
+        "License: SIL Open Font License 1.1"
+      ],
+      "files": [
+        {
+          "path": "assets/fonts/PHCTSans-Variable.woff2",
+          "sha256": "0633131166d89c3bd24fa002a7fa5d72d6d509d964535f4b7744c1b265ef5b39"
+        }
+      ]
+    },
+    {
+      "name": "PHCT Serif",
+      "version": "Source Serif 4.005",
+      "license": "OFL-1.1",
+      "notice_heading": "## PHCT Serif (derived from Source Serif 4.005)",
+      "notice_markers": [
+        "assets/fonts/PHCTSerif-Variable.woff2",
+        "Reserved Font Name \"Source\"",
+        "embedded family name is **PHCT Serif**",
+        "License: SIL Open Font License 1.1"
+      ],
+      "files": [
+        {
+          "path": "assets/fonts/PHCTSerif-Variable.woff2",
+          "sha256": "3c60242f8603fd8f4ec34b923192f51bc4099ae443a39c17a5cfb68bbe7a51fe"
+        }
+      ]
+    }
+  ]
+}

@@ -3,10 +3,10 @@
   .field { @apply space-y-1.5; }
   .field-label { @apply block text-sm font-semibold text-brand-ink; }
   .field-help { @apply text-sm text-brand-muted; }
-  .field-input { @apply block w-full rounded-lg border-brand-line-strong bg-surface-card text-base text-brand-ink placeholder:text-brand-muted/70 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary sm:text-sm; }
+  .field-input { @apply block min-h-[44px] w-full rounded-lg border-brand-line-strong bg-surface-card text-base text-brand-ink placeholder:text-brand-muted/70 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary sm:text-sm; }
   .field-input[aria-invalid="true"] { @apply border-brand-warn focus:ring-brand-warn/25; }
   .field-error { @apply flex items-start gap-1.5 text-sm font-medium text-brand-warn; }
-  .field-option { @apply flex cursor-pointer items-start gap-3 rounded-lg border border-brand-line bg-surface-card px-3 py-2.5 text-sm text-brand-ink transition-colors duration-120 hover:border-brand-line-strong has-[:checked]:border-brand-primary has-[:checked]:bg-brand-primary/5; }
+  .field-option { @apply flex min-h-[44px] cursor-pointer items-start gap-3 rounded-lg border border-brand-line bg-surface-card px-3 py-2.5 text-sm text-brand-ink transition-colors duration-120 hover:border-brand-line-strong has-[:checked]:border-brand-primary has-[:checked]:bg-brand-primary/5; }
   .field-option-desc { @apply block text-xs font-normal text-brand-muted; }
   /* A fixed 3px corner, not the theme radius: on a 16px box the "soft"/"round"
      tokens read as a circle, which says "pick one" when you may pick several. */
@@ -23,11 +23,18 @@
   /* A numbered form step. */
   /* first-of-type, not first: the error summary <div> precedes the first <section>. */
   .form-section { @apply scroll-mt-28 border-t border-brand-line pt-8 first-of-type:border-0 first-of-type:pt-0; }
+  /* Stepping (assets/js/submit/steps.js) shows one section at a time, so the
+     divider between stacked sections has nothing left to divide. */
+  [data-stepped="true"] .form-section { @apply border-t-0 pt-0; }
 
   /* Sticky section navigation (>= lg). E2 is allowed here: it floats. */
   .progress-rail { @apply panel p-4; }
   .progress-link { @apply flex items-start gap-2.5 rounded-lg px-2 py-1.5 text-sm text-brand-muted transition-colors duration-120 hover:bg-brand-primary/5 hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-card; }
-  .progress-link[aria-current="true"] { @apply bg-brand-primary/5 font-semibold text-brand-primary-dark; }
+  /* "true" is the scroll-tracking flat form, "step" the stepper's current step. */
+  .progress-link[aria-current="true"],
+  .progress-link[aria-current="step"] { @apply bg-brand-primary/5 font-semibold text-brand-primary-dark; }
+  /* A section the short form skipped: every question in it is hidden. */
+  .progress-link[data-skipped="true"] { @apply opacity-60; }
   .progress-dot { @apply mt-1.5 h-2 w-2 shrink-0 rounded-full border border-brand-line-strong bg-surface-card; }
   .progress-link[data-done="true"] .progress-dot { @apply border-brand-primary bg-brand-primary; }
   /* Half-filled dot: something answered, a required field still blank. */
@@ -48,7 +55,7 @@
 
   /* Live card preview. Collapsible below lg, pinned beside the form above it. */
   .preview-panel { @apply panel p-4; }
-  .preview-summary { @apply flex cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-brand-ink lg:hidden; }
+  .preview-summary { @apply flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-brand-ink lg:hidden; }
   .preview-summary::-webkit-details-marker { display: none; }
 
   /* Status line for the draft autosave. */

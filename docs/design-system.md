@@ -51,19 +51,22 @@ colour, it is either one of those meanings or it is `ink`/`muted` on `line` stru
 ### Type
 
 `fonts.heading` / `fonts.body` from `theme.yml` → `--font-heading` / `--font-body` → `font-heading`
-/ `font-sans`. Bundled: Source Serif 4, Source Sans 3 and Inter, one variable latin woff2 subset
-each covering weights 400–700 (44 KB + 49 KB + 57 KB; `npm run fonts` rebuilds them —
-`assets/fonts/README.md`). Each variable is followed in the stack by a metric-matched
+/ `font-sans`. Bundled: PHCT Serif, PHCT Sans and Inter, one variable latin woff2 subset each
+covering weights 400–700 (44 KB + 49 KB + 57 KB; `npm run fonts` rebuilds them —
+`assets/fonts/README.md`). PHCT Serif and PHCT Sans are renamed, modified subsets of Adobe's Source
+families; their provenance and OFL terms are recorded in `THIRD_PARTY_NOTICES.md`. Each variable is
+followed in the stack by a metric-matched
 `"<family> Fallback"` face (Georgia for the serif), so the `font-display: swap` handover does not
 reflow the page. Other families via `fonts.google_fonts_url`, which loads non-render-blocking and
 gets no fallback face.
 
-The default pairing is **serif headings over a sans body**: Source Serif 4 (optical size pinned
+The default pairing is **serif headings over a sans body**: PHCT Serif (optical size pinned
 at 24, so it is cut for titles, not text) for every `font-heading` role — page and entry titles,
 section titles, card titles, rail-card headings, the logo wordmark — and Inter for everything
 else. The serif is what keeps a page of controls, chips and facts from reading as a spreadsheet;
-the sans keeps the controls crisp. A fork that wants an all-sans site sets `fonts.heading:
-"Source Sans 3"` and nothing else changes.
+the sans keeps the controls crisp. A fork that wants an all-sans site sets `fonts.heading: "PHCT
+Sans"` and nothing else changes. Builds still normalize the legacy values `Source Serif 4` and
+`Source Sans 3` so protected downstream theme files upgrade without a visual regression.
 
 | Role | Size / line | Class or where |
 |---|---|---|

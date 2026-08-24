@@ -54,6 +54,7 @@ test('every file the configurators write is the fork’s, not the template’s',
     '_data/navigation.yml',
     '_config.yml',
     '.github/ISSUE_TEMPLATE/new-entry.yml',
+    '.github/ISSUE_TEMPLATE/config.yml',
   ]) {
     assert.ok(
       patterns.some((pattern) => matchesPattern(pattern, file)),

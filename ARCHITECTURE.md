@@ -85,8 +85,10 @@ runs Jekyll in Actions (not the legacy Pages builder, which disallows plugins).
   `search.js` narrows further via `window.__searchMatches` (see the header comment in each file).
 - `_layouts/entry.html` — header, fact strip, gallery, main sections (`schema.groups` with
   `placement: main`), sticky rail (`placement: rail` groups via `reuse-card.html`), TOC, related rows.
-- `submit/index.md` — one sectioned page; `assets/js/submit.js` orchestrates `submit/{fields,
-  validate,repeatable,preview,draft,handoff}.js` and hands off to a prefilled `new-entry.yml` issue.
+- `submit/index.md` — one sectioned page that scripts turn into steps (one per schema group, plus
+  a required-only "short form" toggle); `assets/js/submit.js` orchestrates `submit/{fields,validate,
+  repeatable,preview,draft,handoff,review,steps,shortform}.js` and hands off to a prefilled
+  `new-entry.yml` issue. Without JavaScript it stays one long page.
 
 Two Liquid gotchas govern the include style (details in `CLAUDE.md`): assigns inside an include
 leak into the caller, so every include prefixes its variables (`ec_`, `fv_`, `gal_` …); and include
@@ -149,7 +151,10 @@ names, never hex or literals. Component classes live in `assets/css/components/<
 `@apply` compositions. There is no `safelist`: a badge's tone is `data-tone`, not part of its class
 name, so nothing is composed at render time for the scanner to miss.
 `assets/css/site.css` is build output (`npm run build:css`) and is not committed.
-Fonts are self-hosted variable woff2 subsets (`assets/fonts/README.md`).
+Fonts are self-hosted variable woff2 subsets (`assets/fonts/README.md`). Copied JavaScript,
+generated icons, and fonts are pinned by digest in `quality/vendored-assets.json`; their complete
+provenance and license terms live in `THIRD_PARTY_NOTICES.md` and fail closed under `npm run
+licenses:check`.
 
 ### Testing
 

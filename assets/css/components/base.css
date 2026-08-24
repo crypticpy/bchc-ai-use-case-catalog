@@ -1,7 +1,7 @@
 /* Base layer: fonts, resets, motion defaults.
 
    Three bundled families, one variable latin/latin-ext woff2 subset each, carrying every
-   weight from 400 to 700 (Inter 57 KB, Source Sans 3 49 KB, Source Serif 4 44 KB). A page
+   weight from 400 to 700 (Inter 57 KB, PHCT Sans 49 KB, PHCT Serif 44 KB). A page
    loads at most two of them — the body face and the heading face theme.yml names — and a
    stray `font-medium` can no longer pull a weight nobody preloaded. `npm run fonts`
    rebuilds them — see assets/fonts/README.md. Any other family goes through
@@ -14,8 +14,8 @@
   font-display: swap;
 }
 @font-face {
-  font-family: "Source Sans 3";
-  src: url("../fonts/SourceSans3-Variable.woff2") format("woff2-variations"), url("../fonts/SourceSans3-Variable.woff2") format("woff2");
+  font-family: "PHCT Sans";
+  src: url("../fonts/PHCTSans-Variable.woff2") format("woff2-variations"), url("../fonts/PHCTSans-Variable.woff2") format("woff2");
   font-weight: 400 700;
   font-style: normal;
   font-display: swap;
@@ -23,8 +23,8 @@
 /* The heading face the shipped theme uses. Its optical-size axis is pinned at 24 in the
    subset (see scripts/build_fonts.sh), so there is nothing for font-optical-sizing to vary. */
 @font-face {
-  font-family: "Source Serif 4";
-  src: url("../fonts/SourceSerif4-Variable.woff2") format("woff2-variations"), url("../fonts/SourceSerif4-Variable.woff2") format("woff2");
+  font-family: "PHCT Serif";
+  src: url("../fonts/PHCTSerif-Variable.woff2") format("woff2-variations"), url("../fonts/PHCTSerif-Variable.woff2") format("woff2");
   font-weight: 400 700;
   font-style: normal;
   font-display: swap;
@@ -47,7 +47,7 @@
   line-gap-override: 0%;
 }
 @font-face {
-  font-family: "Source Sans 3 Fallback";
+  font-family: "PHCT Sans Fallback";
   src: local("Arial"), local("Helvetica Neue"), local("Liberation Sans");
   size-adjust: 92.2%;
   ascent-override: 108.5%;
@@ -57,7 +57,7 @@
 /* Rescales Georgia (or Times, or Liberation Serif) rather than Arial: a serif heading
    that first paints in a sans and then swaps is a visible flash even when the boxes match. */
 @font-face {
-  font-family: "Source Serif 4 Fallback";
+  font-family: "PHCT Serif Fallback";
   src: local("Georgia"), local("Times New Roman"), local("Liberation Serif");
   size-adjust: 98.7%;
   ascent-override: 105%;

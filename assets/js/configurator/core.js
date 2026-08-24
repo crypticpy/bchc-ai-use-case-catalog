@@ -9,12 +9,14 @@
  *   strings.js            slugs, snake_case keys, GitHub file URLs
  *   yaml-emit.js          the YAML serializer
  *   color.js              hex parsing and WCAG contrast
+ *   fonts.js              bundled family names and legacy-name compatibility
  *   motion.js             the optional theme.yml `motion:` block
  *   defaults.generated.js the shipped _data/*.yml, compiled in (generated)
  *   default-config.js     defaultConfig() over that data
  *   schema-validate.js    schema v2 rules
  *   answers.js            the shared question model and answers -> config merge
  *   issue-template.js     .github/ISSUE_TEMPLATE/new-entry.yml
+ *   issue-chooser.js      .github/ISSUE_TEMPLATE/config.yml
  *   jekyll-config.js      _config.yml
  *   render-files.js       config -> {path: contents}
  */
@@ -22,6 +24,7 @@
 export { slugify, snakeKey, githubNewFileUrl, githubEditFileUrl, prefillNoticeIfTooLong } from './strings.js';
 export { toYaml, quoteYamlString, isPlainObject } from './yaml-emit.js';
 export { parseHexColor, toHexColor, contrastRatio, meetsAA, isHexColor, derivePrimaryDark } from './color.js';
+export { BUNDLED_FONT_NAMES, normalizeBundledFontName } from './fonts.js';
 export {
   MOTION_PRESETS,
   MOTION_DURATIONS,
@@ -45,5 +48,6 @@ export {
 } from './schema-validate.js';
 export { applyAnswers, answersFromConfig, navigationFromSite, COLOR_QUESTIONS } from './answers.js';
 export { issueTemplateFromSchema, groupedFormFields } from './issue-template.js';
+export { isRepositoryIdentity, renderIssueChooser } from './issue-chooser.js';
 export { jekyllConfig, patchJekyllConfig } from './jekyll-config.js';
 export { renderFiles, HEADERS } from './render-files.js';

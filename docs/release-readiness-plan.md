@@ -3,9 +3,13 @@
 - Status: in execution; automated baseline implemented 2026-08-22
 - Created: 2026-08-21
 - Target: a release candidate suitable for the wider BCHC demo audience next week
-- Candidate: `v1.9.0-rc.1`
+- Candidate: `v1.9.0-rc.3`
 - Parent repository: [`crypticpy/phct`](https://github.com/crypticpy/phct)
 - Downstream demo: [`crypticpy/bchc-ai-use-case-catalog`](https://github.com/crypticpy/bchc-ai-use-case-catalog)
+
+The audit baseline and release contract below remain authoritative. The current executable
+sequence for interface polish, open-source publication, and the final BCHC update is maintained in
+[polish-and-publish-plan.md](polish-and-publish-plan.md).
 
 ## Purpose
 
@@ -305,15 +309,21 @@ to the update commit, matching the repository's existing generated-PR pattern.
 
 ### 5. Stable parent release
 
-Only after the BCHC release-candidate pull request is green should the same parent commit receive
-the stable `vNEXT` tag. If compatibility fails, fix PHCT and issue `rc.2`; do not patch the
-downstream candidate independently.
+Only after the BCHC release-candidate pull request and live candidate rehearsals are green should
+PHCT open a stable release-record pull request directly on top of the accepted candidate. That PR
+changes the package and lock version from `NEXT-rc.N` to `NEXT` plus version-bearing release
+records; it contains no reusable behaviour change. The candidate-to-stable diff is reviewed
+against that allowlist and the full parent gates run again. Tag the resulting commit as `vNEXT` so
+the tag, package version, and updater invariant agree. If compatibility fails, fix PHCT and issue
+the next candidate; do not patch the downstream candidate independently.
 
 ### 6. Downstream merge and deploy
 
-Update the BCHC lock file from the candidate tag to the stable tag, rerun the downstream gates,
-obtain human approval, merge, and verify the Pages deployment. The previous PHCT lock and BCHC
-release tag are the rollback point.
+Run the BCHC updater against the stable tag and let it create a stable update pull request. Do not
+hand-edit the candidate lock: the updater must record the stable tag, its full commit, and the
+matching stable package version together. Re-run protected checksums and downstream gates, obtain
+human approval, merge, and verify the Pages deployment. The previous PHCT lock and BCHC release tag
+are the rollback point.
 
 ## Audit and remediation workstreams
 

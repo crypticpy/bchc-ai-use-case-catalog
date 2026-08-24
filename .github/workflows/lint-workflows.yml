@@ -17,9 +17,10 @@ name: Lint workflows
 # comment saying why, so the reason travels with the code.
 
 on:
+  # This check is a required status on protected branches. Run it for every
+  # pull request so content-only changes cannot be left waiting for a
+  # path-filtered status that GitHub never creates.
   pull_request:
-    paths:
-      - ".github/**"
   workflow_dispatch:
 
 permissions: {}
@@ -51,3 +52,32 @@ jobs:
         # `medium` is the level at which the findings are still actionable;
         # anything deliberate carries an inline `# zizmor: ignore[...]`.
         run: pipx run zizmor==1.29.0 --min-severity medium .github/workflows/
+
+  status:
+    # A workflow_dispatch run has no pull-request payload, so its `lint` check
+    # is not attached to the generated PR. Publish the same canonical context
+    # on the dispatched branch head so protected-main requirements can resolve.
+    name: Report the dispatched run on its commit
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    needs: [lint]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+
+    steps:
+      - name: Post the canonical lint status
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const passed = ${{ toJSON(needs.lint.result) }} === 'success';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: passed ? 'success' : 'failure',
+              context: 'lint',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              description: passed ? 'Workflow lint passed' : 'Workflow lint reported problems',
+            });

@@ -178,6 +178,23 @@ test('the three branding steps together ask every question the one step asked', 
   ]);
 });
 
+test('an empty or malformed repository is explained before review rendering', () => {
+  goToStep(2);
+  type('#field-repository', '');
+  press('Continue');
+  assert.equal($('#step-heading').textContent, 'Names & contact');
+  assert.match($('#wizard-error-summary').textContent, /owner\/repo/u);
+
+  type('#field-repository', 'not-a-repository');
+  press('Continue');
+  assert.equal($('#step-heading').textContent, 'Names & contact');
+  assert.match($('#wizard-error-summary').textContent, /owner\/repo/u);
+
+  type('#field-repository', 'bigcities/ai-catalog');
+  press('Continue');
+  assert.equal($('#step-heading').textContent, 'Colors & type');
+});
+
 test('jumping ahead by step pill validates the steps it would skip', () => {
   goToStep(3);
   type('#field-primary', 'nope');
@@ -201,7 +218,7 @@ test('the Look step asks every colour question the CLI asks, and offers a custom
   const select = $('#field-headingFont');
   assert.equal(select.value, 'Roboto', 'a custom font left the select unselected');
   assert.ok([...select.options].some((o) => o.value === 'Roboto'));
-  wizardState.state.answers.headingFont = 'Source Sans 3';
+  wizardState.state.answers.headingFont = 'PHCT Sans';
 });
 
 test('the Look step renders and the live preview follows the primary colour', () => {
@@ -554,6 +571,7 @@ test('the review step renders every file, and the new field is in the schema out
     '_data/navigation.yml',
     '_config.yml',
     '.github/ISSUE_TEMPLATE/new-entry.yml',
+    '.github/ISSUE_TEMPLATE/config.yml',
   ]);
 
   const schemaYaml = $$('#wizard section.card')
@@ -562,6 +580,11 @@ test('the review step renders every file, and the new field is in the schema out
   assert.match(schemaYaml, /key: budget_range/);
   assert.match(schemaYaml, /group: reuse/);
   assert.match(schemaYaml, /weight: 7/);
+
+  const chooserYaml = $$('#wizard section.card')
+    .find((section) => section.textContent.includes('.github/ISSUE_TEMPLATE/config.yml'))
+    .querySelector('pre').textContent;
+  assert.match(chooserYaml, /security\/advisories\/new/u);
 
   assert.ok($$('#wizard button').some((button) => button.textContent === 'Copy'));
   assert.ok($$('#wizard button').some((button) => button.textContent === 'Download'));

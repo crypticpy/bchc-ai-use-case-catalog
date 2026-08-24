@@ -43,6 +43,7 @@ jobs:
   thumbnail:
     permissions:
       contents: write
+      pull-requests: write
       # Re-dispatching validate.yml onto the branch this job just pushed to.
       actions: write
     # Pull requests from forks run with a read-only token and cannot be pushed to.
@@ -54,7 +55,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.ref }}
+          # Manual regeneration always starts from reviewed main, even if the
+          # operator selected another ref in the Actions UI.
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.repository.default_branch || github.event.pull_request.head.ref }}
           # The commit step below pushes, so the credentials have to stay.
           # zizmor: ignore[artipacked]
 
@@ -111,35 +114,71 @@ jobs:
         continue-on-error: true
         run: node scripts/derive_images.mjs
 
-      - name: Commit generated media
+      - name: Detect generated media changes
+        id: media
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ENTRY_PATH: ${{ steps.entry-path.outputs.path }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain -- "$ENTRY_PATH" _data/derivatives.json)" ]; then
+            echo "No thumbnail or derivative changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit generated media to the pull request branch
+        if: steps.media.outputs.changed == 'true' && github.event_name == 'pull_request'
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
           ENTRY_PATH: ${{ steps.entry-path.outputs.path }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A "$ENTRY_PATH"
-          # Only when it exists: a repository whose catalog has no images at all
-          # never gets a manifest, and `git add` on a missing untracked path is
-          # fatal under `set -e`.
           if [ -e _data/derivatives.json ]; then
             git add _data/derivatives.json
           fi
-          if git diff --cached --quiet; then
-            echo "No thumbnail or derivative changes."
-            exit 0
-          fi
           git commit -m "chore: update entry thumbnails and image derivatives"
           git push origin "HEAD:refs/heads/$BRANCH"
-          # This push moves the head SHA the pull request's checks are attached
-          # to, and a GITHUB_TOKEN push does not re-trigger `pull_request` runs.
-          # Without this, a maintainer who saw green before the media commit
-          # merges a SHA nothing ever validated. Both content gates have to be
-          # re-dispatched, not just Validate: a head SHA carrying one status and
-          # not the other reads as "checked" at a glance.
-          for workflow in validate.yml quality.yml; do
+
+      - name: Open or update a generated-media pull request
+        id: cpr
+        if: steps.media.outputs.changed == 'true' && github.event_name == 'workflow_dispatch'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          base: ${{ github.event.repository.default_branch }}
+          branch: automation/entry-media
+          commit-message: "chore: update entry thumbnails and image derivatives"
+          title: "Update generated entry media"
+          body: |
+            Regenerated PDF thumbnails and responsive image derivatives.
+
+            Review and merge this pull request to publish the generated media.
+          add-paths: |
+            ${{ steps.entry-path.outputs.path }}
+            _data/derivatives.json
+          delete-branch: true
+
+      - name: Run the required checks on the generated-media branch
+        if: steps.media.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          BRANCH: ${{ github.event.pull_request.head.ref || steps.cpr.outputs.pull-request-branch }}
+        run: |
+          set -euo pipefail
+          # A manual run may create the PR with CONTENT_BOT_TOKEN, in which case
+          # normal pull_request triggers cover the new head. A media commit made
+          # during an existing PR always uses GITHUB_TOKEN and must be dispatched.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for workflow in validate.yml quality.yml lint-workflows.yml; do
             if ! gh workflow run "$workflow" --ref "$BRANCH"; then
               echo "Could not dispatch $workflow; approve the parked run from the Actions tab." >&2
             fi

@@ -76,7 +76,13 @@
 
   /* "Current" markers whose only surviving cue is font-weight. */
   .toc-link[aria-current="true"]::before,
-  .progress-link[aria-current="true"]::before { content: "\25b8\00a0"; }
+  .progress-link[aria-current="true"]::before,
+  .progress-link[aria-current="step"]::before { content: "\25b8\00a0"; }
+
+  /* Sections the short form skipped dim via opacity, which survives forcing,
+     but pair it with a shape so "skipped" reads as a state (same rule as the
+     zero-count pills above). */
+  .progress-link[data-skipped="true"] .progress-dot { border-style: dashed; }
 
   /* The taxonomy dot is a background-color on an empty box: Canvas on Canvas. */
   .chip::before { background: CanvasText; }

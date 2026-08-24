@@ -318,8 +318,8 @@ facts, rail, body.
       <p class="mt-2 text-xs text-brand-muted" data-copy-status role="status"></p>
       {%- if ent_cfg.github.repository and ent_cfg.github.repository != '' -%}
       <ul class="entry-no-print mt-3 space-y-2 text-sm" role="list">
-        <li><a class="inline-flex items-center gap-1.5 text-brand-primary hover:underline" href="https://github.com/{{ ent_cfg.github.repository }}/edit/{{ ent_cfg.github.branch | default: 'main' }}/{{ page.path | escape }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='edit' size='sm' %}Suggest an edit<span class="sr-only"> (opens in a new tab)</span></a></li>
-        <li><a class="inline-flex items-center gap-1.5 text-brand-primary hover:underline" href="https://github.com/{{ ent_cfg.github.repository }}/issues/new?title={{ 'Update: ' | append: page.title | query_encode }}&amp;body={{ 'Requested change for ' | append: page.url | append: ':%0A%0A' }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='flag' size='sm' %}Report an issue<span class="sr-only"> (opens in a new tab)</span></a></li>
+        <li><a class="entry-action-link" href="https://github.com/{{ ent_cfg.github.repository }}/edit/{{ ent_cfg.github.branch | default: 'main' }}/{{ page.path | escape }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='edit' size='sm' %}Suggest an edit<span class="sr-only"> (opens in a new tab)</span></a></li>
+        <li><a class="entry-action-link" href="https://github.com/{{ ent_cfg.github.repository }}/issues/new?title={{ 'Update: ' | append: page.title | query_encode }}&amp;body={{ 'Requested change for ' | append: page.url | append: ':%0A%0A' }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='flag' size='sm' %}Report an issue<span class="sr-only"> (opens in a new tab)</span></a></li>
       </ul>
       {%- endif -%}
     </section>
