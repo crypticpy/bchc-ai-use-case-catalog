@@ -31,6 +31,9 @@ Outside this folder: [README](../README.md) (what the template is),
 [CONTRIBUTING](../CONTRIBUTING.md) (working on the template itself),
 [ARCHITECTURE](../ARCHITECTURE.md) (how the pieces fit),
 [SECURITY](../SECURITY.md) (the trust model behind the issue-to-pull-request pipeline),
+[SUPPORT](../SUPPORT.md) (where to ask, and what response to expect),
+[MAINTAINERS](../MAINTAINERS.md) (who owns which decision — replace it with your own people when
+you adopt the template),
 [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) (licenses and attribution for bundled files),
 [CODE_OF_CONDUCT](../CODE_OF_CONDUCT.md) (how contributors and reviewers engage).
 

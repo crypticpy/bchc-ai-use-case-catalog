@@ -81,7 +81,9 @@ jobs:
               '',
               process.env.LIST_EVENTS,
               '',
-              'Copy the event ID you need, then edit this issue to paste it into the **Event ID** field.'
+              'Copy the event ID you need, then edit this issue to paste it into the **Event ID** field.',
+              '',
+              'Only the events marked *has a details page* can take attachments. For any other one, use the **Add event details** form first — that creates the page these materials attach to.'
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -90,8 +92,12 @@ jobs:
               body
             });
 
+      # `help` (and a blank field) means "tell me the IDs", which the step above
+      # just did. Running the updater anyway posted a flat "no changes were
+      # made" directly under that list, which reads as a refusal.
       - name: Update event attachments
         id: update
+        if: steps.extract.outputs.event_id != '' && steps.extract.outputs.event_id != 'help'
         continue-on-error: true
         run: node scripts/update_event_attachments_from_issue.mjs
         env:
@@ -165,14 +171,82 @@ jobs:
             fi
           done
 
-      - name: Comment when nothing changed
-        if: steps.update.outcome == 'success' && steps.update.outputs.changed != 'true'
+      - name: Link the pull request from the issue
+        if: steps.cpr.outputs.pull-request-number != ''
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+          PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
         with:
           script: |
+            // An edited issue updates the existing pull request; say that
+            // instead of repeating the full first-time comment.
+            const body = process.env.PR_OPERATION === 'updated'
+              ? [
+                  'Updated the pull request from your edit:',
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'The diff there now shows the new attachments.'
+                ]
+              : [
+                  'These attachments are now a pull request waiting for a maintainer:',
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'Nothing on the event page changes until a maintainer merges it. To correct a title or a link, edit this issue — the automation will redo the pull request.'
+                ];
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: 'No changes were made — either the event page could not be found, or the attachments already match what was submitted.'
+              body: body.join('\n')
+            });
+
+      # The updater exits cleanly for five different reasons; it now says which
+      # one, and that sentence is what goes on the issue. "No changes were made"
+      # on its own gave the submitter nothing to act on.
+      - name: Comment when nothing changed
+        if: steps.update.outcome == 'success' && steps.update.outputs.changed != 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          NO_CHANGE_REASON: ${{ steps.update.outputs.reason }}
+        with:
+          script: |
+            const reason = process.env.NO_CHANGE_REASON;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Nothing was changed on the event page, so there is no pull request to review.',
+                '',
+                reason
+                  ? '> ' + reason.split('\n').join('\n> ')
+                  : '> Either the event page could not be found, or the attachments already match what was submitted.',
+                '',
+                'Edit this issue if you want the automation to try again.'
+              ].join('\n')
+            });
+
+      # The steps above can still leave the issue silent if the pull request
+      # itself is refused — most often because "Allow GitHub Actions to create
+      # and approve pull requests" was never ticked.
+      - name: Say the pull request could not be opened
+        if: failure() && steps.update.outcome != 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                'Something went wrong while turning these attachments into a pull request, so no pull request was opened and the event page is unchanged.',
+                '',
+                'The usual cause is one repository setting: a maintainer should open **Settings → Actions → General → Workflow permissions** and tick **Allow GitHub Actions to create and approve pull requests**.',
+                '',
+                `Once that is on, edit this issue to retry. The full run is under the [Actions tab](https://github.com/${owner}/${repo}/actions).`
+              ].join('\n')
             });

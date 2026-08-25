@@ -35,7 +35,7 @@ export function renderBasics() {
       el('legend', { class: 'section-title', text: 'GitHub' }),
       el('div', { class: 'grid gap-4 sm:grid-cols-2' }, [
         textField('repository', 'Repository', {
-          help: 'owner/repo — used for submission links and edit links.',
+          help: 'owner/repo of YOUR copy of the template — submission links and edit links go here.',
           placeholder: 'owner/repo',
         }),
         textField('branch', 'Branch', { help: 'The branch GitHub Pages builds from.' }),

@@ -67,6 +67,7 @@ jobs:
 
       - name: Resolve the year
         id: year
+        continue-on-error: true
         env:
           DISPATCH_YEAR: ${{ inputs.year }}
           ISSUE_YEAR: ${{ steps.extract.outputs.cohort_year }}
@@ -75,18 +76,58 @@ jobs:
           year="${DISPATCH_YEAR:-$ISSUE_YEAR}"
           if ! echo "$year" | grep -Eq '^[0-9]{4}$'; then
             echo "Could not read a four-digit cohort year (got '$year')." >&2
+            # A fixed sentence, not the value that was typed: this output is
+            # quoted back onto the issue, and the message is the whole of what
+            # the person who filled the form gets to read.
+            echo "error=The **Cohort Year** field needs a four-digit year, like 2026. Edit this issue to fix it and the automation will try again." >> "$GITHUB_OUTPUT"
             exit 1
           fi
           echo "value=$year" >> "$GITHUB_OUTPUT"
 
       - name: Scaffold cohort
+        id: scaffold
+        if: steps.year.outcome == 'success'
+        continue-on-error: true
         run: ruby scripts/scaffold_year.rb
         env:
           COHORT_YEAR: ${{ steps.year.outputs.value }}
           COHORT_INTRO: ${{ steps.extract.outputs.intro }}
 
+      # Both steps above are `continue-on-error`, so the issue hears about the
+      # problem in plain English before the job stops. Without this the run just
+      # went red and the issue sat there with nothing on it at all.
+      - name: Report the failure on the issue
+        if: github.event_name == 'issues' && (steps.year.outcome == 'failure' || steps.scaffold.outcome == 'failure')
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          STEP_ERROR: ${{ steps.year.outputs.error || steps.scaffold.outputs.error }}
+        with:
+          script: |
+            const detail = process.env.STEP_ERROR || 'The step failed; see the workflow logs for details.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'This cohort year could not be set up yet.',
+                '',
+                '> ' + detail.split('\n').join('\n> '),
+                '',
+                'Edit this issue to fix the problem and the automation will try again. If the message above does not tell you what to change, comment here and a maintainer will help.'
+              ].join('\n')
+            });
+            core.setFailed(detail);
+
+      # A dispatch has no issue to comment on, so it still has to fail loudly.
+      - name: Stop when the scaffolding failed
+        if: github.event_name != 'issues' && (steps.year.outcome == 'failure' || steps.scaffold.outcome == 'failure')
+        run: |
+          echo "The year could not be resolved or scaffolded; see the steps above." >&2
+          exit 1
+
       - name: Create pull request
         id: cpr
+        if: steps.scaffold.outputs.created == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           # With CONTENT_BOT_TOKEN the pull request has a real author and the
@@ -97,6 +138,8 @@ jobs:
           commit-message: "chore: scaffold cohort ${{ steps.year.outputs.value }}"
           title: "Scaffold cohort ${{ steps.year.outputs.value }}"
           body: |
+            ${{ github.event_name == 'issues' && format('Generated from issue #{0}.', github.event.issue.number) || 'Started from the Actions tab.' }}
+
             Scaffolds `cohorts/${{ steps.year.outputs.value }}/` and `_data/cohorts/${{ steps.year.outputs.value }}.yml`.
 
             ### Maintainer checklist
@@ -131,3 +174,81 @@ jobs:
               echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
             fi
           done
+
+      - name: Link the pull request from the issue
+        if: github.event_name == 'issues' && steps.cpr.outputs.pull-request-number != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+          PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+          COHORT_YEAR: ${{ steps.year.outputs.value }}
+        with:
+          script: |
+            // An edited issue updates the existing pull request; say that
+            // instead of repeating the full first-time comment.
+            const body = process.env.PR_OPERATION === 'updated'
+              ? [
+                  'Updated the pull request from your edit:',
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'The diff there now shows the new scaffold.'
+                ]
+              : [
+                  `Cohort ${process.env.COHORT_YEAR} is now a pull request waiting for a maintainer:`,
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'It carries a placeholder landing page and three placeholder events. Nothing is published until a maintainer merges it; after that, use the **Update a cohort schedule** form to put the real events in.'
+                ];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.join('\n')
+            });
+
+      # scaffold_year.rb never overwrites, so a year that is already set up
+      # produces no files, no pull request and — until this step — no reply.
+      - name: Say the year already exists
+        if: github.event_name == 'issues' && steps.scaffold.outputs.created == 'false'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          COHORT_YEAR: ${{ steps.year.outputs.value }}
+        with:
+          script: |
+            const year = process.env.COHORT_YEAR;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                `Cohort ${year} already exists — nothing to scaffold, so no pull request was opened.`,
+                '',
+                `Use the **Update a cohort schedule** form to change the events stored for ${year}, or the **Add event details** form to give one of them its own page.`
+              ].join('\n')
+            });
+
+      # Everything above can still leave the issue silent if the push or the
+      # pull request itself is refused — most often because "Allow GitHub
+      # Actions to create and approve pull requests" was never ticked.
+      - name: Say the pull request could not be opened
+        if: >-
+          failure() && github.event_name == 'issues'
+          && steps.year.outcome != 'failure' && steps.scaffold.outcome != 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                'Something went wrong while turning this issue into a pull request, so no pull request was opened.',
+                '',
+                'The usual cause is one repository setting: a maintainer should open **Settings → Actions → General → Workflow permissions** and tick **Allow GitHub Actions to create and approve pull requests**.',
+                '',
+                `Once that is on, edit this issue to retry. The full run is under the [Actions tab](https://github.com/${owner}/${repo}/actions).`
+              ].join('\n')
+            });

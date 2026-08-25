@@ -8,10 +8,13 @@
 # .github/workflows/update-schedule.yml, on `issues: opened|edited` for
 # issues labeled `content:schedule`, after preview_schedule_ids_from_issue.rb
 # has commented the ID preview. That workflow opens a PR with the change
-# when `changed=true`, or comments "nothing changed" otherwise.
+# when `changed=true`, or comments "nothing changed" otherwise. Every refusal
+# below goes out through IssueForm.fail, which writes the `error` output the
+# workflow quotes back onto the issue — a bare `warn` would reach the run log
+# only, and the person who filled the form would never see it.
 # Env: ISSUE_BODY (required), ISSUE_TITLE (unused here), ISSUE_NUMBER (optional,
 # only used in the final log line). Outputs (via GITHUB_OUTPUT): changed,
-# branch, year, summary. Writes: _data/cohorts/<year>.yml.
+# branch, year, summary, error. Writes: _data/cohorts/<year>.yml.
 
 require "yaml"
 require "psych"
@@ -33,8 +36,7 @@ issue_body = ENV["ISSUE_BODY"].to_s.gsub("\r\n", "\n")
 issue_number = ENV["ISSUE_NUMBER"].to_s.strip
 
 if issue_body.strip.empty?
-  warn "Issue body is empty; cannot update the schedule."
-  exit 1
+  IssueForm.fail("The issue is empty, so there is no schedule to read. Fill in the form and the automation will try again.")
 end
 
 # Turns free text into a URL/id-safe slug, used as the event id when the
@@ -51,25 +53,24 @@ cohort_year = values["cohort_year"].to_s.strip
 schedule_yaml = IssueForm.strip_code_fence(values["schedule_entries"])
 
 unless cohort_year.match?(/\A\d{4}\z/)
-  warn "The cohort year is required and must be a four-digit year."
-  exit 1
+  IssueForm.fail("The **Cohort year** field needs a four-digit year, like `2026`. It currently reads #{cohort_year.inspect}.")
 end
 
 if schedule_yaml.empty?
-  warn "No schedule entries were provided."
-  exit 1
+  IssueForm.fail("The **Schedule entries** box is empty. Paste the whole list of events for #{cohort_year} — every event you want to keep.")
 end
 
 begin
   parsed_events = YAML.safe_load(schedule_yaml, permitted_classes: [Date], permitted_symbols: [], aliases: false)
 rescue Psych::SyntaxError => e
-  warn "The schedule YAML could not be parsed: #{e.message}"
-  exit 1
+  IssueForm.fail(
+    "The **Schedule entries** box could not be read. Check the indentation — every event starts with `- name:` " \
+    "and the lines under it line up. The exact complaint was: #{e.message}"
+  )
 end
 
 unless parsed_events.is_a?(Array)
-  warn "Schedule entries must be a YAML list of events."
-  exit 1
+  IssueForm.fail("The **Schedule entries** box has to be a list: each event starts on its own line with `- name:`.")
 end
 
 processed_events = []
@@ -77,23 +78,20 @@ used_ids = {}
 
 parsed_events.each_with_index do |event, index|
   unless event.is_a?(Hash)
-    warn "The event at position #{index + 1} is not a YAML mapping."
-    exit 1
+    IssueForm.fail("Event #{index + 1} in the list is not laid out as an event. It needs a `name:` line and a `date:` line under it.")
   end
 
   name = event["name"].to_s.strip
   date_value = event["date"].to_s.strip
 
   if name.empty? || date_value.empty?
-    warn "Every event needs a name and a date (position #{index + 1})."
-    exit 1
+    IssueForm.fail("Every event needs both a `name:` and a `date:`. Event #{index + 1} in the list is missing one of them.")
   end
 
   begin
     date_iso = Date.iso8601(date_value).to_s
   rescue Date::Error
-    warn "Event '#{name}' has an invalid date #{date_value.inspect}; expected YYYY-MM-DD."
-    exit 1
+    IssueForm.fail("The date for #{name.inspect} reads #{date_value.inspect}. Dates are written year-month-day, like `2026-01-15`.")
   end
 
   event_id = event["id"].to_s.strip
@@ -122,8 +120,10 @@ end
 data_path = File.expand_path("../_data/cohorts/#{cohort_year}.yml", __dir__)
 
 unless File.exist?(data_path)
-  warn "No data file for cohort #{cohort_year} (_data/cohorts/#{cohort_year}.yml). Scaffold the year first."
-  exit 1
+  IssueForm.fail(
+    "There is no cohort #{cohort_year} yet, so there is no schedule to replace. " \
+    "Open a **Start a new cohort year** issue for #{cohort_year} first, merge the pull request it opens, then edit this issue."
+  )
 end
 
 original_content = File.read(data_path)

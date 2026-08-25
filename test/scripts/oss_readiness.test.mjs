@@ -80,7 +80,9 @@ test('canonical backup ownership blocks handoff while downstream maintainer poli
   const maintainers = read('MAINTAINERS.md');
   assert.match(maintainers, /Backup release maintainer/u);
   if (isCanonicalParent()) {
-    assert.match(maintainers, /Unassigned — handoff blocker/u);
-    assert.doesNotMatch(maintainers, /Unassigned — release blocker/u);
+    // The backup row must stay a visible placeholder, and the file must keep
+    // saying that a placeholder blocks operational handoff.
+    assert.match(maintainers, /<Name the backup maintainer here>/u);
+    assert.match(maintainers, /not ready for operational handoff/iu);
   }
 });

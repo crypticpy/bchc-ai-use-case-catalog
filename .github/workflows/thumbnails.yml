@@ -111,8 +111,23 @@ jobs:
       # byte-identical files back. Never fatal: with no derivatives
       # _includes/picture.html emits the plain <img> it always did.
       - name: Build responsive image derivatives
+        id: derivatives
         continue-on-error: true
         run: node scripts/derive_images.mjs
+
+      # Without this line the only trace of a failure here is a red "Validate
+      # Content" check on the same pull request, minutes later and somewhere
+      # else, with no hint that the two are the same problem.
+      - name: Explain a failed derivative build
+        if: steps.derivatives.outcome == 'failure'
+        run: |
+          {
+            echo "### The image derivative build failed"
+            echo
+            echo "The smaller AVIF and WebP versions of these images were not written, so this pull request's **Validate Content** check will fail on the same images at \"Image derivatives are in sync\"."
+            echo
+            echo "Fix the image (a corrupt or unreadable file is the usual cause — see docs/images.md), push it, and this workflow runs again."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Detect generated media changes
         id: media

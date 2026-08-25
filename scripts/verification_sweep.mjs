@@ -31,6 +31,16 @@ const DEFAULT_AFTER_DAYS = 365;
 const MS_PER_DAY = 86400000;
 /** Front matter keys that count as "someone looked at this", strongest first. */
 export const VERIFICATION_KEYS = ['verified', 'updated', 'published'];
+/**
+ * How many stale entries the issue lists before summarising the rest.
+ *
+ * GitHub rejects an issue body over 65,536 characters with a 422, and each
+ * checklist line runs to roughly 250 characters — so an uncapped list turns a
+ * catalog with a few hundred overdue entries into a permanently red monthly
+ * job. 150 lines is well inside the limit and already more than anyone works
+ * through in a month; the oldest are the ones that make the cut.
+ */
+export const MAX_LISTED = 150;
 
 /* -------------------------------------------------------------- pure parts */
 
@@ -106,6 +116,8 @@ export function staleEntries(entries, todayDay, afterDays) {
 
 /**
  * The issue body: a checklist a maintainer can work through and tick off.
+ * At most `MAX_LISTED` entries are listed, oldest first; the rest are counted
+ * in one closing line so the body stays inside GitHub's size limit.
  * @param {object} options
  * @param {Array<object>} options.stale from `staleEntries`
  * @param {string} options.repo "owner/name"
@@ -116,17 +128,27 @@ export function staleEntries(entries, todayDay, afterDays) {
  * @returns {string} markdown
  */
 export function issueBody({ stale, repo, branch, siteUrl, afterDays, today }) {
+  const listed = stale.slice(0, MAX_LISTED);
+  const clearing = repo
+    ? `**To clear an item:** ask the contact whether anything has changed, then click that item's ` +
+      `**edit front matter** link below. In the settings block at the top of the file, change the ` +
+      `\`verified:\` line to \`verified: ${today}\` (today's date) — add that line if there isn't one ` +
+      `— and correct anything else that moved. Then press **Commit changes…**, choose **Create a new ` +
+      `branch and start a pull request**, and merge it once the checks come back green.`
+    : `**To clear an item:** ask the contact whether anything has changed, then open that entry's ` +
+      `\`index.md\` and press the pencil icon. In the settings block at the top of the file, change ` +
+      `the \`verified:\` line to \`verified: ${today}\` (today's date) — add that line if there isn't ` +
+      `one — and correct anything else that moved. Then press **Commit changes…**, choose **Create a ` +
+      `new branch and start a pull request**, and merge it once the checks come back green.`;
   const lines = [
     `${stale.length === 1 ? 'One entry has' : `${stale.length} entries have`} gone more than ` +
       `${afterDays} days without anyone confirming the details are still true. Until they are ` +
       `confirmed, each one shows a "last confirmed" note to readers.`,
     '',
-    `**To clear an item:** ask the contact whether anything has changed, then open a pull request ` +
-      `setting \`verified: ${today}\` (today's date) in that entry's front matter — correcting anything ` +
-      `that moved while you are there.`,
+    clearing,
     '',
   ];
-  for (const entry of stale) {
+  for (const entry of listed) {
     const link = siteUrl ? `[${entry.title}](${siteUrl}${entry.url})` : `**${entry.title}**`;
     const edit = repo
       ? ` · [edit front matter](https://github.com/${repo}/edit/${branch}/${entry.file})`
@@ -134,6 +156,13 @@ export function issueBody({ stale, repo, branch, siteUrl, afterDays, today }) {
     const contact = entry.contact ? ` · ${entry.contact}` : ' · _no contact on file_';
     lines.push(
       `- [ ] ${link} — last confirmed ${monthName(entry.since)} (\`${entry.key}\`)${contact}${edit}`
+    );
+  }
+  if (stale.length > listed.length) {
+    const rest = stale.length - listed.length;
+    lines.push(
+      '',
+      `…and ${rest} more not listed — clear these first, then run the sweep again from the Actions tab.`
     );
   }
   lines.push(

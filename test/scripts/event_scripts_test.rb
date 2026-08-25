@@ -263,8 +263,11 @@ class CohortScriptsTest < Minitest::Test
     hostile_intro = "Budget \#{1+1} plan     \"quoted\" \\ backslash"
 
     Dir.mktmpdir do |dir|
-      FileUtils.mkdir_p(File.join(dir, "scripts"))
+      FileUtils.mkdir_p(File.join(dir, "scripts", "lib"))
       FileUtils.cp(File.join(ROOT, "scripts", "scaffold_year.rb"), File.join(dir, "scripts"))
+      # Whole lib, not a named list: the script requires from it and a new
+      # shared file must not fail here as a missing require.
+      FileUtils.cp(Dir[File.join(ROOT, "scripts", "lib", "*.rb")], File.join(dir, "scripts", "lib"))
 
       status = system(
         { "COHORT_YEAR" => "2999", "COHORT_INTRO" => hostile_intro },
@@ -280,6 +283,80 @@ class CohortScriptsTest < Minitest::Test
       assert_equal hostile_intro, data["intro"]
       assert_equal "Cohort 2999", data["title"]
       assert_equal 2999, data["year"]
+    end
+  end
+
+  # Every refusal has to reach the issue, and the workflows can only quote what
+  # reaches the `error` output — see IssueForm.fail.
+  def test_update_schedule_reports_a_missing_cohort_on_the_error_output
+    body = <<~BODY
+      ### Cohort year
+
+      2998
+
+      ### Schedule entries (YAML)
+
+      ```yaml
+      - name: Kickoff
+        date: 2998-01-01
+      ```
+    BODY
+
+    in_tree do |dir, output|
+      status = run_script(dir, "update_schedule_from_issue.rb", body, output)
+      outputs = OutputFile.parse(File.read(output))
+
+      assert_equal 1, status
+      assert_includes outputs["error"], "2998"
+      assert_includes outputs["error"], "Start a new cohort year"
+      refute outputs.key?("changed")
+    end
+  end
+
+  def test_update_schedule_reports_a_bad_date_on_the_error_output
+    body = <<~BODY
+      ### Cohort year
+
+      2999
+
+      ### Schedule entries (YAML)
+
+      ```yaml
+      - name: Kickoff
+        date: next Tuesday
+      ```
+    BODY
+
+    in_tree do |dir, output|
+      status = run_script(dir, "update_schedule_from_issue.rb", body, output)
+
+      assert_equal 1, status
+      assert_includes OutputFile.parse(File.read(output))["error"], "2026-01-15"
+    end
+  end
+
+  def test_scaffold_year_reports_a_bad_year_on_the_error_output
+    in_scaffold_tree do |dir, output|
+      status = run_scaffold(dir, "not-a-year", output)
+
+      assert_equal 1, status
+      assert_includes OutputFile.parse(File.read(output))["error"], "four-digit year"
+    end
+  end
+
+  # The script never overwrites, so a second run writes nothing at all. The
+  # workflow turns `created=false` into the "already exists" comment; without
+  # the output there is a green run, no pull request and no reply.
+  def test_scaffold_year_reports_that_an_existing_year_was_left_alone
+    in_scaffold_tree do |dir, output|
+      assert_equal 0, run_scaffold(dir, "2999", output)
+      assert_equal "true", OutputFile.parse(File.read(output))["created"]
+
+      second = File.join(dir, "second-output.txt")
+      File.write(second, "")
+
+      assert_equal 0, run_scaffold(dir, "2999", second)
+      assert_equal "false", OutputFile.parse(File.read(second))["created"]
     end
   end
 
@@ -309,6 +386,29 @@ class CohortScriptsTest < Minitest::Test
     ok = system(
       { "ISSUE_BODY" => body, "GITHUB_OUTPUT" => output },
       "ruby", File.join(dir, "scripts", script),
+      out: File::NULL, err: File::NULL
+    )
+    ok ? 0 : 1
+  end
+
+  # scaffold_year.rb writes relative to its own directory, so it gets a tree of
+  # its own — the real cohorts/ is never touched.
+  def in_scaffold_tree
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "scripts", "lib"))
+      FileUtils.cp(File.join(ROOT, "scripts", "scaffold_year.rb"), File.join(dir, "scripts"))
+      FileUtils.cp(Dir[File.join(ROOT, "scripts", "lib", "*.rb")], File.join(dir, "scripts", "lib"))
+
+      output = File.join(dir, "output.txt")
+      File.write(output, "")
+      yield dir, output
+    end
+  end
+
+  def run_scaffold(dir, year, output)
+    ok = system(
+      { "COHORT_YEAR" => year, "GITHUB_OUTPUT" => output },
+      "ruby", File.join(dir, "scripts", "scaffold_year.rb"),
       out: File::NULL, err: File::NULL
     )
     ok ? 0 : 1

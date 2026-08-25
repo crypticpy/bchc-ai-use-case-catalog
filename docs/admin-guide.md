@@ -2,10 +2,36 @@
 
 Day-to-day operation of a site built from this template: repository setup, reviewing submissions, editing content, running cohorts and events, and troubleshooting.
 
+## Repository settings at a glance
+
+Every switch outside the `_data/*.yml` files, in one place. The first four are the ones a new
+catalog needs; everything under them is optional, and a repository that never touches them behaves
+exactly as described in the **Default** column. Each row is explained in full further down this
+page, or in the reference it links to.
+
+| Setting, variable or secret | Where to set it | Default | What stops working without it |
+|---|---|---|---|
+| **Pages source** | Settings → Pages → Source → **GitHub Actions** | "Deploy from a branch" | `Build & Deploy` has nowhere to publish; the site never appears. |
+| **Allow GitHub Actions to create and approve pull requests** | Settings → Actions → General → Workflow permissions | Off | Every workflow that opens a pull request runs, does its work and fails on the last step — the content forms, the monthly metrics, the thumbnails, and the updated-date stamp. |
+| **Private vulnerability reporting** | Settings → Security → Code security and analysis → **Private vulnerability reporting** → *Enable* | Off | Nobody can report a security problem privately; the issue chooser's fallback is the `organization.contact_email` inbox in `_data/site.yml`, so keep that current if your plan does not offer the setting. |
+| **Bootstrap labels** (run once) | Actions tab → **Bootstrap labels** → *Run workflow* | Never run | The issue forms ask for labels that do not exist yet, GitHub drops them silently, and no submission ever scaffolds a pull request. |
+| `SUBMISSIONS_OPEN` (variable) | Settings → Secrets and variables → Actions → **Variables** | Unset — anyone may submit | Set it to `false` to accept issue-driven work only from the owner, organization members and collaborators. Delete it to reopen. |
+| `VERIFICATION_SWEEP` (variable) | Same path | Unset — the sweep runs | Set it to `false` to stop the monthly [verification sweep](#the-monthly-verification-sweep) issue. A manual run still works. |
+| `CATALOG_METRICS` (variable) | Same path | Unset — metrics run | Set it to `false` to stop the monthly [catalog metrics](#the-monthly-catalog-metrics) schedule. A manual run still works. |
+| `CATALOG_SHOWCASE` (variable) | Same path | Unset — no showcase | Leave it unset. Set to `true` only if you want your copy to publish the template's landing page and example sites instead of your own catalog (see [the showcase](configuration.md#the-showcase)). |
+| `CONTENT_BOT_TOKEN` (secret, optional) | Settings → Secrets and variables → Actions → **Secrets** | Unset | Without it, generated pull requests report their results as **(dispatch)** statuses instead of ordinary checks. Nothing breaks — see [Checks on a generated pull request](#checks-on-a-generated-pull-request). |
+| `PHCT_UPDATE_TOKEN` (secret, needed only when an update changes workflows) | Same path | Unset | A template release that touches `.github/workflows/` stops with an actionable run summary before it opens a branch. Releases that do not touch workflows are unaffected. See [PHCT updates use a separate token](#phct-updates-use-a-separate-token). |
+
+Both tokens **expire**. Record which account issued each one and when it lapses somewhere your
+successor will look — the repository cannot tell you, and an expired `CONTENT_BOT_TOKEN` degrades
+quietly rather than failing loudly.
+
 ## One-time repository setup
 
+Work down this list once, in order. [Repository settings at a glance](#repository-settings-at-a-glance) above is the same set as a table, with the optional variables and secrets alongside.
+
 - [ ] **Pages source**: Settings → Pages → Source → **GitHub Actions** (not "Deploy from a branch").
-- [ ] **Actions can open pull requests**: Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**. Without this, every content workflow (`new-entry`, `new-year`, `new-event`, `update-schedule`, `update-event-attachments`) fails at the "Create pull request" step.
+- [ ] **Actions can open pull requests**: Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**. Without this, every workflow that opens a pull request — the content forms (`new-entry`, `new-year`, `new-event`, `update-schedule`, `update-event-attachments`, `apply-setup`), the monthly metrics, the thumbnails, and the updated-date stamp — fails at its "Create pull request" step.
 - [ ] **Labels**: run the **Bootstrap labels** workflow once (Actions tab → *Bootstrap labels* → *Run workflow*), or create these by hand, exactly as named — the automation workflows filter on them:
   - `content:new-entry` — triggers `new-entry.yml`
   - `content:new-year` — triggers `new-year.yml`
@@ -30,7 +56,7 @@ Day-to-day operation of a site built from this template: repository setup, revie
 
 By default anyone with a GitHub account can open a `content:new-entry` issue and have the automation draft a pull request from it. That is the point of the template — the catalog collects work from people who do not have write access to the repository. The safety comes from what the job is allowed to do, not from who is allowed to start it: issue text never reaches a shell, the scaffolder refuses to write outside `catalog/<slug>/`, the page body is written with `render_with_liquid: false` so it is never executed at build time, images are fetched through an SSRF guard and re-checked against their magic bytes, and the output is a pull request that only a maintainer can merge. [SECURITY.md](../SECURITY.md) sets this out in full.
 
-If you need to close submissions for a while, add a repository variable `SUBMISSIONS_OPEN` (Settings → Secrets and variables → Actions → Variables) set to `false`. Every issue-driven workflow (entries, events, cohort years, schedules, attachments) then runs only for issues opened by the repository owner, an organization member or a collaborator. Delete the variable, or set it to anything else, to reopen. Nobody is stopped from opening the issue either way — it simply does not scaffold a pull request, so you can still triage by hand.
+If you need to close submissions for a while, add the repository variable `SUBMISSIONS_OPEN` ([where](#repository-settings-at-a-glance)) set to `false`. Every issue-driven workflow (entries, events, cohort years, schedules, attachments) then runs only for issues opened by the repository owner, an organization member or a collaborator. Delete the variable, or set it to anything else, to reopen. Nobody is stopped from opening the issue either way — it simply does not scaffold a pull request, so you can still triage by hand.
 
 ## Reviewing a submission
 
@@ -129,6 +155,30 @@ the exact commit through a digest-checked Git bundle into a fresh publication ru
 executes the candidate, and only that isolated job receives the token for push and pull-request
 operations.
 
+## Bot pull requests
+
+Not every pull request in the repository comes from a person, and the three kinds want different
+handling.
+
+**Dependabot** keeps the toolchain current. `.github/dependabot.yml` groups its updates so you see
+at most three small pull requests a week — one for GitHub Actions, one for npm packages, one for
+the Ruby gems — rather than a dozen. A grouped bump whose checks are **green** is normally fine to
+merge: the checks that just passed are the same ones that guard a content pull request, and they
+built and validated the whole site with the new versions in place. A **red** one is not yours to
+debug — leave it open and ask for help ([SUPPORT.md](../SUPPORT.md)); a red dependency update is almost always a
+problem with the update itself, not with anything you did. Nothing on your published site changes
+while it sits there.
+
+**The monthly catalog metrics pull request** (`automation/catalog-metrics`) and **the
+updated-date stamp pull request** (`automation/stamp-entry-updates`) are the repository's own
+housekeeping, and they are yours to merge like any content pull request: read the diff, check it is
+green, merge. The first publishes the "How the catalog is doing" figures; the second publishes the
+`updated:` dates for entries someone edited. Both are small, and both wait for you.
+
+If you are working on the template itself rather than running a catalog,
+[maintaining.md](maintaining.md) describes a stricter release-engineering routine for the same
+bots.
+
 ## Editing or removing an existing entry
 
 - **Small edit**: every entry page has a **Suggest an edit on GitHub** link (bottom of the page) that opens the file directly in GitHub's editor, pre-targeted at `catalog/<slug>/index.md` on the configured branch. Commit directly or via a PR.
@@ -158,7 +208,7 @@ verified: "2026-08-17"
 
 That is the whole protocol. `verified` is a reserved key like `updated`: optional, `YYYY-MM-DD`, validated by `check_front_matter.rb` when present — and, unlike `updated`, never written by automation. Setting it resets the entry's clock even if nothing else about the entry changed — which is the point, since "we checked and it is still accurate" is real information.
 
-**Turning it off.** Set the repository variable `VERIFICATION_SWEEP` to `false` (Settings → Secrets and variables → Actions → Variables), or delete the workflow file. To change the window instead of removing the reminder, edit `catalog.verify_after_days` in `_data/site.yml` — the site notices and the sweep both read it, so they can never disagree.
+**Turning it off.** Set the repository variable `VERIFICATION_SWEEP` to `false` ([where](#repository-settings-at-a-glance)), or delete the workflow file. To change the window instead of removing the reminder, edit `catalog.verify_after_days` in `_data/site.yml` — the site notices and the sweep both read it, so they can never disagree.
 
 ## The monthly catalog metrics
 
@@ -171,11 +221,11 @@ The governance page can carry a short "How the catalog is doing" block — submi
 - **Contributing organizations** — the distinct values of the field `entry.contributor_key` names in `_data/schema.yml` (`organization` in the shipped schema), across live entries, `sample: true` content excluded. Delete the key and the figure — and its card and column — disappear.
 - **Review turnaround** — for every published PR whose body says `Closes #N` (again the scaffolder's doing), the days from the issue being opened to the merge; the page shows the median and the 90th percentile with the count they rest on. An unlinked PR still counts as published, just not here.
 
-The script writes `_data/metrics.json` only when the figures differ from the committed file (the generated date alone never causes a commit); the workflow then opens or updates one `automation/catalog-metrics` pull request. Review the figures there and merge the green PR to publish them through the normal Pages workflow. Until the file exists — a fresh fork, or a repository that ejected the samples, which deletes the template's sample figures — the block, its nav item and the "How the catalog is doing" heading are simply not rendered; the organizations card and column also stay hidden while the count is zero, and the review-time card until something has been reviewed. Run it by hand from the Actions tab whenever you want the numbers current — tick **Preview only** to see the figures in the run summary without opening a PR — or locally with `GITHUB_TOKEN=$(gh auth token) node scripts/metrics.mjs` and commit the file through a pull request.
+The script writes `_data/metrics.json` only when the figures differ from the committed file (the generated date alone never causes a commit); the workflow then opens or updates one `automation/catalog-metrics` pull request. Review the figures there and merge the green PR to publish them through the normal Pages workflow. Until the file exists — a fresh fork, or a repository that ejected the samples, which deletes the template's sample figures — the block, its nav item and the "How the catalog is doing" heading are simply not rendered; the organizations card and column also stay hidden while the count is zero, and the review-time card until something has been reviewed. **If a run goes wrong, or you just want the numbers current:** open the Actions tab → **Catalog metrics** → **Run workflow**. A manual run always works, including when the schedule has been switched off with `CATALOG_METRICS`, and ticking **Preview only** shows the figures in the run summary without opening a pull request. If you have a checkout, the same thing runs locally with `GITHUB_TOKEN=$(gh auth token) node scripts/metrics.mjs`; commit the file through a pull request afterwards.
 
 The workflow asks for `contents: write` and `pull-requests: write` only for its maintenance branch and PR, plus `actions: write` to dispatch required checks when it uses the built-in token. It never pushes directly to the protected default branch.
 
-**Turning it off.** Set the repository variable `CATALOG_METRICS` to `false` (Settings → Secrets and variables → Actions → Variables) to stop the schedule — a manual run still works — or delete the workflow file. Deleting `_data/metrics.json` removes the block from the page. To change the sentence above the figures, set `metrics_intro` in `_data/governance.yml`.
+**Turning it off.** Set the repository variable `CATALOG_METRICS` to `false` ([where](#repository-settings-at-a-glance)) to stop the schedule — a manual run still works — or delete the workflow file. Deleting `_data/metrics.json` removes the block from the page. To change the sentence above the figures, set `metrics_intro` in `_data/governance.yml`.
 
 ## Screenshots and images
 
@@ -239,7 +289,8 @@ A failure never fails the scaffold. If an image cannot be downloaded it is left 
 - Open the **Update a cohort schedule** issue (label `content:schedule`) — replaces the event list for a cohort year without hand-editing YAML. The workflow previews normalized event IDs as a comment before writing changes, and only opens a PR if something actually changed.
 
 **Add/replace materials on an existing event page:**
-- Open the **Update event attachments** issue (label `content:event-attachments`). Leave the event ID blank (or type `help`) and the workflow comments back the list of valid IDs for that year; an ID that does not exist fails the run with a comment naming it, so edit the issue and it re-runs.
+- Open the **Update event attachments** issue (label `content:event-attachments`). Leave the event ID blank (or type `help`) and the workflow comments back the list of valid IDs for that year.
+- When nothing can be applied the run still finishes **green** and comments on the issue with the reason nothing changed — the attachments already match what was submitted, or that event has no page yet, in which case open an **Add event details** issue for it first and come back. A green run with a comment is the normal way this workflow says "not yet"; edit the issue with the fix and it tries again.
 
 All four cohort/event workflows follow the same pattern as new-entry: issue → scripted scaffold/update → PR for a maintainer to review and merge. None of them touch `main` directly. The new-event and event-attachments PRs close their issue on merge; the new-year and schedule PRs do not (their issues are often reused for follow-up), so close those by hand once the PR is in.
 
@@ -273,6 +324,12 @@ All four cohort/event workflows follow the same pattern as new-entry: issue → 
 - Confirm the PDF was actually added to `catalog/<slug>/` under the exact filename the schema expects (`deck.pdf` by default) and that the schema field has `thumbnail: true`.
 - Check whether the PR came from a fork — the thumbnails workflow does not run on fork PRs (see above); trigger it manually or commit the thumbnail yourself.
 - Confirm the PR actually changed a `catalog/**/*.pdf` path — the workflow only triggers on that path filter.
+- A media build that failed quietly usually shows up a second time as a red **Validate Content** check on the same pull request: the responsive-image derivatives check looks for the files the same job writes. Fix the image (or the PDF), re-run the job, and both clear together.
+
+**A scheduled workflow went red (`Catalog metrics`, `Verification sweep`)**
+- Nothing on the published site is affected. Neither workflow touches a page: one opens a pull request with a data file, the other keeps one issue up to date, and a failed run simply means it did not do that this month.
+- The usual cause is a temporary problem talking to the GitHub API. Open the Actions tab, pick the workflow in the left-hand list, and use **Re-run all jobs** on the failed run — or **Run workflow** to start a fresh one.
+- If it is still red across several days and re-running does not clear it, that is a bug in the template rather than in your catalog: report it through [SUPPORT.md](../SUPPORT.md) with a link to the failed run.
 
 **A module toggle doesn't seem to do anything**
 - Confirm you're looking at a full rebuild, not a cached preview — `_plugins/modules.rb` removes disabled-module pages at `post_read` time, so the effect only shows up after a Jekyll build, not a live-reload of unrelated content.

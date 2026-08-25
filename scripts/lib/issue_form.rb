@@ -91,11 +91,27 @@ module IssueForm
 
     File.open(output, "a") do |f|
       pairs.each do |key, value|
+        text = value.to_s
         delimiter = "GHEOF_#{key}_#{SecureRandom.hex(8)}"
         f.puts("#{key}<<#{delimiter}")
-        f.puts(value.to_s)
+        f.puts(text)
         f.puts(delimiter)
       end
     end
+  end
+
+  # Report a fatal problem on stderr and in $GITHUB_OUTPUT, then exit.
+  #
+  # The mirror of `fail()` in scripts/lib/actions_output.mjs: the workflows quote
+  # the `error` output back onto the issue, so a message written here is what a
+  # non-coder reads. Without it a `warn … exit 1` reaches the run log only, and
+  # the issue sits there with no explanation at all.
+  #
+  # @param message [String] plain English, addressed to whoever filled the form
+  # @return [void] never returns
+  def fail(message)
+    warn message
+    write_output("error" => message)
+    exit 1
   end
 end

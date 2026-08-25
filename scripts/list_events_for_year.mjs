@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Build a markdown list of the events already scheduled for a cohort year, so
- * automation can comment it back on the issue as a reference.
+ * automation can comment it back on the issue as a reference. Each line says
+ * whether that event has a page on disk, because only those can take
+ * attachments (see `hasPage` below).
  *
  * Env: ISSUE_BODY. Outputs: year, events_md.
  *
@@ -19,6 +21,7 @@ import * as yaml from 'js-yaml';
 
 import { setOutput } from './lib/actions_output.mjs';
 import { FIELD, FINAL_LABEL, readEventForm, YEAR_PATTERN } from './lib/event_issue.mjs';
+import { slugify } from './lib/issue_body.mjs';
 
 const body = String(process.env.ISSUE_BODY ?? '').replace(/\r\n?/g, '\n');
 
@@ -46,13 +49,33 @@ try {
   finish(`Could not parse \`_data/cohorts/${year}.yml\`: ${error.message}`);
 }
 
+/**
+ * Whether this event has a real page on disk.
+ *
+ * _plugins/events.rb generates a detail page for every event in the schedule
+ * data, so an id being listed here says nothing about there being a file. Only
+ * the ones with a file can take attachments — update_event_attachments_from_issue.mjs
+ * edits `cohorts/<year>/events/<id>/index.md` and does nothing when it is
+ * missing — so the list marks which is which rather than recommending ids that
+ * quietly cannot be used.
+ * @param {unknown} id
+ * @returns {boolean}
+ */
+function hasPage(id) {
+  const eventId = slugify(String(id ?? ''));
+  if (!eventId) return false;
+  return fs.existsSync(path.join(process.cwd(), 'cohorts', year, 'events', eventId, 'index.md'));
+}
+
 finish(
   events.length
     ? events
-        .map(
-          (event) =>
-            `- \`${event.id || '(no id)'}\` — ${event.name || ''}${event.date ? ` (${event.date})` : ''}`
-        )
+        .map((event) => {
+          const id = event.id || '(no id)';
+          const date = event.date ? ` (${event.date})` : '';
+          const page = event.id && hasPage(event.id) ? 'has a details page' : 'no details page yet';
+          return `- \`${id}\` — ${event.name || ''}${date} — ${page}`;
+        })
         .join('\n')
     : 'No events are listed in this cohort schedule yet.'
 );

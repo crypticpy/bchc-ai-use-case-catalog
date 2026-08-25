@@ -317,7 +317,16 @@ async function main(argv) {
   try {
     activity = await fetchActivity(repository, since, { token: process.env.GITHUB_TOKEN ?? '' });
   } catch (error) {
-    console.error(String(error.message ?? error));
+    const message = String(error.message ?? error);
+    console.error(message);
+    // The workflow's failure step says what a red run means; this adds the one
+    // detail only the script knows, so nobody has to open the raw log for it.
+    // The message quotes an HTTP response, so it is flattened to one line and
+    // stripped of backticks before it may style the summary's markdown.
+    if (process.env.GITHUB_STEP_SUMMARY) {
+      const quotable = message.replace(/[`\r\n]+/gu, ' ').slice(0, 300);
+      fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `GitHub answered: \`${quotable}\`\n`);
+    }
     setOutput('changed', 'false');
     return 1;
   }

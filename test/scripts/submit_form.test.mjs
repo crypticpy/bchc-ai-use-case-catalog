@@ -539,6 +539,22 @@ test('a length warning appears before the link stops fitting', async () => {
   assert.match(note.textContent, /getting long|too long/);
 });
 
+test('answers too long for a link fall back to the empty issue form, never a blank issue', async () => {
+  const ctx = await boot();
+  fillRequired(ctx);
+  answer(ctx, 'summary', 'x'.repeat(8000));
+  await settle();
+  sendToGitHub(ctx);
+
+  assert.equal(ctx.opened.length, 0, 'no tab should open for an over-long URL');
+  const link = ctx.form.querySelector('[data-fallback-link]');
+  assert.equal(link.hidden, false, 'the empty-form link is the way in');
+  assert.equal(link.href, 'https://github.com/crypticpy/phct/issues/new?template=new-entry.yml');
+  const status = ctx.form.querySelector('[data-submit-status]').textContent;
+  assert.match(status, /too long to carry across/);
+  assert.doesNotMatch(status, /blank issue/, 'blank issues are disabled — never send anyone there');
+});
+
 test('the preview strip caps signals the way the card does', async () => {
   const ctx = await boot();
   tick(ctx, 'readiness', 3);

@@ -1,0 +1,95 @@
+name: Missing content label
+
+# The quietest failure this repository has.
+#
+# Every content workflow is triggered by a `content:*` label, and an issue form
+# applies a label only if that label already exists. In a fresh fork nobody has
+# run Bootstrap labels yet, so GitHub drops the label silently: the form is
+# filled in, the issue opens, no workflow matches it, and nothing — no comment,
+# no failed run, no red X — ever says why. The submitter waits.
+#
+# This job watches for that shape: an issue that plainly came from one of the
+# content forms but carries no `content:*` label, and says so on the issue.
+#
+# It reads nothing but the title and the label list, comments once, and never
+# writes to the repository.
+
+on:
+  issues:
+    types:
+      - opened
+
+permissions: {}
+
+jobs:
+  explain:
+    # `join()` flattens the label names so one `contains` covers every
+    # `content:*` label without listing them.
+    if: "!contains(join(github.event.issue.labels.*.name, ','), 'content:')"
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Say the label the automation needs is missing
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        with:
+          script: |
+            const title = String(process.env.ISSUE_TITLE || '');
+            // An issue-form submission renders each question as an `### `
+            // heading. A hand-written issue does not, however form-like its
+            // title looks.
+            const formShapedBody = /^### /mu.test(String(process.env.ISSUE_BODY || ''));
+
+            // The other forms (bug, docs, feature, accessibility) also carry a
+            // label, but nothing is automated from them: a maintainer reads the
+            // issue either way. Only the content forms go silent, so only they
+            // are matched here.
+            const OTHER_FORMS = ['[Bug]', '[Docs]', '[Feature]', '[Accessibility]'];
+
+            // Ordered: "Event attachments:" has to be tried before "Event:".
+            const FORMS = [
+              { name: 'Apply setup', label: 'content:site-config', match: (t) => t.startsWith('[Setup]') },
+              {
+                name: 'Update event attachments',
+                label: 'content:event-attachments',
+                match: (t) => t.startsWith('Event attachments:'),
+              },
+              { name: 'Add event details', label: 'content:new-event', match: (t) => t.startsWith('Event:') },
+              { name: 'Start a new cohort year', label: 'content:new-year', match: (t) => t.startsWith('[Cohort]') },
+              { name: 'Update a cohort schedule', label: 'content:schedule', match: (t) => t.startsWith('Schedule:') },
+              // The entry form's prefix is the singular noun the site was
+              // configured with — "[Use case] ", "[Resource] ", "[Project] " —
+              // so it is matched by shape, minus the prefixes above and the
+              // four non-content forms. A bracketed title alone is not enough:
+              // a hand-written "[RFC] …" or "[Question] …" must stay unmatched,
+              // so this rule also demands a form-shaped body.
+              {
+                name: 'entry submission',
+                label: 'content:new-entry',
+                match: (t) =>
+                  formShapedBody && /^\[[^\]]+\]\s/.test(t) && !OTHER_FORMS.some((prefix) => t.startsWith(prefix)),
+              },
+            ];
+
+            const form = FORMS.find((candidate) => candidate.match(title));
+            if (!form) {
+              core.info(`"${title}" does not look like a content form submission; saying nothing.`);
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                `This looks like a **${form.name}** submission, but the label the automation needs is missing — usually because the repository's labels were never set up.`,
+                '',
+                `A maintainer should run **Actions → Bootstrap labels → Run workflow** once, then add the \`${form.label}\` label to this issue (or close it and resubmit the form).`,
+                '',
+                'Nothing you wrote is lost — it is all saved on this issue.',
+              ].join('\n'),
+            });

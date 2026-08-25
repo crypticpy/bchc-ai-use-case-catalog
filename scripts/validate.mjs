@@ -117,7 +117,9 @@ if (ciRepository) {
     matches
       ? ''
       : `site.yml says ${JSON.stringify(siteRepository)} but this repository is ${JSON.stringify(ciRepository)}.\n` +
-          `      Run \`npm run setup\` (or edit github.repository in _data/site.yml) and commit the result.`
+          `      This is normal on a fresh copy: every pull request stays red until the site is configured.\n` +
+          `      Fix it from the browser — open /setup/ on your site (or edit github.repository in\n` +
+          `      _data/site.yml on GitHub) and publish the result. \`npm run setup\` works too, from a checkout.`
   );
 
   const contactFile = path.join(ROOT, '.github', 'ISSUE_TEMPLATE', 'config.yml');
@@ -130,7 +132,9 @@ if (ciRepository) {
       foreign.length === 0,
       '.github/ISSUE_TEMPLATE/config.yml links point at this repository',
       foreign.length
-        ? `contact links still point at ${[...new Set(foreign)].join(', ')}; update the URLs to ${ciRepository}.`
+        ? `contact links still point at ${[...new Set(foreign)].join(', ')}. The setup wizard regenerates\n` +
+            `      this file — open /setup/ on your site (or run \`npm run setup\`) and publish\n` +
+            `      .github/ISSUE_TEMPLATE/config.yml with the URLs pointing at ${ciRepository}.`
         : ''
     );
   }

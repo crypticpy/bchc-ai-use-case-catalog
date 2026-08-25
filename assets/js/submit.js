@@ -199,8 +199,8 @@
       if (near) {
         lengthNote.textContent =
           length > MAX_URL
-            ? 'Your answers are now too long to carry in a link. Pressing the button below will hand you the text to paste into a blank issue instead.'
-            : 'Your answers are getting long. A little more and they will not fit in a link — you will be given text to paste into a blank issue instead.';
+            ? 'Your answers are now too long to carry in a link. Pressing the button below will hand you your answers to paste into the GitHub form instead.'
+            : 'Your answers are getting long. A little more and they will not fit in a link — you will be handed them to paste into the GitHub form instead.';
       }
       lengthNote.hidden = !near;
     }
@@ -344,9 +344,16 @@
       const url = ns.issueUrl(form, fields, entryTitle());
       if (url.length > MAX_URL) {
         ns.exitReview(form);
+        // Too long for a prefilled link, but the empty issue form still opens
+        // fine — it applies the automation's label itself, and its questions
+        // carry the same headings as the copy-out box. A blank issue would
+        // not: the chooser has blank issues off, and submitters cannot label.
         showFallback(
-          'Your answers are too long to carry in a link. Copy the text below into a blank issue instead — the box is right under these buttons.',
-          ''
+          'Your answers are too long to carry across in a link. Open the issue form with the link below, then copy each answer from the box into the question with the same heading.',
+          'https://github.com/' +
+            form.dataset.repo +
+            '/issues/new?template=' +
+            (form.dataset.template || 'new-entry.yml')
         );
         return;
       }
@@ -359,7 +366,7 @@
       if (!opened) {
         ns.exitReview(form);
         showFallback(
-          'Your browser blocked the new tab. Use the link below to open the prefilled issue, or copy the text and paste it into a blank issue.',
+          'Your browser blocked the new tab. Use the link below to open the prefilled issue — your answers travel with it.',
           url
         );
         return;

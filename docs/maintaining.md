@@ -1,20 +1,22 @@
 # Maintainer operations and handoff
 
 This is the routine and emergency runbook for people who did not build PHCT. Commands are the
-developer/recovery path; the GitHub interface is the normal BCHC path. Never paste a secret into
-an issue, pull request, document, Actions input, or terminal transcript.
+developer/recovery path; the GitHub interface is the normal path for running a deployment. Never
+paste a secret into an issue, pull request, document, Actions input, or terminal transcript.
 
 ## The two repositories
 
-- `crypticpy/phct` owns reusable layouts, scripts, workflows, tests, presets, docs, and releases.
-- `crypticpy/bchc-ai-use-case-catalog` owns BCHC identity, policy, configuration, content, media,
-  and its `.phct-version.json` lock.
-- Generic defects discovered in BCHC are fixed and released in PHCT first. BCHC then consumes the
-  immutable tag through **Actions → Update from PHCT**.
+- `crypticpy/phct` — the template — owns reusable layouts, scripts, workflows, tests, presets,
+  docs, and releases.
+- The deployment repository owns the adopting organization's identity, policy, configuration,
+  content, media, and its `.phct-version.json` lock. The reference deployment is
+  `crypticpy/bchc-ai-use-case-catalog`; see [ecosystem.md](ecosystem.md) for the whole family.
+- Generic defects discovered in a deployment are fixed and released in PHCT first. The deployment
+  then consumes the immutable tag through **Actions → Update from PHCT**.
 
 If a file's owner is uncertain, run `npm run ownership:check` and inspect `.phct/ownership.yml`
 before editing. Do not resolve an update conflict by casually choosing “theirs” for `_data/`,
-content, images, or `docs/bchc/`.
+content, or images.
 
 ## Routine operating schedule
 
@@ -31,7 +33,8 @@ content, images, or `docs/bchc/`.
 
 - Triage bug, accessibility, dependency, CodeQL, failed workflow, and security notifications.
 - Review Dependabot in PHCT first. Never merge an update only because a bot opened it.
-- Check the BCHC Actions page for scheduled failures and confirm the demo banner is still accurate.
+- Check the deployment's Actions page for scheduled failures and confirm the demo banner is still
+  accurate.
 
 ### Monthly
 
@@ -39,7 +42,9 @@ content, images, or `docs/bchc/`.
 - Test one submission through issue → pull request → checks → merge → deploy → notification using
   fictional/public data, then remove or clearly label the test entry.
 - Check Pages, custom domain, repository variables, expiring tokens, security reporting, and both
-  named maintainers against `docs/bchc/operations-inventory.yml`.
+  named maintainers against the deployment's own operations record — the settings table in
+  [admin-guide.md](admin-guide.md#repository-settings-at-a-glance) is the list to walk, and
+  `MAINTAINERS.md` names the people.
 
 ### Quarterly
 
@@ -75,7 +80,7 @@ Bots may open release/update pull requests but may never approve or merge them.
 
 Close the pull request and delete its machine branch. The published site has not changed.
 
-### After a BCHC update merges
+### After an update pull request merges in the deployment
 
 1. Open the update pull request and identify its merge commit and the previous
    `.phct-version.json` release/SHA.
@@ -94,29 +99,55 @@ Never delete history or force-push `main` as rollback. For published sensitive d
 - A Git clone with all branches/tags is the source backup; Pages output alone cannot restore issue
   history, settings, secrets, branch rules, Discussions, or DNS.
 - Export/record repository settings and issue/PR metadata using organization-approved tools. Store
-  backups in an access-controlled BCHC location, not in this public repository.
+  backups in an access-controlled location the adopting organization owns, not in this public
+  repository.
 - Quarterly, create a private throwaway repository, restore the code and required settings from the
   inventory, build Pages, and verify a fictional submission and rollback. Delete it through the
   organization's normal recoverable process after evidence is retained.
 
 ## Ownership transfer checklist
 
-Before transfer, the receiving organization names the product owner and backup release maintainer
-in `MAINTAINERS.md` and `.github/CODEOWNERS`. With both people present:
+Work through this with both named people present and in front of the same screen. Nothing here can
+be done for them afterwards.
 
-- confirm admin access, MFA/recovery, repository visibility, default branch, branch rules, tag
-  rules, Actions workflow permissions, Pages source/environment, custom domain/DNS, environments,
-  variables, secrets, labels, Discussions, private vulnerability reporting, secret scanning,
-  Dependabot, and CodeQL;
-- replace personal/bot tokens with organization-owned, least-privilege, expiring credentials;
-- update repository URLs and contact data through the setup workflow, then regenerate outputs;
-- confirm PHCT remains the upstream source and run one candidate update without primary-developer
-  coaching; and
-- run takedown, rollback, credential rotation, and backup-restore drills. Record only outcomes and
-  dates—never secret values—in the downstream operations inventory.
+1. **Name the people first.** Put the product owner and the backup release maintainer in
+   `MAINTAINERS.md` and in `.github/CODEOWNERS`, as real GitHub accounts. Do this before anything
+   below: the rest of the list hands access to whoever those two lines name.
+2. **Confirm admin access and account security.** Settings → Collaborators and teams. Both people
+   hold admin, both have MFA on, and both have their recovery codes stored where their
+   organization keeps such things — not in this repository.
+3. **Confirm the repository shape.** Settings → General: visibility (public, unless the
+   organization has decided otherwise) and the default branch.
+4. **Confirm the protection rules.** Settings → Rules → Rulesets (or Settings → Branches): the
+   branch rules on `main`, and the tag rules that keep release tags immutable.
+5. **Confirm Actions permissions.** Settings → Actions → General → Workflow permissions, including
+   **Allow GitHub Actions to create and approve pull requests**. The consequences of each are in
+   [admin-guide.md](admin-guide.md#repository-settings-at-a-glance).
+6. **Confirm publishing.** Settings → Pages: the source is **GitHub Actions**, the custom domain is
+   correct, and someone in the new organization controls the DNS record behind it. Settings →
+   Environments: the `github-pages` environment and its protection rules.
+7. **Confirm the repository's own switches.** Settings → Secrets and variables → Actions:
+   every **Variable** and every **Secret**, checked against the table in
+   [admin-guide.md](admin-guide.md#repository-settings-at-a-glance). Issues → Labels: the
+   `content:*`, `review:*` and `verification` labels the automation filters on. Settings → General
+   → Features: Discussions, if you use them.
+8. **Confirm the security features.** Settings → Security → Code security and analysis: private
+   vulnerability reporting, secret scanning, Dependabot alerts and updates, and CodeQL.
+9. **Replace every credential.** Personal or bot tokens become organization-owned, least-privilege
+   and expiring — `CONTENT_BOT_TOKEN` and `PHCT_UPDATE_TOKEN` included. Reissue them under the new
+   owner's account, update the secrets, and let the old ones lapse.
+10. **Update the identity in the content.** Repository URLs and contact addresses go through the
+    setup workflow rather than a hand-edit, then regenerate the derived files (`npm run generate`,
+    or the **Apply setup** issue) so the issue forms and links follow.
+11. **Confirm the upstream link still works.** PHCT remains the source of template changes: run one
+    candidate update through **Actions → Update from PHCT** with the new maintainers driving and
+    the original developer silent.
+12. **Run the drills.** Takedown, rollback, credential rotation, and backup-restore, from these
+    documents. Record outcomes and dates in the deployment's operations record — never secret
+    values.
 
-Transfer is incomplete until the new backup maintainer can perform all four drills from these
-documents without live coaching.
+Transfer is incomplete until the new backup maintainer can perform all four drills in step 12 from
+these documents without live coaching.
 
 ## When to escalate
 

@@ -42,15 +42,35 @@ export function buildVersionLock({ release, commit, date, packageVersion, reposi
   };
 }
 
+/**
+ * The recorded_at to carry forward: re-recording the release and commit the
+ * lock already names must be byte-identical, so an unchanged re-run of the
+ * updater leaves the tree clean and its "already up to date" exit stays
+ * reachable. Any change to release or commit records fresh.
+ */
+export function preservedDate(previousLock, release, commit) {
+  if (!previousLock || typeof previousLock !== 'object') return undefined;
+  return previousLock.release === release && previousLock.commit === commit
+    ? previousLock.recorded_at
+    : undefined;
+}
+
 function main(argv) {
   const args = parseArgs(argv);
   const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const manifest = yaml.load(fs.readFileSync(path.join(ROOT, '.phct/ownership.yml'), 'utf8'));
+  let previousDate;
+  try {
+    const previous = JSON.parse(fs.readFileSync(path.join(ROOT, '.phct-version.json'), 'utf8'));
+    previousDate = preservedDate(previous, args.release, args.commit);
+  } catch {
+    // No usable previous lock — record fresh.
+  }
   try {
     const lock = buildVersionLock({
       release: args.release,
       commit: args.commit,
-      date: args.date ?? new Date().toISOString().slice(0, 10),
+      date: args.date ?? previousDate ?? new Date().toISOString().slice(0, 10),
       packageVersion: packageJson.version,
       repository: manifest.template.repository,
     });

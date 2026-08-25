@@ -8,6 +8,7 @@
 
 import {
   COLOR_QUESTIONS,
+  defaultConfig,
   isHexColor,
   isRepositoryIdentity,
   motionProblems,
@@ -15,7 +16,15 @@ import {
 } from '../core.js';
 import { expandField, fieldToggleId } from '../steps/field-rows.js';
 import { answerFieldId } from './controls.js';
-import { enabledFields, schemaFields, state, STEPS } from './state.js';
+import { detectedRepository, enabledFields, schemaFields, state, STEPS } from './state.js';
+
+/** The template's own `owner/repo` — no deployment's answers should still point here. */
+const TEMPLATE_REPOSITORY = defaultConfig().site.github.repository;
+
+/** GitHub repository identities are case-insensitive; compare them that way. */
+function sameRepository(left, right) {
+  return String(left).trim().toLowerCase() === String(right).trim().toLowerCase();
+}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,6 +74,20 @@ function basicsProblems() {
   if (!isRepositoryIdentity(answers.repository)) {
     problems.push({
       message: 'GitHub repository must be in the form owner/repo.',
+      target: answerFieldId('repository'),
+    });
+  } else if (
+    sameRepository(answers.repository, TEMPLATE_REPOSITORY) &&
+    detectedRepository &&
+    !sameRepository(detectedRepository, TEMPLATE_REPOSITORY)
+  ) {
+    // The template's own identity survives into copies that skipped this
+    // field; every submission and edit link would then point at the template.
+    // Only a *positive* detection of a different repository counts: on a local
+    // preview or a custom domain nothing distinguishes the template itself
+    // from a copy, and the template's own site must stay configurable.
+    problems.push({
+      message: `GitHub repository still points at the template (${TEMPLATE_REPOSITORY}). Enter your own copy's owner/repo — submission links, edit links and the Apply setup issue all go to the repository named here.`,
       target: answerFieldId('repository'),
     });
   }

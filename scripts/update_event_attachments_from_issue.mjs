@@ -5,7 +5,8 @@
  * Input (env): ISSUE_BODY
  * Output:      rewrites cohorts/<year>/events/<event_id>/index.md
  *              $GITHUB_OUTPUT: changed, and (when changed) slug, year, branch;
- *              error, when the year or event id is not a usable path segment.
+ *              reason, when nothing changed and why; error, when the year or
+ *              event id is not a usable path segment.
  *
  * The rest of the front matter is spliced through untouched rather than
  * re-serialized, so hand-written keys, ordering and comments survive.
@@ -31,14 +32,23 @@ const ROOT = process.cwd();
 
 const body = String(process.env.ISSUE_BODY ?? '').replace(/\r\n?/g, '\n');
 
-/** Report "nothing changed" and exit cleanly — the workflow comments instead of failing. */
+/**
+ * Report "nothing changed" and exit cleanly — the workflow comments instead of
+ * failing. The reason travels with it: five different situations end up here,
+ * and a comment that says only "no changes were made" leaves the submitter with
+ * nothing to act on. The workflow quotes `reason` back onto the issue.
+ */
 function noChange(reason) {
   console.error(reason);
   setOutput('changed', 'false');
+  setOutput('reason', reason);
   process.exit(0);
 }
 
-if (!body.trim()) noChange('The issue body is empty; nothing to update.');
+if (!body.trim())
+  noChange(
+    'The issue is empty, so there is nothing to attach. Fill the form in and the automation will try again.'
+  );
 
 const { value } = readEventForm(body, FINAL_LABEL.attachments);
 
@@ -60,8 +70,16 @@ const newItems = value(...FIELD.attachments)
   })
   .filter(Boolean);
 
-if (!year || !requestedId) noChange('The cohort year and event id are both required.');
-if (newItems.length === 0) noChange('No attachments could be parsed. Use one "Title | URL" pair per line.');
+if (!year || !requestedId) {
+  noChange(
+    'Both **Cohort Year** and **Event ID** need a value. Put `help` in the Event ID field and the automation will comment with the IDs it knows about.'
+  );
+}
+if (newItems.length === 0) {
+  noChange(
+    'Nothing could be read from the **Attachments** box. Write one item per line, as `Title | https://link-to-the-file`.'
+  );
+}
 
 // The id is a folder name, so it is normalized the same way new_event_from_issue.mjs
 // derives one, then re-checked together with the year before a path is built.
@@ -74,11 +92,27 @@ if (eventId !== requestedId) {
 
 const absPath = path.join(dir, 'index.md');
 const relPath = `${relative}/index.md`;
-if (!fs.existsSync(absPath)) noChange(`No event page at ${relPath}.`);
+// A cohort event that only lives in _data/cohorts/<year>.yml gets its page
+// generated at build time, so there is no file here to attach anything to.
+// The "Add event details" form writes that file; this one only edits it.
+// Read-then-catch rather than exists-then-read, so there is no window between
+// the check and the use.
+let raw;
+try {
+  raw = fs.readFileSync(absPath, 'utf8');
+} catch (readError) {
+  if (readError.code !== 'ENOENT') throw readError;
+  noChange(
+    `There is no event page at \`${relPath}\` yet, so there is nothing to attach materials to. Use the **Add event details** form to create the page for this event first, then come back to this one.`
+  );
+}
 
-const content = fs.readFileSync(absPath, 'utf8').replace(/\r\n/g, '\n');
+const content = raw.replace(/\r\n/g, '\n');
 const match = content.match(/^---\n(.*?)\n---\n?(.*)$/s);
-if (!match) noChange(`${relPath} has no YAML front matter.`);
+if (!match)
+  noChange(
+    `\`${relPath}\` is missing its front matter block, so it cannot be edited safely. A maintainer needs to look at that file.`
+  );
 
 const [, frontMatter, pageBody] = match;
 
@@ -87,7 +121,9 @@ try {
   const parsed = yaml.load(frontMatter) || {};
   existing = Array.isArray(parsed.attachments) ? parsed.attachments.filter((a) => a && a.title && a.url) : [];
 } catch (error) {
-  noChange(`${relPath} has invalid front matter: ${error.message}`);
+  noChange(
+    `The front matter in \`${relPath}\` could not be read, so it was left alone. A maintainer needs to look at that file: ${error.message}`
+  );
 }
 
 // Drop the existing `attachments:` block; everything else passes through verbatim.
@@ -117,7 +153,8 @@ while (kept.length > 0 && kept[kept.length - 1].trim() === '') kept.pop();
 
 const updated = `---\n${[...kept, pair('attachments', merged)].join('\n')}\n---\n\n${pageBody.replace(/^\n+/, '')}`;
 
-if (updated === content) noChange('The attachments already match what was submitted.');
+if (updated === content)
+  noChange('The event page already lists exactly these attachments, so there was nothing to change.');
 
 fs.writeFileSync(absPath, updated, 'utf8');
 
