@@ -12,11 +12,15 @@
 # workflow opens a PR with the scaffolded files afterwards.
 # Env: COHORT_YEAR (required, four digits), COHORT_INTRO (optional).
 # Output: writes cohorts/<year>/index.md and _data/cohorts/<year>.yml under the
-# repo root; prints a summary line.
+# repo root; prints a summary line. Outputs (via GITHUB_OUTPUT): created
+# ("true" when either file was written, "false" when the year already existed),
+# and `error` on a refusal — the workflow quotes that one back onto the issue.
 
 require "fileutils"
 require "yaml"
 require "psych"
+
+require_relative "lib/issue_form"
 
 # Render one value as the YAML scalar node Psych itself would write for it
 # (plain, quoted or a literal block, whichever the value needs).
@@ -36,8 +40,7 @@ end
 year = ENV["COHORT_YEAR"].to_s.strip
 
 unless year.match?(/\A\d{4}\z/)
-  warn "COHORT_YEAR must be a four-digit year (got #{year.inspect})."
-  exit 1
+  IssueForm.fail("The **Cohort Year** field needs a four-digit year, like `2026`. It currently reads #{year.inspect}.")
 end
 
 root = File.expand_path("..", __dir__)
@@ -50,8 +53,11 @@ FileUtils.mkdir_p(data_dir)
 intro = ENV["COHORT_INTRO"].to_s.strip
 intro = "Overview of the #{year} cohort. Replace this with the program summary." if intro.empty?
 
+created = false
+
 index_path = File.join(cohort_dir, "index.md")
 unless File.exist?(index_path)
+  created = true
   File.write(index_path, <<~MARKDOWN)
     ---
     layout: cohort
@@ -66,6 +72,7 @@ end
 
 data_path = File.join(data_dir, "#{year}.yml")
 unless File.exist?(data_path)
+  created = true
   template = {
     "year" => year.to_i,
     "events" => [
@@ -87,4 +94,16 @@ unless File.exist?(data_path)
   File.write(data_path, Psych.dump(template, line_width: -1))
 end
 
-puts "Scaffolded cohort #{year} (cohorts/#{year}/ and _data/cohorts/#{year}.yml)."
+# Existing files are never overwritten, so a re-run for a year that is already
+# set up writes nothing at all. Said out loud here rather than left as an empty
+# diff: the workflow turns `created=false` into a comment on the issue, which is
+# the only place the person who asked for the year is looking.
+IssueForm.write_output("created" => created ? "true" : "false")
+
+puts(
+  if created
+    "Scaffolded cohort #{year} (cohorts/#{year}/ and _data/cohorts/#{year}.yml)."
+  else
+    "Cohort #{year} already exists; nothing was written."
+  end
+)

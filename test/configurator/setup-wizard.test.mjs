@@ -195,6 +195,24 @@ test('an empty or malformed repository is explained before review rendering', ()
   assert.equal($('#step-heading').textContent, 'Colors & type');
 });
 
+test('a repository still naming the template is refused on another deployment', () => {
+  goToStep(2);
+  type('#field-repository', shipped.site.github.repository);
+  press('Continue');
+  assert.equal($('#step-heading').textContent, 'Names & contact');
+  assert.match($('#wizard-error-summary').textContent, /still points at the template/u);
+
+  // Repository identities are case-insensitive on GitHub; so is the refusal.
+  type('#field-repository', shipped.site.github.repository.toUpperCase());
+  press('Continue');
+  assert.equal($('#step-heading').textContent, 'Names & contact');
+  assert.match($('#wizard-error-summary').textContent, /still points at the template/u);
+
+  type('#field-repository', 'bigcities/ai-catalog');
+  press('Continue');
+  assert.equal($('#step-heading').textContent, 'Colors & type');
+});
+
 test('jumping ahead by step pill validates the steps it would skip', () => {
   goToStep(3);
   type('#field-primary', 'nope');
@@ -593,4 +611,15 @@ test('the review step renders every file, and the new field is in the schema out
 
 test('nothing in the whole run raised a page error', () => {
   assert.deepEqual(errors, []);
+});
+
+test('repositoryFromLocation names the repository a github.io address serves', async () => {
+  const { repositoryFromLocation } = await import('../../assets/js/configurator/wizard/state.js');
+  // A project site: the first path segment is the repository.
+  assert.equal(repositoryFromLocation('bigcities.github.io', '/ai-catalog/setup/'), 'bigcities/ai-catalog');
+  // A user/organization site serves from the root of a repo named after the host.
+  assert.equal(repositoryFromLocation('bigcities.github.io', '/setup/'), 'bigcities/bigcities.github.io');
+  // A custom domain names neither owner nor repository.
+  assert.equal(repositoryFromLocation('catalog.example.org', '/setup/'), null);
+  assert.equal(repositoryFromLocation('github.io', '/setup/'), null);
 });

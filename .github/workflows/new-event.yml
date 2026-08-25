@@ -60,11 +60,16 @@ jobs:
 
       - name: List the events already scheduled for this year
         id: list
+        if: github.event.action == 'opened'
         run: node scripts/list_events_for_year.mjs
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
 
+      # Reference material, posted once. It used to repeat on every edit, so
+      # correcting a typo buried the automation's real answer under a copy of
+      # a list the submitter had already read.
       - name: Comment with the existing schedule for reference
+        if: github.event.action == 'opened'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           LIST_YEAR: ${{ steps.list.outputs.year }}
@@ -159,3 +164,57 @@ jobs:
               echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
             fi
           done
+
+      - name: Link the pull request from the issue
+        if: steps.cpr.outputs.pull-request-number != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+          PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+        with:
+          script: |
+            // An edited issue updates the existing pull request; say that
+            // instead of repeating the full first-time comment.
+            const body = process.env.PR_OPERATION === 'updated'
+              ? [
+                  'Updated the pull request from your edit:',
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'The diff there now shows the new details.'
+                ]
+              : [
+                  'Thanks. This event is now a pull request waiting for a maintainer:',
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'Nothing is published until a maintainer merges it. To change an answer, edit this issue — the automation will redo the pull request. To attach slides or a PDF afterwards, use the **Update event attachments** form.'
+                ];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.join('\n')
+            });
+
+      # The steps above can still leave the issue silent if the pull request
+      # itself is refused — most often because "Allow GitHub Actions to create
+      # and approve pull requests" was never ticked.
+      - name: Say the pull request could not be opened
+        if: failure() && steps.scaffold.outcome != 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                'Something went wrong while turning this event into a pull request, so no pull request was opened.',
+                '',
+                'The usual cause is one repository setting: a maintainer should open **Settings → Actions → General → Workflow permissions** and tick **Allow GitHub Actions to create and approve pull requests**.',
+                '',
+                `Once that is on, edit this issue to retry. The full run is under the [Actions tab](https://github.com/${owner}/${repo}/actions).`
+              ].join('\n')
+            });

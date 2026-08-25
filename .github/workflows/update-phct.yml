@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: Exact PHCT tag, for example v1.9.0-rc.1
+        description: Exact PHCT release tag, e.g. v1.9.0 — copy it from https://github.com/crypticpy/phct/releases
         required: true
         type: string
 
@@ -74,8 +74,27 @@ jobs:
           RELEASE: ${{ inputs.release }}
         run: |
           set -euo pipefail
-          if ! printf '%s' "$RELEASE" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+          releases_url=https://github.com/crypticpy/phct/releases
+          issues_url=https://github.com/crypticpy/phct/issues
+          # A whole-string match, not line-based grep: a multi-line value whose
+          # first line looks like a tag must not slip past into the release=
+          # output write below.
+          tag_pattern='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'
+          if ! [[ "$RELEASE" =~ $tag_pattern ]]; then
             echo "Release must be an exact semantic-version tag such as v1.9.0 or v1.9.0-rc.1." >&2
+            # Echo the rejected input back safely: anything outside this set,
+            # including a newline that could forge a workflow command, becomes ?.
+            safe_release="$(printf '%s' "$RELEASE" | tr -c 'A-Za-z0-9.+_-' '?' | cut -c1-60)"
+            echo "::error title=That is not a PHCT release tag::Enter an exact tag such as v1.9.0 or v1.9.0-rc.1, copied from $releases_url."
+            {
+              echo "## That is not a PHCT release tag"
+              echo
+              echo "Nothing was changed. No branch and no pull request were created."
+              echo
+              echo "You entered \`$safe_release\`. A release tag is an exact version: a lowercase \`v\`, three numbers separated by dots, and nothing else — for example \`v1.9.0\` or \`v1.9.0-rc.1\`."
+              echo
+              echo "Open $releases_url, copy the tag exactly as it is written beside the release you want, and run **Update from PHCT** again."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 2
           fi
           git remote add phct https://github.com/crypticpy/phct.git
@@ -90,13 +109,69 @@ jobs:
           fi
           from_ref="refs/phct-update/from/$from"
           tag_ref="refs/phct-update/to/$RELEASE"
-          git fetch --force --no-tags phct \
-            "refs/tags/$from:$from_ref" \
-            "refs/tags/$RELEASE:$tag_ref"
+          # Fetched one refspec at a time so a missing tag names itself. Both
+          # refs are still the same immutable tags, fetched from the same remote.
+          if ! git fetch --force --no-tags phct "refs/tags/$from:$from_ref"; then
+            if [ "$lock_state" = "bootstrapped" ]; then
+              echo "::error title=This copy reports a template version that has no release::Version $from is not published at $releases_url."
+              {
+                echo "## This copy reports a template version that has no release"
+                echo
+                echo "Nothing was changed. No branch and no pull request were created."
+                echo
+                echo "This copy reports template version \`$from\`, but no such release exists. This usually means the copy was created between releases, from template code that had not been published yet."
+                echo
+                echo "What to do:"
+                echo
+                echo "1. Open $releases_url."
+                echo "2. If \`$from\` is listed there now, simply run **Update from PHCT** again — it will work this time."
+                echo "3. If the newest release listed is older than \`$from\`, this deployment cannot update itself yet, because the updater has no published starting point to compare against. Wait until \`$from\` is released, or report it to the template maintainers at $issues_url with a link to this run and the version \`$from\`."
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error title=The recorded starting release is missing::$from is recorded in .phct-version.json but is no longer published at $releases_url."
+              {
+                echo "## The release this deployment records has disappeared"
+                echo
+                echo "Nothing was changed. No branch and no pull request were created."
+                echo
+                echo "This deployment's \`.phct-version.json\` says it runs \`$from\`, but the template repository no longer has a release with that tag. A published release is never supposed to disappear, so the updater stops instead of guessing."
+                echo
+                echo "What to do: report this to the template maintainers at $issues_url with a link to this run and the release name \`$from\`. Your site is unaffected in the meantime."
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 2
+          fi
+          if ! git fetch --force --no-tags phct "refs/tags/$RELEASE:$tag_ref"; then
+            # Only a tag Git actually resolved is ever echoed verbatim.
+            safe_release="$(printf '%s' "$RELEASE" | tr -c 'A-Za-z0-9.+_-' '?' | cut -c1-60)"
+            echo "::error title=No PHCT release named $safe_release::Copy an exact tag from $releases_url and run the update again."
+            {
+              echo "## There is no PHCT release named \`$safe_release\`"
+              echo
+              echo "Nothing was changed. No branch and no pull request were created."
+              echo
+              echo "The template repository has no release tagged \`$safe_release\`. The tag may be misspelled, or it may not be published yet."
+              echo
+              echo "Open $releases_url, copy the tag exactly as it is written beside the release you want, and run **Update from PHCT** again."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 2
+          fi
           resolved_from="$(git rev-parse "$from_ref^{commit}")"
           if [ -n "$locked_commit" ] && [ "$resolved_from" != "$locked_commit" ]; then
             echo "Locked PHCT commit $locked_commit does not match $from at $resolved_from." >&2
             echo "Refusing an update from a moved tag or inconsistent lock file." >&2
+            echo "::error title=The recorded template release no longer matches::Refusing an update from a moved tag or inconsistent lock file."
+            {
+              echo "## The update was refused for safety"
+              echo
+              echo "Nothing was changed. No branch and no pull request were created."
+              echo
+              echo "This deployment's \`.phct-version.json\` records that it runs \`$from\` at commit \`$locked_commit\`, but \`$from\` in the template repository now points at commit \`$resolved_from\`."
+              echo
+              echo "A published release tag is never supposed to move, so the updater stops rather than guess which of those two versions this deployment is really running."
+              echo
+              echo "What to do: report this to the template maintainers at $issues_url with a link to this run, the release name \`$from\`, and both commits above. Do not merge any template update until they confirm which commit is correct. Your site is unaffected in the meantime."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 2
           fi
           if [ "$lock_state" = "bootstrapped" ]; then
@@ -195,7 +270,22 @@ jobs:
           npm run ownership:snapshot -- "$RUNNER_TEMP/deployment-protected-after.json"
 
       - name: Run every non-browser release gate
-        run: npm run verify
+        run: |
+          set -euo pipefail
+          if npm run verify; then
+            exit 0
+          fi
+          echo "::error title=The update failed this deployment's own tests::Nothing was published. The failing output is in this step's log."
+          {
+            echo "## The update failed this deployment's own tests"
+            echo
+            echo "The update's full test suite failed on the candidate. Nothing was published: no branch, no pull request, and your live site is untouched."
+            echo
+            echo "This usually means the new release is incompatible with this deployment — report it to the template maintainers at https://github.com/crypticpy/phct/issues with a link to this run."
+            echo
+            echo "The failure itself is in the **Run every non-browser release gate** step of the log on this page."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - name: Commit the verified candidate and create its publication bundle
         id: candidate
@@ -207,8 +297,20 @@ jobs:
           set -euo pipefail
           git add -A
           if git diff --cached --quiet; then
-            echo "The downstream already contains $RELEASE ($PARENT_COMMIT)." >&2
-            exit 2
+            # A benign no-op, not a failure: re-running the updater on a
+            # release this deployment already consumes must finish green.
+            echo "::notice title=Already up to date::This deployment already runs $RELEASE ($PARENT_COMMIT). Nothing to do."
+            {
+              echo "## Already up to date"
+              echo
+              echo "Already up to date — this deployment already runs \`$RELEASE\`. Nothing to do."
+              echo
+              echo "The updater compared this deployment against \`$RELEASE\` (commit \`$PARENT_COMMIT\`) and found no difference in any template-owned file, so it created no branch and no pull request. Nothing needed changing and nothing was changed."
+              echo
+              echo "This run succeeded. To take a newer release, run **Update from PHCT** again with a later tag from https://github.com/crypticpy/phct/releases."
+            } >> "$GITHUB_STEP_SUMMARY"
+            printf 'up_to_date=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           git -c core.hooksPath=/dev/null commit --no-verify -m "chore: update PHCT to $RELEASE"
           candidate_commit="$(git rev-parse HEAD)"
@@ -217,6 +319,7 @@ jobs:
           printf 'commit=%s\n' "$candidate_commit" >> "$GITHUB_OUTPUT"
 
       - name: Save the inspectable site and ownership evidence
+        if: steps.candidate.outputs.up_to_date != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: phct-update-${{ steps.release.outputs.release }}
@@ -229,6 +332,7 @@ jobs:
 
       - name: Transfer the verified commit to an isolated publication job
         id: publication
+        if: steps.candidate.outputs.up_to_date != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: phct-publication-${{ steps.release.outputs.release }}
@@ -239,6 +343,10 @@ jobs:
   publish:
     name: Publish verified PHCT update
     needs: update
+    # An "already up to date" run succeeds without producing a candidate
+    # commit. There is nothing to publish, so this job is skipped rather than
+    # failed. Every other outcome of the update job still gates publication.
+    if: needs.update.result == 'success' && needs.update.outputs.candidate_commit != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -315,16 +423,18 @@ jobs:
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           # Backticks below are intentional Markdown, not shell substitutions.
           # shellcheck disable=SC2016
           {
             printf 'Updates this deployment from PHCT `%s` to [`%s`](https://github.com/crypticpy/phct/releases/tag/%s).\n\n' "$FROM" "$RELEASE" "$RELEASE"
+            printf 'The workflow run that produced it, with the downloadable site preview: %s\n\n' "$run_url"
             printf 'Previous parent commit: `%s`\n' "$FROM_COMMIT"
             printf 'Exact parent commit: `%s`\n' "$COMMIT"
             printf 'Verified downstream commit: `%s`\n' "$CANDIDATE_COMMIT"
             printf 'Publication bundle digest: `%s`\n\n' "$PUBLICATION_DIGEST"
             if [ "$LOCK_STATE" = "bootstrapped" ]; then
-              printf '> [!IMPORTANT]\n> This is the first lock-aware update for this deployment. The workflow derived `%s` from `package.json`; verify previous parent commit `%s` against the PHCT release before approval.\n\n' "$FROM" "$FROM_COMMIT"
+              printf '> [!IMPORTANT]\n> This is the first update that records which template release this deployment runs. Nothing was recorded before, so the workflow worked out from `package.json` that you were on `%s`. Check that before approving: open https://github.com/crypticpy/phct/releases, find `%s`, and check the commit shown beside the tag starts with `%.7s`.\n\n' "$FROM" "$FROM" "$FROM_COMMIT"
             else
               printf 'The previous parent commit matched the existing `.phct-version.json` lock.\n\n'
             fi
@@ -336,12 +446,11 @@ jobs:
             printf -- '- [x] `npm run verify` passed on the update commit\n'
             printf -- '- [x] The verified commit crossed into a clean publication runner through a digest-checked Git bundle\n'
             printf -- '- [x] An inspectable `_site` artifact is attached to the workflow run\n\n'
-            printf '### Human release checklist\n\n'
-            printf -- '- [ ] Read the PHCT release and migration notes\n'
-            printf -- '- [ ] Review every changed generated file\n'
-            printf -- '- [ ] Confirm the deployment name, demo banner, policy, content, and media in the preview\n'
-            printf -- '- [ ] Confirm Validate Content, Quality, Performance, Supply chain, and CodeQL are green\n'
-            printf -- '- [ ] Approve only after the release-candidate rehearsal is complete\n'
+            printf '### Before you merge this\n\n'
+            printf -- '- [ ] Read the release notes: https://github.com/crypticpy/phct/releases/tag/%s\n' "$RELEASE"
+            printf -- '- [ ] Every check in the Checks box on this pull request shows a green tick\n'
+            printf -- '- [ ] Download the site preview (the `phct-update-%s` artifact) from the workflow run page linked above (%s), unzip it, open `index.html`, and confirm the site still looks like yours — name, banner, policy, content, and images\n' "$RELEASE" "$run_url"
+            printf -- '- [ ] Look through the Files changed tab, including the regenerated files\n'
           } > "$RUNNER_TEMP/phct-pr-body.md"
 
           open_pr="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"

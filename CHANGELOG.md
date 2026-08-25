@@ -8,6 +8,47 @@ major version, and each entry says so when it happens.
 
 ## [Unreleased]
 
+## [1.9.0-rc.4] — 2026-08-25
+
+### Added
+
+- A new `missing-label` workflow explains the quietest failure a fresh copy has: an issue-form
+  submission whose `content:*` label was silently dropped because **Bootstrap labels** never ran.
+  It matches only form-shaped issue bodies, so hand-written issues are never falsely flagged.
+- Schedule updates now preview the parsed event IDs on the issue and warn how many stored events
+  the list will replace before anything merges; the preview edits itself in place instead of
+  stacking duplicate comments.
+
+### Fixed
+
+- No issue-form flow goes silent any more: every content workflow (new entry, new event, new
+  cohort year, schedule, attachments, apply-setup) answers the issue on every exit — script
+  rejections in plain English, a catch-all with the exact **Workflow permissions** click-path
+  when the pull request itself is refused, dedicated replies for already-exists, nothing-changed
+  and submissions-closed, and "Updated the pull request from your edit" instead of a repeated
+  first-time comment when an issue is edited.
+- The downstream updater writes a step summary for every way a run can end, and "already up to
+  date" is now a reachable green no-op: re-recording an unchanged release preserves the version
+  lock's original `recorded_at`, so a re-run leaves the tree byte-identical. The tag gate is a
+  whole-string match, closing a `GITHUB_OUTPUT` injection window for multi-line values.
+- Scheduled workflows (metrics, verification sweep, Pages stamp, thumbnails) explain themselves
+  when their module is off and post what-to-do summaries on failure; the sweep issue caps its
+  listing at 150 links and the sweep can be run manually.
+- The setup wizard derives the repository from the `*.github.io` address it is served on and
+  refuses — case-insensitively, and only on a positively detected copy — a configuration that
+  still points at the template repository. The fork-identity CI message now leads with the
+  browser path and says a red first pull request is normal. The submit form's too-long fallback
+  links the issue form itself instead of a blank issue no workflow would pick up.
+- The metrics failure summary flattens and truncates the HTTP error it quotes, and the
+  attachments updater reads the event page directly instead of checking existence first.
+
+### Changed
+
+- `docs/launch.md` is the single settings walkthrough (a repository-settings table, Dependabot
+  red-until-configured note, fork Issues/Actions defaults, ownership-file replacement);
+  `docs/admin-guide.md` gains bot-pull-request and scheduled-workflow troubleshooting sections;
+  the repository transfer procedure in `docs/maintaining.md` is a numbered checklist.
+
 ## [1.9.0-rc.3] — 2026-08-24
 
 ### Added
@@ -1008,7 +1049,9 @@ fixed in this release, and the remaining P3s are listed in `docs/roadmap.md`.
   in-browser and CLI configurators, GitHub-issue submission flow, events /
   cohorts / resources modules, Lunr search, thumbnails workflow.
 
-[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.2...HEAD
+[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.4...HEAD
+[1.9.0-rc.4]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.3...v1.9.0-rc.4
+[1.9.0-rc.3]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.2...v1.9.0-rc.3
 [1.9.0-rc.2]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.1...v1.9.0-rc.2
 [1.9.0-rc.1]: https://github.com/crypticpy/phct/compare/v1.8.1...v1.9.0-rc.1
 [1.8.1]: https://github.com/crypticpy/phct/compare/v1.8.0...v1.8.1

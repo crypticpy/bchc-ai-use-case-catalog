@@ -207,7 +207,12 @@ jobs:
           if [ -n "$url" ]; then
             gh pr edit "$BRANCH" --title "Add entry: $ENTRY_TITLE" --body-file /tmp/pr-body.md \
               --add-label content:new-entry
-            echo "url=" >> "$GITHUB_OUTPUT"
+            # The pull request was updated, not opened. Both facts are carried
+            # out: the issue still needs an answer, and it is a shorter one —
+            # the submitter was told to edit the issue and deserves to hear
+            # that the edit landed.
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+            echo "reused=true" >> "$GITHUB_OUTPUT"
           else
             url="$(gh pr create \
               --base "${GITHUB_REF_NAME}" \
@@ -226,6 +231,7 @@ jobs:
       # `escalate_on` list in _data/schema.yml, so the closer-review block in
       # the body is also visible from the pull request list.
       - name: Label the pull request for review
+        id: labels
         if: steps.commit.outputs.created == 'true'
         env:
           GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
@@ -238,6 +244,10 @@ jobs:
           if gh pr edit "$BRANCH" --add-label "$labels" 2>/tmp/label-error.txt; then
             echo "Labelled the pull request: $labels" >> "$GITHUB_STEP_SUMMARY"
           else
+            # Also reported on the issue (see the linking step below): the run
+            # summary is a place maintainers reach only if they already suspect
+            # something, and this is the one repair a maintainer has to make.
+            echo "failed=true" >> "$GITHUB_OUTPUT"
             {
               echo "### Review labels not applied"
               echo
@@ -284,7 +294,38 @@ jobs:
           done
 
       - name: Link the pull request from the issue
-        if: steps.pr.outputs.url != ''
+        if: steps.pr.outputs.url != '' && steps.pr.outputs.reused != 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+          LABELS_FAILED: ${{ steps.labels.outputs.failed }}
+        with:
+          script: |
+            const body = [
+              'Thanks. Your submission is now a pull request waiting for a maintainer:',
+              '',
+              process.env.PR_URL,
+              '',
+              'Nothing is published until a maintainer merges it. To change an answer, edit this issue — the automation will redo the pull request. To add a screenshot or a PDF, drag it onto this issue and edit it.'
+            ];
+            if (process.env.LABELS_FAILED === 'true') {
+              body.push(
+                '',
+                'One housekeeping note for the maintainers: the review labels could not be added, which means the repository is missing them. Run **Actions → Bootstrap labels → Run workflow** once and later pull requests will be labelled. This one is fine as it is.'
+              );
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.join('\n')
+            });
+
+      # An `issues: edited` re-run updates the pull request that already exists.
+      # The comment above tells submitters to edit the issue to correct an
+      # answer, so silence here reads as "the edit was ignored".
+      - name: Say the pull request was updated
+        if: steps.pr.outputs.reused == 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_URL: ${{ steps.pr.outputs.url }}
@@ -295,10 +336,62 @@ jobs:
               repo: context.repo.repo,
               issue_number: context.issue.number,
               body: [
-                'Thanks. Your submission is now a pull request waiting for a maintainer:',
+                'Updated the pull request from your edit:',
                 '',
                 process.env.PR_URL,
                 '',
-                'Nothing is published until a maintainer merges it. To change an answer, edit this issue — the automation will redo the pull request. To add a screenshot or a PDF, drag it onto this issue and edit it.'
+                'It now matches this issue. Edit again any time — a maintainer reviews the pull request, and nothing is published until it is merged.'
+              ].join('\n')
+            });
+
+      # Everything above can still leave the issue silent: the push or the
+      # pull request itself can be refused — classically because "Allow GitHub
+      # Actions to create and approve pull requests" was never ticked — and the
+      # failure comment further up only covers the scaffolder.
+      - name: Say the pull request could not be opened
+        if: failure() && steps.scaffold.outcome != 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                'Your submission was read, but the pull request could not be opened, so nothing has been lost and nothing has been published.',
+                '',
+                'The usual cause is one repository setting: a maintainer should open **Settings → Actions → General → Workflow permissions** and tick **Allow GitHub Actions to create and approve pull requests**.',
+                '',
+                `Once that is on, edit this issue to retry. The full run is under the [Actions tab](https://github.com/${owner}/${repo}/actions).`
+              ].join('\n')
+            });
+
+  # With SUBMISSIONS_OPEN set to `false` the job above simply does not run for
+  # an outside contributor, and their submission sat there with no reply at all
+  # — the one case where the automation is working exactly as configured and
+  # still looks broken to the person who used the form.
+  say-submissions-are-closed:
+    if: >-
+      github.event.action == 'opened'
+      && contains(github.event.issue.labels.*.name, 'content:new-entry')
+      && vars.SUBMISSIONS_OPEN == 'false'
+      && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Say a maintainer will handle it by hand
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Thanks for this. Submissions are currently closed, so the automation has not turned it into a pull request — a maintainer will review it by hand.',
+                '',
+                'Nothing more is needed from you. Everything you wrote is saved on this issue.'
               ].join('\n')
             });

@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  MAX_LISTED,
   issueBody,
   lastConfirmed,
   monthName,
@@ -164,6 +165,65 @@ test('issueBody counts in the singular and the plural', () => {
     issueBody({ stale, repo: '', branch: 'main', siteUrl: '', afterDays: 365, today: '2026-08-17' });
   assert.match(render(one), /^One entry has gone more than 365 days/);
   assert.match(render(two), /^2 entries have gone more than 365 days/);
+});
+
+test('issueBody explains how to clear an item without assuming pull-request fluency', () => {
+  const stale = staleEntries([entry({ data: { published: '2024-01-01' } })], day('2026-08-17'), 365);
+  const body = issueBody({
+    stale,
+    repo: 'org/catalog',
+    branch: 'main',
+    siteUrl: '',
+    afterDays: 365,
+    today: '2026-08-17',
+  });
+  assert.match(body, /\*\*edit front matter\*\* link/);
+  assert.match(body, /\*\*Commit changes…\*\*/);
+  assert.match(body, /\*\*Create a new branch and start a pull request\*\*/);
+});
+
+test('issueBody caps the list so a big backlog cannot exceed the issue size limit', () => {
+  const entries = Array.from({ length: MAX_LISTED + 12 }, (_, index) =>
+    entry({
+      slug: `entry-${String(index).padStart(3, '0')}`,
+      title: `Entry ${index}`,
+      file: `catalog/entry-${String(index).padStart(3, '0')}/index.md`,
+      url: `/catalog/entry-${String(index).padStart(3, '0')}/`,
+      // Oldest first once sorted: index 0 is the most overdue.
+      data: { published: `2020-01-${String((index % 28) + 1).padStart(2, '0')}` },
+    })
+  );
+  const stale = staleEntries(entries, day('2026-08-17'), 365);
+  assert.equal(stale.length, MAX_LISTED + 12);
+  const body = issueBody({
+    stale,
+    repo: 'org/catalog',
+    branch: 'main',
+    siteUrl: 'https://example.org/catalog',
+    afterDays: 365,
+    today: '2026-08-17',
+  });
+  assert.equal(body.match(/^- \[ \] /gm).length, MAX_LISTED);
+  assert.match(body, /…and 12 more not listed — clear these first, then run the sweep again/);
+  // The intro still reports the real total, not the truncated one.
+  assert.match(body, new RegExp(`^${MAX_LISTED + 12} entries have gone more than`));
+  assert.ok(body.length < 65536, `body is ${body.length} characters`);
+  // The listed ones are the oldest, in the order staleEntries produced.
+  assert.ok(body.includes(stale[0].title));
+  assert.ok(!body.includes(`](https://example.org${stale.at(-1).url})`));
+});
+
+test('issueBody says nothing about a remainder when everything fits', () => {
+  const stale = staleEntries([entry({ data: { published: '2024-01-01' } })], day('2026-08-17'), 365);
+  const body = issueBody({
+    stale,
+    repo: 'org/catalog',
+    branch: 'main',
+    siteUrl: '',
+    afterDays: 365,
+    today: '2026-08-17',
+  });
+  assert.doesNotMatch(body, /more not listed/);
 });
 
 /* ------------------------------------------------------- parseFrontMatter */

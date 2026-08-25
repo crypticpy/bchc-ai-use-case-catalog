@@ -107,6 +107,143 @@ exit 0
   return captured;
 }
 
+/**
+ * Run the release-resolution step against a fake `git` whose only knowledge of
+ * the template repository is the tag → commit map passed in, so every
+ * fail-closed branch can be observed exactly as a deployment owner sees it.
+ */
+function runReleaseStep({ release, tags = {}, lock = null, packageVersion = '1.9.0' }) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'phct-release-test-'));
+  const bin = path.join(directory, 'bin');
+  const state = path.join(directory, 'state');
+  const repository = path.join(directory, 'repository');
+  const summary = path.join(directory, 'summary.md');
+  const output = path.join(directory, 'output.env');
+  fs.mkdirSync(bin);
+  fs.mkdirSync(path.join(state, 'tags'), { recursive: true });
+  fs.mkdirSync(repository);
+
+  for (const [tag, commit] of Object.entries(tags)) {
+    fs.writeFileSync(path.join(state, 'tags', tag), `${commit}\n`);
+  }
+  fs.writeFileSync(
+    path.join(repository, 'package.json'),
+    `${JSON.stringify({ name: 'downstream', version: packageVersion }, null, 2)}\n`
+  );
+  if (lock) {
+    fs.writeFileSync(path.join(repository, '.phct-version.json'), `${JSON.stringify(lock, null, 2)}\n`);
+  }
+
+  fs.writeFileSync(
+    path.join(bin, 'git'),
+    `#!/bin/sh
+state="$FAKE_GIT_STATE"
+case "$1" in
+  remote) exit 0 ;;
+  fetch)
+    for arg in "$@"; do refspec="$arg"; done
+    tag="\${refspec%%:*}"
+    tag="\${tag#refs/tags/}"
+    ref="\${refspec#*:}"
+    if [ ! -f "$state/tags/$tag" ]; then
+      echo "fatal: couldn't find remote ref refs/tags/$tag" >&2
+      exit 128
+    fi
+    mkdir -p "$state/refs"
+    cp "$state/tags/$tag" "$state/refs/$(printf '%s' "$ref" | tr '/' '_')"
+    exit 0 ;;
+  rev-parse)
+    ref="$(printf '%s' "$2" | sed 's/\\^{commit}$//')"
+    file="$state/refs/$(printf '%s' "$ref" | tr '/' '_')"
+    [ -f "$file" ] || { echo "fatal: bad revision '$2'" >&2; exit 128; }
+    cat "$file"
+    exit 0 ;;
+esac
+exit 99
+`
+  );
+  fs.chmodSync(path.join(bin, 'git'), 0o755);
+
+  const result = spawnSync(
+    'bash',
+    ['-c', workflowStepScript('update-phct.yml', 'update', 'Fetch and resolve the exact PHCT tag')],
+    {
+      cwd: repository,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        RELEASE: release,
+        FAKE_GIT_STATE: state,
+        GITHUB_STEP_SUMMARY: summary,
+        GITHUB_OUTPUT: output,
+      },
+    }
+  );
+
+  const captured = {
+    ...result,
+    summary: fs.existsSync(summary) ? fs.readFileSync(summary, 'utf8') : '',
+    outputs: Object.fromEntries(
+      (fs.existsSync(output) ? fs.readFileSync(output, 'utf8') : '')
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)])
+    ),
+  };
+  fs.rmSync(directory, { force: true, recursive: true });
+  return captured;
+}
+
+/** Run the commit step inside a real, clean repository: nothing to commit. */
+function runCandidateStepOnUnchangedTree() {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'phct-candidate-test-'));
+  const repository = path.join(directory, 'repository');
+  const summary = path.join(directory, 'summary.md');
+  const output = path.join(directory, 'output.env');
+  fs.mkdirSync(repository);
+  const git = (...args) => spawnSync('git', args, { cwd: repository, encoding: 'utf8' });
+  git('init', '-q');
+  git('config', 'user.email', 'test@example.com');
+  git('config', 'user.name', 'Test');
+  fs.writeFileSync(path.join(repository, 'README.md'), 'downstream\n');
+  git('add', '-A');
+  git('commit', '-qm', 'base');
+
+  const result = spawnSync(
+    'bash',
+    [
+      '-c',
+      workflowStepScript(
+        'update-phct.yml',
+        'update',
+        'Commit the verified candidate and create its publication bundle'
+      ),
+    ],
+    {
+      cwd: repository,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        BRANCH: 'upgrade/phct-v1.9.0',
+        RELEASE: 'v1.9.0',
+        PARENT_COMMIT: 'a'.repeat(40),
+        RUNNER_TEMP: directory,
+        GITHUB_STEP_SUMMARY: summary,
+        GITHUB_OUTPUT: output,
+      },
+    }
+  );
+
+  const captured = {
+    ...result,
+    summary: fs.existsSync(summary) ? fs.readFileSync(summary, 'utf8') : '',
+    outputs: fs.existsSync(output) ? fs.readFileSync(output, 'utf8') : '',
+  };
+  fs.rmSync(directory, { force: true, recursive: true });
+  return captured;
+}
+
 test('the PHCT updater bootstraps a missing lock and refuses an inconsistent existing lock', () => {
   const source = workflow('update-phct.yml');
   assert.match(source, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
@@ -118,7 +255,7 @@ test('the PHCT updater bootstraps a missing lock and refuses an inconsistent exi
   assert.match(source, /resolved_from=.*git rev-parse/);
   assert.match(source, /\[ -n "\$locked_commit" \].*\[ "\$resolved_from" != "\$locked_commit" \]/);
   assert.match(source, /from_commit=%s/);
-  assert.match(source, /first lock-aware update/);
+  assert.match(source, /first update that records which template release/);
   assert.match(source, /FROM_REF: \$\{\{ steps\.release\.outputs\.from_ref \}\}/);
   assert.match(source, /--from "\$FROM_REF" --to "\$TAG_REF"/);
   const apply = source.indexOf('Apply the immutable PHCT candidate');
@@ -236,6 +373,162 @@ test('the updater fails safely with actionable recovery when a required dispatch
   assert.match(result.summary, /safely updates the same branch and pull request/u);
 });
 
+const LOCKED_COMMIT = 'a'.repeat(40);
+const MOVED_COMMIT = 'c'.repeat(40);
+const TARGET_COMMIT = 'd'.repeat(40);
+
+function versionLock(release, commit) {
+  return {
+    schema_version: 1,
+    source_repository: 'https://github.com/crypticpy/phct',
+    release,
+    version: release.slice(1),
+    commit,
+    recorded_at: '2026-08-01',
+  };
+}
+
+test('a rejected release tag explains itself without echoing a forged workflow command', () => {
+  const malformed = runReleaseStep({ release: 'release-1.9' });
+  assert.equal(malformed.status, 2);
+  assert.match(malformed.stdout, /::error title=That is not a PHCT release tag/u);
+  assert.match(malformed.summary, /## That is not a PHCT release tag/u);
+  assert.match(malformed.summary, /Nothing was changed\./u);
+  assert.match(malformed.summary, /You entered `release-1\.9`/u);
+  assert.ok(malformed.summary.includes('https://github.com/crypticpy/phct/releases'));
+
+  const forged = runReleaseStep({ release: '`v1.9.0`\n::error::forged' });
+  assert.equal(forged.status, 2);
+  assert.doesNotMatch(forged.summary, /::error::forged/u);
+  assert.doesNotMatch(forged.stdout, /^::error::forged/mu);
+  assert.match(forged.summary, /You entered `\?v1\.9\.0\?+error\?+forged`/u);
+
+  // The gate matches the whole input, not the first line: a valid tag with a
+  // trailing payload must never reach the release= output write.
+  const multiline = runReleaseStep({ release: 'v1.9.0\nbranch=evil', tags: { 'v1.9.0': 'a'.repeat(40) } });
+  assert.equal(multiline.status, 2);
+  assert.match(multiline.summary, /## That is not a PHCT release tag/u);
+  assert.deepEqual(multiline.outputs, {}, 'nothing may be written to GITHUB_OUTPUT on rejection');
+});
+
+test('a bootstrap run whose reported version was never released says what to do next', () => {
+  const result = runReleaseStep({
+    release: 'v1.9.0',
+    packageVersion: '1.10.0',
+    tags: { 'v1.9.0': TARGET_COMMIT },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /::error title=This copy reports a template version that has no release/u);
+  assert.match(result.summary, /This copy reports template version `v1\.10\.0`, but no such release exists/u);
+  assert.match(result.summary, /created between releases/u);
+  assert.ok(result.summary.includes('https://github.com/crypticpy/phct/releases'));
+  assert.ok(result.summary.includes('https://github.com/crypticpy/phct/issues'));
+  assert.match(result.summary, /Nothing was changed\./u);
+});
+
+test('a recorded starting release that disappeared is reported to the maintainers', () => {
+  const result = runReleaseStep({
+    release: 'v1.9.0',
+    packageVersion: '1.8.0',
+    lock: versionLock('v1.8.0', LOCKED_COMMIT),
+    tags: { 'v1.9.0': TARGET_COMMIT },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.summary, /## The release this deployment records has disappeared/u);
+  assert.ok(result.summary.includes('https://github.com/crypticpy/phct/issues'));
+});
+
+test('an unknown target release names the tag and points at the releases page', () => {
+  const result = runReleaseStep({
+    release: 'v9.9.9',
+    packageVersion: '1.9.0',
+    tags: { 'v1.9.0': TARGET_COMMIT },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.summary, /## There is no PHCT release named `v9\.9\.9`/u);
+  assert.match(result.summary, /Nothing was changed\./u);
+  assert.ok(result.summary.includes('https://github.com/crypticpy/phct/releases'));
+});
+
+test('a moved tag is still refused, now with both commits and who to tell', () => {
+  const result = runReleaseStep({
+    release: 'v1.9.0',
+    packageVersion: '1.8.0',
+    lock: versionLock('v1.8.0', LOCKED_COMMIT),
+    tags: { 'v1.8.0': MOVED_COMMIT, 'v1.9.0': TARGET_COMMIT },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /::error title=The recorded template release no longer matches/u);
+  assert.match(result.summary, /## The update was refused for safety/u);
+  assert.match(result.summary, new RegExp(LOCKED_COMMIT, 'u'));
+  assert.match(result.summary, new RegExp(MOVED_COMMIT, 'u'));
+  assert.match(result.summary, /Do not merge any template update/u);
+  assert.ok(result.summary.includes('https://github.com/crypticpy/phct/issues'));
+});
+
+test('a consistent lock resolves both immutable tags and reports nothing to the owner', () => {
+  const result = runReleaseStep({
+    release: 'v1.9.0',
+    packageVersion: '1.8.0',
+    lock: versionLock('v1.8.0', LOCKED_COMMIT),
+    tags: { 'v1.8.0': LOCKED_COMMIT, 'v1.9.0': TARGET_COMMIT },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.summary, '');
+  assert.deepEqual(result.outputs, {
+    release: 'v1.9.0',
+    tag_ref: 'refs/phct-update/to/v1.9.0',
+    commit: TARGET_COMMIT,
+    from: 'v1.8.0',
+    from_commit: LOCKED_COMMIT,
+    from_ref: 'refs/phct-update/from/v1.8.0',
+    lock_state: 'verified',
+    branch: 'upgrade/phct-v1.9.0',
+  });
+});
+
+test('a deployment that already runs the release finishes green with nothing to do', () => {
+  const result = runCandidateStepOnUnchangedTree();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /::notice title=Already up to date/u);
+  assert.match(
+    result.summary,
+    /Already up to date — this deployment already runs `v1\.9\.0`\. Nothing to do\./u
+  );
+  assert.match(result.summary, /created no branch and no pull request/u);
+  assert.match(result.summary, /This run succeeded/u);
+  assert.match(result.outputs, /^up_to_date=true$/mu);
+});
+
+test('the updater tells a site owner where the tags, the preview and the checks are', () => {
+  const source = workflow('update-phct.yml');
+  assert.match(
+    source,
+    /description: Exact PHCT release tag, e\.g\. v1\.9\.0 — copy it from https:\/\/github\.com\/crypticpy\/phct\/releases/u
+  );
+  // An "already up to date" run has no candidate commit to publish, and must
+  // not drag the publication job into a red run.
+  assert.match(
+    source,
+    /if: needs\.update\.result == 'success' && needs\.update\.outputs\.candidate_commit != ''/u
+  );
+  assert.match(source, /if: steps\.candidate\.outputs\.up_to_date != 'true'/u);
+  assert.match(source, /The update's full test suite failed on the candidate\. Nothing was published/u);
+  assert.match(
+    source,
+    /report it to the template maintainers at https:\/\/github\.com\/crypticpy\/phct\/issues/u
+  );
+
+  // The pull request is read by the deployment owner, not a release engineer.
+  assert.match(source, /find `%s`, and check the commit shown beside the tag starts with `%\.7s`/u);
+  assert.match(source, /Read the release notes: https:\/\/github\.com\/crypticpy\/phct\/releases\/tag\/%s/u);
+  assert.match(source, /Every check in the Checks box on this pull request shows a green tick/u);
+  assert.match(source, /Download the site preview \(the `phct-update-%s` artifact\)/u);
+  assert.match(source, /run_url="\$GITHUB_SERVER_URL\/\$GITHUB_REPOSITORY\/actions\/runs\/\$GITHUB_RUN_ID"/u);
+  assert.doesNotMatch(source, /release-candidate rehearsal/u);
+  assert.doesNotMatch(source, /Confirm Validate Content, Quality, Performance/u);
+});
+
 test('validation enforces coverage floors and always retains the evidence', () => {
   const source = workflow('validate.yml');
   const start = source.indexOf('\n  coverage:');
@@ -291,6 +584,49 @@ test('every npm dependency install selects the exact package manager after setup
       assert.ok(setup >= 0 && exact > setup, `${name} runs npm ci without selecting exact npm`);
     }
   }
+});
+
+// The content workflows are the only interface a non-coder has. A run that goes
+// red without saying anything on the issue is indistinguishable, from the
+// submitter's side, from a submission nobody read — so every one of them has to
+// answer on both paths.
+test('every issue-driven content workflow answers on the issue, in success and in failure', () => {
+  const contentWorkflows = [
+    'apply-setup.yml',
+    'new-entry.yml',
+    'new-event.yml',
+    'new-year.yml',
+    'update-event-attachments.yml',
+    'update-schedule.yml',
+  ];
+
+  for (const name of contentWorkflows) {
+    const source = workflow(name);
+    const parsed = YAML.parse(source);
+    const steps = Object.values(parsed.jobs).flatMap((job) => job.steps ?? []);
+
+    const success = steps.filter(
+      (step) => /^(Link the pull request|Say the pull request was updated)/u.test(step.name ?? '') && step.if
+    );
+    assert.ok(success.length > 0, `${name} never links the pull request back to the issue`);
+
+    // The catch-all: a refused push or a refused `create-pull-request` (the
+    // repository setting below) must not leave the issue silent.
+    const catchAll = steps.find((step) => /failure\(\)/u.test(String(step.if ?? '')));
+    assert.ok(catchAll, `${name} has no if: failure() comment step`);
+    assert.match(
+      String(catchAll.with?.script ?? ''),
+      /Settings → Actions → General → Workflow permissions/u,
+      `${name} does not tell the maintainer which setting to change`
+    );
+    assert.match(String(catchAll.with?.script ?? ''), /issues\.createComment/u);
+  }
+
+  // The label the forms apply has to exist before any of the above can run.
+  const missing = workflow('missing-label.yml');
+  assert.match(missing, /types:\n\s+- opened/u);
+  assert.match(missing, /Bootstrap labels/u);
+  assert.match(missing, /issues: write/u);
 });
 
 test('protected-main automation stays reviewable and generated PRs can satisfy required checks', () => {

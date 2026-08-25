@@ -126,6 +126,14 @@ jobs:
         run: |
           echo "Prepared updated dates for $COUNT existing entries: $PR_URL" >> "$GITHUB_STEP_SUMMARY"
 
+      # continue-on-error keeps a failure here from turning the deploy red, but
+      # it also makes the failure invisible — and `updated:` dates that quietly
+      # stop advancing later read as stale entries in the verification sweep.
+      - name: Explain a stamp that could not be prepared
+        if: failure()
+        run: |
+          echo "Could not prepare updated-date stamps this deploy; the site itself deploys as normal. If this repeats, check Settings -> Actions -> General -> Workflow permissions (\"Allow GitHub Actions to create and approve pull requests\")." >> "$GITHUB_STEP_SUMMARY"
+
   build:
     # Runs whether or not the stamp job ran, failed, or was skipped. Publication
     # always uses the reviewed commit that triggered this workflow; the optional

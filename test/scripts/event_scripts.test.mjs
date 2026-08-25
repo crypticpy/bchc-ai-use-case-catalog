@@ -238,6 +238,37 @@ test('update_event_attachments: a heading inside the attachments answer cannot r
   assert.deepEqual(data.attachments, [{ title: 'Agenda', url: 'https://example.org/a.pdf' }]);
 });
 
+// Five different situations exit cleanly with `changed=false`. The workflow can
+// only tell the submitter which one if the script says so.
+test('update_event_attachments: every clean exit says why on the reason output', () => {
+  const cases = [
+    { body: '', expected: /empty/i },
+    { body: section('Cohort Year', '2026'), expected: /Event ID/ },
+    {
+      body:
+        section('Cohort Year', '2026') +
+        section('Event ID', 'kickoff') +
+        section('Attachments', 'no separator here'),
+      expected: /Attachments/,
+    },
+    {
+      body:
+        section('Cohort Year', '2026') +
+        section('Event ID', 'never-scheduled') +
+        section('Attachments', 'Agenda | https://example.org/a.pdf'),
+      expected: /Add event details/,
+    },
+  ];
+
+  for (const { body, expected } of cases) {
+    const result = run('update_event_attachments_from_issue.mjs', { body, root: fixtureTree() });
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.outputs.get('changed'), 'false');
+    assert.match(result.outputs.get('reason') ?? '', expected);
+  }
+});
+
 test('update_event_attachments: an attachment title with control characters round trips', () => {
   const root = fixtureTree();
   const title = 'Agenda "v2"';
@@ -307,4 +338,40 @@ test('list_events_for_year: lists the events of a real cohort year', () => {
 
   assert.equal(result.outputs.get('year'), '2026');
   assert.match(result.outputs.get('events_md') ?? '', /`kickoff`/);
+});
+
+// Every event in the data file gets a generated page at build time, but only
+// the ones with a file on disk can take attachments. Recommending the rest as
+// attachment targets is what made the attachments form fail silently.
+test('list_events_for_year: marks which events actually have a page on disk', () => {
+  const root = fixtureTree();
+  fs.writeFileSync(
+    path.join(root, '_data', 'cohorts', '2026.yml'),
+    [
+      'year: 2026',
+      'events:',
+      '  - id: kickoff',
+      '    name: "Cohort kickoff"',
+      '    date: 2026-09-09',
+      '  - id: midpoint',
+      '    name: "Midpoint check-in"',
+      '    date: 2026-06-01',
+      '',
+    ].join('\n'),
+    'utf8'
+  );
+
+  const result = run('list_events_for_year.mjs', { body: section('Cohort Year', '2026'), root });
+  const lines = (result.outputs.get('events_md') ?? '').split('\n');
+
+  assert.match(
+    lines.find((line) => line.includes('`kickoff`')) ?? '',
+    /has a details page/,
+    'kickoff has an index.md in the fixture'
+  );
+  assert.match(
+    lines.find((line) => line.includes('`midpoint`')) ?? '',
+    /no details page yet/,
+    'midpoint is only in the data file'
+  );
 });

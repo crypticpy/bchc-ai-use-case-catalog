@@ -23,7 +23,10 @@ organization that should own the catalog, name it, and make it **public** — Gi
 private repository needs a paid plan, and a public catalog is the point.
 
 Fork instead of templating only if you intend to send changes back upstream. A fork carries the
-template's whole history and its open issues; a template copy starts clean.
+template's whole history and its open issues; a template copy starts clean. A fork also arrives
+with its **Issues** tab switched off and its **Actions** paused until you enable them by hand —
+this catalog needs both, since every piece of content arrives as an issue and is drafted by a
+workflow. **Use this template** avoids that entirely.
 
 ## 2. Turn on the four GitHub settings
 
@@ -59,7 +62,10 @@ neither is something the configurator asks you for.
 
 Expect a Dependabot pull request or two within minutes of creating the repository
 (`.github/dependabot.yml` ships with the template and keeps the toolchain current). They are not
-part of the launch; merge them whenever their checks are green.
+part of the launch, and on a brand-new copy their checks come back **red** — `Validate Content`
+fails any pull request while `_data/site.yml` still names the template's repository, so it fails
+every pull request until you have been through step 3. That is the copy, not something you broke:
+configure the site first, then merge them once their checks come back green.
 
 ## 3. Configure the site
 
@@ -214,7 +220,8 @@ request and merge. That is the whole removal mechanism — see
 
 ## 8. Before you tell anyone
 
-- [ ] Sample entries deleted — `grep -rl 'sample: true' catalog/` returns nothing
+- [ ] Sample entries deleted — searching your repository for `sample: true` (the search box at the
+      top of the repository, scoped to "In this repository") finds nothing left under `catalog/`
 - [ ] `_data/site.yml` → `github.repository` is your repository
 - [ ] `_data/site.yml` → `footer.links` point at your organization and your own copy of the
       maintainer guide, not the template's
@@ -227,6 +234,9 @@ request and merge. That is the whole removal mechanism — see
 - [ ] `_data/governance.yml` rewritten in your own words — review steps, criteria, roles and
       policies are yours, not the template's — and `governance: true` set again in
       `_data/site.yml`; or the module left off until it is
+- [ ] `.github/CODEOWNERS`, `MAINTAINERS.md` and `SUPPORT.md` name your own people and your own
+      contact routes — they ship carrying the template author's, and a template update never
+      overwrites them, so nobody else will fix them for you
 - [ ] Branch protection on `main`: require a pull request before merging
       (see [SECURITY.md](../SECURITY.md), "What you should still do")
 - [ ] Private vulnerability reporting is enabled and its chooser link opens while signed out; or
@@ -240,3 +250,9 @@ request and merge. That is the whole removal mechanism — see
 - [Configuration reference](configuration.md) — every key in `_data/*.yml`
 - [Content model](content-model.md) — when the shipped fields are not your fields
 - [When something has to come down](incidents.md) — takedowns and data spills
+- [Upgrading](upgrading.md) — a new template release is out (they are announced at
+  <https://github.com/crypticpy/phct/releases>): what is yours, what is the template's, and how to
+  take the update without losing your configuration or content
+- [Operations and handoff](maintaining.md) — handing the site to a successor, or something broke:
+  the routine schedule, rollback, backup and restore, and the ownership-transfer checklist
+- [SUPPORT.md](../SUPPORT.md) — reporting a bug in the template itself, and what response to expect

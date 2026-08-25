@@ -53,38 +53,105 @@ jobs:
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
 
+      # The submitted list replaces the stored one wholesale, so the preview is
+      # only honest if it says how much it is about to replace. Counted in Ruby
+      # because github-script has no YAML parser, and read from the checkout
+      # rather than from the issue.
+      - name: Count the events already stored for this year
+        id: current
+        # The count only feeds the preview comment, which treats a missing
+        # count the same as "nothing stored" — a year file this one-liner
+        # cannot parse must not kill the run before that comment is posted.
+        continue-on-error: true
+        env:
+          PREVIEW_YEAR: ${{ steps.preview.outputs.year }}
+        run: |
+          set -euo pipefail
+          ruby -ryaml -rdate -e 'year = ENV["PREVIEW_YEAR"].to_s; path = "_data/cohorts/#{year}.yml"; count = -1; if year.match?(/\A\d{4}\z/) && File.exist?(path); data = YAML.safe_load(File.read(path), permitted_classes: [Date, Time], aliases: false) || {}; count = Array(data["events"]).length; end; File.open(ENV["GITHUB_OUTPUT"], "a") { |f| f.puts("count=#{count}") }'
+
+      # Updated in place rather than appended: an issue edited five times used
+      # to collect five identical previews, and the newest one is the only one
+      # that describes what will happen.
       - name: Comment with the event ID preview
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PREVIEW_YEAR: ${{ steps.preview.outputs.year }}
           PREVIEW_IDS: ${{ steps.preview.outputs.preview_ids }}
+          CURRENT_COUNT: ${{ steps.current.outputs.count }}
         with:
           script: |
+            const marker = '<!-- phct:schedule-preview -->';
             const year = process.env.PREVIEW_YEAR;
+            // -1 also stands in for "the count could not be taken", which is
+            // the same advice: there is nothing stored to replace yet.
+            const raw = String(process.env.CURRENT_COUNT || '');
+            const count = /^\d+$/.test(raw) ? Number(raw) : -1;
+            const stored =
+              count < 0
+                ? `There is no cohort ${year} yet, so there is nothing to replace — open a **Start a new cohort year** issue for ${year} first.`
+                : `**This list will replace the ${count} event${count === 1 ? '' : 's'} currently stored for ${year}.** Anything you leave out is dropped, so include every event you want to keep.`;
             const body = [
+              marker,
               `### Event ID preview for ${year}`,
               '',
               process.env.PREVIEW_IDS,
               '',
+              stored,
+              '',
               `Event pages will live at \`/cohorts/${year}/events/<id>/\` once this is merged.`
             ].join('\n');
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
               issue_number: context.issue.number,
-              body
+              per_page: 100
             });
+            const existing = comments.find((comment) => (comment.body || '').includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: context.issue.number, body });
+            }
 
       - name: Update schedule data
         id: update
+        continue-on-error: true
         run: ruby scripts/update_schedule_from_issue.rb
         env:
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
 
+      # update_schedule_from_issue.rb refuses for eight different reasons, each
+      # with a sentence saying what to change. Before this step every one of
+      # them reached the run log only — and the preview comment above made the
+      # run look like it had worked.
+      - name: Report the failure on the issue
+        if: steps.update.outcome == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          STEP_ERROR: ${{ steps.update.outputs.error }}
+        with:
+          script: |
+            const detail = process.env.STEP_ERROR || 'The step failed; see the workflow logs for details.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'This schedule could not be applied yet, so nothing has changed.',
+                '',
+                '> ' + detail.split('\n').join('\n> '),
+                '',
+                'Edit this issue to fix the problem and the automation will try again. If the message above does not tell you what to change, comment here and a maintainer will help.'
+              ].join('\n')
+            });
+            core.setFailed(detail);
+
       - name: Create pull request
-        if: steps.update.outputs.changed == 'true'
+        if: steps.update.outcome == 'success' && steps.update.outputs.changed == 'true'
         id: cpr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
@@ -129,8 +196,41 @@ jobs:
             fi
           done
 
+      - name: Link the pull request from the issue
+        if: steps.cpr.outputs.pull-request-number != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+          PR_OPERATION: ${{ steps.cpr.outputs.pull-request-operation }}
+          COHORT_YEAR: ${{ steps.update.outputs.year }}
+        with:
+          script: |
+            // An edited issue updates the existing pull request; say that
+            // instead of repeating the full first-time comment.
+            const body = process.env.PR_OPERATION === 'updated'
+              ? [
+                  'Updated the pull request from your edit:',
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'The diff there now shows the new schedule.'
+                ]
+              : [
+                  `The schedule for ${process.env.COHORT_YEAR} is now a pull request waiting for a maintainer:`,
+                  '',
+                  process.env.PR_URL,
+                  '',
+                  'Nothing on the site changes until a maintainer merges it. To correct an event, edit this issue — the automation will redo the pull request.'
+                ];
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body.join('\n')
+            });
+
       - name: Comment when nothing changed
-        if: steps.update.outputs.changed != 'true'
+        if: steps.update.outcome == 'success' && steps.update.outputs.changed != 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
@@ -138,5 +238,27 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: 'No schedule changes were detected — the submitted entries already match the stored schedule.'
+              body: 'No schedule changes were detected — the submitted entries already match the stored schedule, so there is nothing to open a pull request for.'
+            });
+
+      # The steps above can still leave the issue silent if the pull request
+      # itself is refused — most often because "Allow GitHub Actions to create
+      # and approve pull requests" was never ticked.
+      - name: Say the pull request could not be opened
+        if: failure() && steps.update.outcome != 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                'Something went wrong while turning this schedule into a pull request, so no pull request was opened and the site is unchanged.',
+                '',
+                'The usual cause is one repository setting: a maintainer should open **Settings → Actions → General → Workflow permissions** and tick **Allow GitHub Actions to create and approve pull requests**.',
+                '',
+                `Once that is on, edit this issue to retry. The full run is under the [Actions tab](https://github.com/${owner}/${repo}/actions).`
+              ].join('\n')
             });

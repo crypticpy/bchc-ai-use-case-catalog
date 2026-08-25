@@ -117,8 +117,8 @@ scripts:
     <p class="mt-2 text-brand-muted">The form still works. Fill it in and press <em>Check your answers</em>: without scripts that goes straight to the GitHub issue form with your answers carried across, where you can read them over before pressing <em>Submit new issue</em>. Questions that ask for several links can only be answered on GitHub.</p>{% else %}
     <p class="mt-2 text-brand-muted">And this site has no catalog repository behind it, so there is nothing the form can be sent to either. The questions below are still the real ones — the outline underneath is what a submission looks like.</p>{% endif %}{% if fallback_email != '' %}
     <p class="mt-2 text-brand-muted">Or <a class="font-semibold text-brand-primary underline underline-offset-2 hover:no-underline" href="mailto:{{ fallback_email }}?subject={{ singular | prepend: '[' | append: '] New entry' | uri_escape }}">email it instead</a> and paste your answers into the message.</p>{% endif %}
-    <p class="mt-3 font-semibold">{% if gh_repo != '' %}Or write it out by hand{% else %}What a submission looks like{% endif %}</p>
-    <p class="mt-1 text-brand-muted">{% if gh_repo != '' %}Open a blank issue in the catalog repository, add the label <code>content:new-entry</code>, and paste this outline with your answers under each heading. The automation reads exactly this format.{% else %}An entry arrives as a GitHub issue in this shape: one heading per question, the answer underneath. The automation reads exactly this format.{% endif %}</p>
+    <p class="mt-3 font-semibold">{% if gh_repo != '' %}Or draft it here first{% else %}What a submission looks like{% endif %}</p>
+    <p class="mt-1 text-brand-muted">{% if gh_repo != '' %}These are the same headings the GitHub form asks under. Write your answers under each one, then <a class="font-semibold text-brand-primary underline underline-offset-2 hover:no-underline" href="https://github.com/{{ gh_repo }}/issues/new?template=new-entry.yml">open the issue form</a> and paste each answer into its matching question.{% else %}An entry arrives as a GitHub issue in this shape: one heading per question, the answer underneath. The automation reads exactly this format.{% endif %}</p>
     <textarea class="field-input mt-2 min-h-[10rem] font-mono text-xs" rows="12" readonly aria-label="Issue outline to copy">{% for ng in form_groups %}{% assign ng_fields = ff | fields_in_group: ng.key %}{% for nf in ng_fields %}{% unless nf.type == 'file' %}### {{ nf.label }}
 
 {% endunless %}{% endfor %}{% endfor %}</textarea>
@@ -463,13 +463,13 @@ scripts:
       <p class="draft-status" role="status" aria-live="polite" data-draft-status></p>
 
       <div class="space-y-2" data-fallback hidden>
-        <label class="field-label" for="fallback-body">{% if gh_repo != '' %}Copy this and paste it into a blank GitHub issue{% else %}Your answers, in the shape a submission takes{% endif %}</label>
-        <p class="field-help">{% if gh_repo != '' %}Open a blank issue, add the label <code>content:new-entry</code>, and paste the text below — the automation reads exactly this format.{% else %}On a published catalog this is what the maintainers receive: one heading per question, your answer underneath.{% endif %}</p>
+        <label class="field-label" for="fallback-body">{% if gh_repo != '' %}Your answers, ready for the GitHub form{% else %}Your answers, in the shape a submission takes{% endif %}</label>
+        <p class="field-help">{% if gh_repo != '' %}Each heading below matches a question on the GitHub issue form. If your answers did not travel with the link, paste each one into its matching question, then press <em>Submit new issue</em>.{% else %}On a published catalog this is what the maintainers receive: one heading per question, your answer underneath.{% endif %}</p>
         <textarea class="field-input min-h-[10rem] font-mono text-xs" id="fallback-body" readonly rows="10" data-fallback-body></textarea>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" class="btn-secondary btn-sm" data-action="copy-fallback">Copy to clipboard</button>
-          {%- comment -%}Shown only when a blocked popup left us with a working prefilled link.{%- endcomment -%}
-          <a class="btn-ghost btn-sm" href="#" target="_blank" rel="noopener" data-fallback-link hidden>Open the prefilled issue {% include icon.html name='arrow-right' size='sm' %}</a>
+          {%- comment -%}Shown with a prefilled link after a blocked popup, or an empty-form link when the answers were too long to carry.{%- endcomment -%}
+          <a class="btn-ghost btn-sm" href="#" target="_blank" rel="noopener" data-fallback-link hidden>Open the issue form on GitHub {% include icon.html name='arrow-right' size='sm' %}</a>
         </div>
       </div>
     </div>

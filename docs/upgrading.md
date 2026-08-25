@@ -49,9 +49,17 @@ The setting is per clone.
 A repository created directly from a PHCT release may not have a `.phct-version.json` yet. On that
 repository's first **Update from PHCT** run, the workflow derives the current release from
 `package.json`, resolves that release tag to a full commit, and calls this out in the update pull
-request. Review that previous commit against the named PHCT release before approving. The update
-then records the target tag and full commit, so every later run can fail closed if the previously
+request. The pull request tells you how to check it: open
+[the releases page](https://github.com/crypticpy/phct/releases), find that release, and confirm the
+commit shown beside the tag starts with the abbreviated SHA in the pull request. The update then
+records the target tag and full commit, so every later run can fail closed if the previously
 consumed tag has moved or the lock is inconsistent.
+
+A copy taken between releases can report a `package.json` version that was never published. There
+is no release tag to start from, so the run stops before changing anything and says so in its
+summary. Check the releases page: if that version is listed there now, run the updater again and it
+will work; if the newest release is still older than the version your copy reports, wait for that
+release or [tell the maintainers](https://github.com/crypticpy/phct/issues).
 
 ## Workflow token required for workflow updates
 
@@ -91,8 +99,10 @@ workflow-file changes can still use the built-in token and its explicit check-di
 
 ## Recommended: one protected update pull request
 
-From the repository's **Actions** tab, run **Update from PHCT**, enter the exact release tag (for
-example `v1.9.0-rc.1`), and wait for it to open a pull request. The workflow:
+From the repository's **Actions** tab, run **Update from PHCT** and enter the exact release tag —
+copy it from <https://github.com/crypticpy/phct/releases>, where every release is listed with its
+tag (for example `v1.9.0` or `v1.9.0-rc.1`) — then wait for it to open a pull request. The
+workflow:
 
 1. fetches the current and target immutable tags and records both full commit SHAs;
 2. snapshots every deployment-owned file;
@@ -104,6 +114,25 @@ example `v1.9.0-rc.1`), and wait for it to open a pull request. The workflow:
 6. records the tag and commit in `.phct-version.json`;
 7. runs `npm run verify` and uploads an inspectable site artifact; and
 8. opens a human-reviewed pull request, dispatching validation and quality checks when needed.
+
+### How a run ends
+
+Every ending is written in plain English in the run's own summary, at the top of the run's page
+under **Actions**. You should never have to read the log to find out what happened.
+
+- **A pull request was opened.** Review it against the checklist in its description, which includes
+  downloading the site preview attached to the run.
+- **Already up to date.** This deployment already runs the release you asked for, so the run created
+  nothing. It finishes green, because it is not a failure — rerunning the updater on a release you
+  already have is always safe.
+- **The run failed and nothing was published.** A tag that is not a release tag, a release that does
+  not exist, a `package.json` version that was never released, a release tag that has moved since
+  this deployment consumed it, or a release whose tests fail here. In every one of those cases there
+  is no branch, no pull request, and no change to your live site, and the summary names the cause
+  and the next step — usually rerunning with a tag copied from the releases page, or telling the
+  maintainers.
+- **Required update checks were not dispatched.** The pull request exists and `main` is unchanged,
+  but its checks did not start on their own. The recovery is below.
 
 When GitHub suppresses pull-request events for the built-in token, the updater dispatches only the
 `validate.yml` and `quality.yml` entrypoints that exist in every supported deployment. The
@@ -124,6 +153,23 @@ The workflow is manual-only until the first candidate upgrade and rollback have 
 It never merges its own pull request.
 
 ## Manual recovery path
+
+Start in the browser. Everything most deployments ever need is a button on the repository's
+**Actions** and **Pull requests** tabs, and none of it needs a checkout:
+
+- **Run the updater again.** **Actions → Update from PHCT → Run workflow**, same release tag. It
+  reuses the same `upgrade/phct-*` branch and the same pull request instead of creating a duplicate,
+  so a run interrupted by a GitHub outage or a rate limit is fixed by rerunning it. If the release
+  is already installed, the rerun simply reports **Already up to date**.
+- **Look before you approve.** There is no preview-only mode: the pull request is the preview.
+  Every run that produces one attaches a `phct-update-<release>` artifact containing the built site
+  and the before/after checksum manifests — download it from the run's page, unzip it, and open
+  `index.html`. The run's **Preview incoming ownership classification** step lists what the release
+  changes and what it leaves alone.
+- **Throw an update away, or undo one you merged.** Close the pull request and delete its branch,
+  or press **Revert** on the merged pull request. See [If it goes wrong](#if-it-goes-wrong).
+
+If you or a colleague has a checkout, the same update can also be driven by hand.
 
 `upgrade:check` is read-only. It compares `.phct-version.json` with the exact tag and prints the
 incoming diff in two lists — what you will take, and what you own and will keep. Moving branches
@@ -213,8 +259,9 @@ branch, so the whole thing is disposable:
 Before committing, switch back to the default branch and discard the disposable update branch.
 After committing but before merging the pull request, close it and delete its update branch.
 
-If you already merged and deployed, revert the downstream update commit or pull request using the
-normal GitHub revert flow. The deploy re-runs from the reverted state:
+If you already merged and deployed, open the merged pull request and press **Revert**, then merge
+the revert pull request GitHub creates for you. The deploy re-runs from the reverted state. In a
+checkout, the equivalent is:
 
 ```sh
 git revert <downstream update commit>

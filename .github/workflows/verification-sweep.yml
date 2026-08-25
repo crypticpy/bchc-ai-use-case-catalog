@@ -9,9 +9,10 @@ name: Verification sweep
 # and asks for nothing but `issues: write`. Clearing an item is a human deciding
 # the entry is still true and saying so with `verified:` in a pull request.
 #
-# Turn it off by setting the repository variable VERIFICATION_SWEEP to `false`
-# (Settings -> Secrets and variables -> Actions -> Variables), or by deleting
-# this file. A template fork with no entries yet produces no issue either way.
+# Turn the schedule off by setting the repository variable VERIFICATION_SWEEP
+# to `false` (Settings -> Secrets and variables -> Actions -> Variables), or by
+# deleting this file; a manual run from the Actions tab always works. A template
+# fork with no entries yet produces no issue either way.
 
 on:
   schedule:
@@ -29,8 +30,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A job whose `if` is false shows up as a bare grey "skipped" with no reason,
+  # which reads like a broken workflow rather than a setting somebody chose.
+  # This one runs only in that case and says so in the run summary.
+  turned-off:
+    if: vars.VERIFICATION_SWEEP == 'false' && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say why nothing ran
+        run: |
+          echo "The verification sweep is turned off by the repository variable VERIFICATION_SWEEP. Turn it back on in Settings -> Secrets and variables -> Actions -> Variables, or run this workflow by hand from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+
   sweep:
-    if: vars.VERIFICATION_SWEEP != 'false'
+    if: vars.VERIFICATION_SWEEP != 'false' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -116,3 +128,16 @@ jobs:
       - name: Report a clean sweep
         if: steps.sweep.outputs.count == '0'
         run: echo "Every entry has been confirmed inside the window. Nothing to open." >> "$GITHUB_STEP_SUMMARY"
+
+      # A red monthly run with nothing but a stack trace in it tells a
+      # non-coder maintainer nothing. Whatever failed, this says what it means.
+      - name: Explain a failed run
+        if: failure()
+        run: |
+          {
+            echo "### Could not check which entries need re-confirming"
+            echo
+            echo "This is usually a temporary GitHub problem. Nothing on the site changed and no entry was edited."
+            echo
+            echo "The next monthly run will try again, or run this workflow now from the Actions tab."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -47,16 +47,44 @@ export const currentConfig = {
   schema: readEmbeddedJson('current-schema') || fallback.schema,
 };
 
-/** `owner/repo` from `site.github.repository_nwo`, when GitHub Pages provided it. */
+/**
+ * Best-effort `owner/repo` from a GitHub Pages address. A project site serves
+ * from `owner.github.io/repo/…`, so the first path segment names the
+ * repository; a user or organization site serves from the root of
+ * `owner.github.io`, whose repository is named `owner.github.io`.
+ * @param {string} hostname e.g. `example.github.io`.
+ * @param {string} pathname e.g. `/catalog/setup/`.
+ * @returns {string|null} null off github.io — a custom domain names neither half.
+ */
+export function repositoryFromLocation(hostname, pathname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host.endsWith('.github.io')) return null;
+  const owner = host.slice(0, -'.github.io'.length);
+  if (!owner || owner.includes('.')) return null;
+  const [first] = String(pathname || '')
+    .split('/')
+    .filter(Boolean);
+  return first && first !== 'setup' ? `${owner}/${first}` : `${owner}/${host}`;
+}
+
+/**
+ * `owner/repo` for the copy this wizard is running on: the
+ * `site.github.repository_nwo` embed when the build provided it, else derived
+ * from the page's own github.io address. Null when neither names one — a
+ * local preview, or a custom domain.
+ */
 export const detectedRepository = (() => {
   const node = typeof document === 'undefined' ? null : document.getElementById('current-repository');
-  if (!node) return null;
-  try {
-    const value = JSON.parse(node.textContent || 'null');
-    return typeof value === 'string' && value.includes('/') ? value : null;
-  } catch {
-    return null;
+  if (node) {
+    try {
+      const value = JSON.parse(node.textContent || 'null');
+      if (typeof value === 'string' && value.includes('/')) return value;
+    } catch {
+      /* fall through to the address */
+    }
   }
+  if (typeof window === 'undefined' || !window.location) return null;
+  return repositoryFromLocation(window.location.hostname, window.location.pathname);
 })();
 
 /** The "start from" choices offered on step 1: the live site, then the presets. */

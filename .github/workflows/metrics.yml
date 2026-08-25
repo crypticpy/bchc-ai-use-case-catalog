@@ -40,6 +40,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A job whose `if` is false shows up as a bare grey "skipped" with no reason,
+  # which reads like a broken workflow rather than a setting somebody chose.
+  # This one runs only in that case and says so in the run summary.
+  turned-off:
+    if: vars.CATALOG_METRICS == 'false' && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say why nothing ran
+        run: |
+          echo "Catalog metrics are turned off by the repository variable CATALOG_METRICS. Turn them back on in Settings -> Secrets and variables -> Actions -> Variables, or run this workflow by hand from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+
   metrics:
     if: vars.CATALOG_METRICS != 'false' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -154,3 +165,16 @@ jobs:
       - name: Report unchanged figures
         if: steps.metrics.outputs.changed != 'true' && inputs.dry_run != true
         run: echo "The figures have not changed since the last run. Nothing to commit." >> "$GITHUB_STEP_SUMMARY"
+
+      # A red monthly run with nothing but a stack trace in it tells a
+      # non-coder maintainer nothing. Whatever failed, this says what it means.
+      - name: Explain a failed run
+        if: failure()
+        run: |
+          {
+            echo "### Could not update the catalog metrics"
+            echo
+            echo "This is usually a temporary GitHub API problem. Nothing on the site changed."
+            echo
+            echo "The next monthly run will try again, or run this workflow now from the Actions tab."
+          } >> "$GITHUB_STEP_SUMMARY"

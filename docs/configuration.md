@@ -25,7 +25,7 @@ github:
   branch: "main"
 ```
 
-Used to build the `/submit/` form's GitHub issue URL, the "Suggest an edit on GitHub" and "Report an issue" links on entry pages, and the "Watch the repository" links throughout. **Update this after using the template** — it does not infer itself from where the site is actually hosted (the setup wizards do try to detect it from your git remote or `github.repository_nwo`, but hand-edits do not).
+Used to build the `/submit/` form's GitHub issue URL, the "Suggest an edit on GitHub" and "Report an issue" links on entry pages, and the "Watch the repository" links throughout. **Update this after using the template** — it does not infer itself from where the site is actually hosted. The CLI wizard (`npm run setup`) fills the question in from your git remote; the browser wizard at `/setup/` cannot detect it at all, so on its **Basics** step (site and organization identity), under *GitHub*, check that the **Repository** field says *your* `owner/repo` and not the template's before you continue. A hand-edited `_data/site.yml` is entirely up to you. The `Validate Content` check fails any pull request where this key still names another repository, so a copy that skips it will not merge.
 
 ### Demo mode
 
