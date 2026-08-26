@@ -10,6 +10,20 @@
   .theme-preview-body { @apply grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]; }
   .theme-preview-controls { @apply flex flex-col justify-center gap-3; }
 
+  /* Step pills (renderStepNav in setup-page.js): each pill carries a numbered
+     disc that turns into a check once the wizard has moved past that step. The
+     ergonomics mirror .filter-pill; the disc is the stepper affordance. */
+  .wizard-step-pill { @apply inline-flex min-h-[44px] items-center gap-2 rounded-full border border-brand-line-strong bg-surface-card py-1 pl-1.5 pr-3.5 text-sm font-medium text-brand-ink transition-colors duration-120 ease-brand hover:border-brand-primary hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base lg:min-h-[32px] lg:text-[13px]; }
+  .wizard-step-dot { @apply grid h-6 w-6 shrink-0 place-items-center rounded-full border border-brand-line-strong bg-surface-card text-[0.6875rem] font-semibold leading-none text-brand-muted transition-colors duration-120; }
+  .wizard-step-pill:hover .wizard-step-dot { @apply border-brand-primary text-brand-primary; }
+  .wizard-step-pill.is-active { @apply border-brand-primary bg-brand-primary text-white hover:border-brand-primary hover:text-white; }
+  .wizard-step-pill.is-active .wizard-step-dot { @apply border-white/40 bg-white/15 text-white; }
+  .wizard-step-pill.is-done .wizard-step-dot { @apply relative border-brand-primary bg-brand-primary/10; }
+  .wizard-step-pill.is-done .wizard-step-index { @apply hidden; }
+  /* The check is drawn, not glyphed: an L rotated 45° keeps it crisp at 10px
+     and survives forced colors, where the tint fill above does not. */
+  .wizard-step-pill.is-done .wizard-step-dot::after { @apply h-[0.3rem] w-[0.55rem] -translate-y-[1px] -rotate-45 border-b-2 border-l-2 border-brand-primary-dark content-['']; }
+
   /* Wizard action bar (assets/js/configurator/setup-page.js). `is-sticky` pins it
      to the bottom of the viewport on the Entry model step, which runs long. */
   .wizard-actions { @apply mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-brand-line pt-6; }

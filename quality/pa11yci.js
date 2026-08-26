@@ -7,7 +7,7 @@ const yaml = require('js-yaml');
 const { qualityUrls, showcaseUrls } = require('./urls.js');
 
 const BASE = process.env.QUALITY_BASE_URL || 'http://127.0.0.1:4173';
-const { home, catalog, submit, governance, entries } = qualityUrls(BASE);
+const { home, catalog, submit, governance, compare, atoz, notFound, entries } = qualityUrls(BASE);
 // The showcase (landing + examples) is a separate build on a separate port, and
 // only exists when quality.yml made one — see showcaseUrls().
 const showcase = showcaseUrls(process.env.QUALITY_SHOWCASE_BASE_URL || '');
@@ -54,6 +54,9 @@ module.exports = {
     submit,
     `${BASE}/about/`,
     ...(governance ? [governance] : []),
+    ...(compare ? [compare] : []),
+    ...(atoz ? [atoz] : []),
+    notFound,
     setup,
     // Wizard steps that only exist after interaction: Look (live preview) and
     // Entry model (field builder). Selected by step id, not position — the

@@ -218,8 +218,9 @@
       tabindex: '-1',
       text: 'Check your answers',
     });
+    const answered = fields.filter((field) => ns.serialize(field)).length;
 
-    const groups = sections.map((section) => {
+    const groups = sections.map((section, index) => {
       const key = section.dataset.section;
       const title = section.querySelector('h2');
       const rows = [];
@@ -234,7 +235,10 @@
           }).forEach((node) => rows.push(node));
         });
       return el('section', { class: 'card' }, [
-        el('div', { class: 'card-header' }, [
+        el('div', { class: 'card-header flex items-center gap-3' }, [
+          // Echoes the numbered circle on the progress rail, so the read-back
+          // visibly maps onto the steps just walked.
+          el('span', { class: 'review-step-num', 'aria-hidden': 'true', text: String(index + 1) }),
           el('p', { class: 'card-title', text: title ? title.textContent.trim() : key }),
         ]),
         el(
@@ -250,10 +254,15 @@
 
     const panel = el('div', { class: 'space-y-6' }, [
       el('div', {}, [
+        el('p', { class: 'eyebrow', text: 'Last step' }),
         heading,
         el('p', {
           class: 'section-lead mt-1',
-          text: 'Nothing has been sent yet. Read it over — this is exactly what GitHub will receive.',
+          text:
+            'Nothing has been sent yet. Read your ' +
+            answered +
+            (answered === 1 ? ' answer' : ' answers') +
+            ' over — this is exactly what GitHub will receive.',
         }),
       ]),
       ...groups,
@@ -331,13 +340,32 @@
       text: 'Almost there — finish on GitHub',
     });
 
+    // The success moment: a check that draws itself in. Decorative — the
+    // heading carries the meaning — and the reduced-motion blanket rule in
+    // base.css snaps the stroke straight to its drawn state.
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const checkSvg = document.createElementNS(svgNs, 'svg');
+    checkSvg.setAttribute('viewBox', '0 0 24 24');
+    checkSvg.setAttribute('fill', 'none');
+    checkSvg.setAttribute('stroke', 'currentColor');
+    const checkPath = document.createElementNS(svgNs, 'path');
+    checkPath.setAttribute('class', 'confirm-check-path');
+    checkPath.setAttribute('stroke-linecap', 'round');
+    checkPath.setAttribute('stroke-linejoin', 'round');
+    checkPath.setAttribute('d', 'm4.5 12.75 6 6 9-13.5');
+    checkSvg.append(checkPath);
+    const badge = el('div', { class: 'confirm-check', 'aria-hidden': 'true' }, [checkSvg]);
+
     const panel = el('div', { class: 'card' }, [
-      el('div', { class: 'card-header' }, [
-        heading,
-        el('p', {
-          class: 'section-lead mt-1',
-          text: 'A new tab has opened with your answers filled in. Read them over and press “Submit new issue” there. Until you do, nothing has been submitted.',
-        }),
+      el('div', { class: 'card-header flex items-start gap-4' }, [
+        badge,
+        el('div', { class: 'min-w-0' }, [
+          heading,
+          el('p', {
+            class: 'section-lead mt-1',
+            text: 'A new tab has opened with your answers filled in. Read them over and press “Submit new issue” there. Until you do, nothing has been submitted.',
+          }),
+        ]),
       ]),
       el('div', { class: 'flex flex-wrap items-center gap-3 px-6 py-5' }, actions),
       el('div', { class: 'border-t border-brand-line px-6 py-4' }, [

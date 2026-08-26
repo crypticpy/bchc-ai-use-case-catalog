@@ -17,6 +17,41 @@ You can edit these files by hand, or use one of the two configurators described 
 | `logo.image` | Path to an SVG/PNG under `assets/images`, or blank. |
 | `logo.text` | Text mark shown when `logo.image` is blank. |
 
+### Illustrations and social image
+
+Every key below is optional and ships blank: each surface renders its built-in flat
+treatment until you point the key at artwork of your own (put files under
+`assets/images/illustrations/` and run `npm run images -- assets/images/illustrations`
+for responsive derivatives — the bare command only walks the catalog's entry folders) —
+the site is fully functional with all of them empty. Each takes a site-relative image
+path. All are decorative: the copy beside each one carries the meaning, so they render
+with empty alt text and never replace information.
+
+```yaml
+images:
+  empty_catalog: ""   # "nothing published yet" panels (home + catalog)
+  empty_search: ""    # the catalog's zero-results-for-these-filters panel
+  empty_events: ""    # the events page when nothing is scheduled
+  not_found: ""       # the 404 page
+  wizard_complete: "" # the setup wizard's success moment on its Review step
+
+social:
+  og_image: ""        # link-preview card for chat apps and social sites (1200x630)
+
+events:    { image: "" }   # wide banner (about 20:7) under the events page header
+resources: { image: "" }   # same banner on the resources page
+about:     { image: "" }   # illustration floated beside the about page's opening copy
+```
+
+`social.og_image` needs `url:` set in `_config.yml` to resolve to an absolute address, and a
+page can override it with `image:` in its own front matter. Two more surfaces have their own
+keys where their copy lives: the home hero takes `hero.image` (see
+[Home page copy](#home-page-copy)) and the submit page takes `submit.image` /
+`submit.closed_image` (see [Submit form copy](#submit-form-copy)); the governance and cohort
+pages read `image` from [`_data/governance.yml`](#_datagovernanceyml) and
+`_data/cohorts/<year>.yml` respectively, and an optional background texture lives in
+[`_data/theme.yml`](#_datathemeyml) as `texture`.
+
 ### GitHub repository
 
 ```yaml
@@ -80,6 +115,9 @@ The shipped `ai-use-cases` configuration has `catalog`, `submit`, `carousel`, `s
 
 ```yaml
 hero:
+  image: ""   # optional wide illustration layered into the hero's dark ground —
+              # it fades in toward the right so the headline stays on a calm
+              # surface; blank keeps the built-in gradient-and-dot-grid treatment
   eyebrow: "…"
   title: "…"
   lead: "…"
@@ -103,11 +141,21 @@ The home page also shows a headline stat block (module: `stats`), an entries-by-
 
 ```yaml
 submit:
+  accepting: true           # false pauses intake without removing the page (see below)
+  image: ""                 # optional illustration beside the form's introduction
+  closed_image: ""          # optional illustration on the paused-state notice
+  closed_message: ""        # replaces the default paused-state copy when set
   intro: "…"               # shown above the form
   turnaround: "…"           # the last step of "what happens next": what happens after a maintainer picks it up
   review_note: "…"          # safety callout beside the form, and the first block of the GitHub issue form
   fallback_email: "…"       # the "Email it instead" button
 ```
+
+`accepting: false` replaces the form with a "Submissions are paused" notice — using
+`closed_message` and `closed_image` when set — while keeping the page and its nav link, so
+bookmarks and inbound links keep working during a review freeze. The email route
+(`fallback_email`, or `organization.contact_email`) stays offered. A `site.yml` without the
+key keeps accepting: only an explicit `false` pauses.
 
 `turnaround` is a promise printed on the submission page and repeated in the
 "check your answers" panel, so make it one you can keep — "usually within two
@@ -185,7 +233,17 @@ fonts:
   google_fonts_url: ""       # a Google Fonts <link> href, when using a non-bundled font
 
 radius: "soft"                # sharp | soft | round
+
+texture: ""                   # optional site-relative path to a tileable pattern image
 ```
+
+`texture` layers a repeating tile (at 480px wide) over the tinted bands, the home page's
+closing panel, the footer's dark ground and the slim keel on imageless catalog cards. Any
+subtlety — low opacity, low contrast — is baked into the tile file itself; the CSS applies it
+as-is, so point it at a small compressed file (the shipped default is the 400px WebP
+derivative of the template's woven tile, not the megabyte source PNG — the tile is nearly
+transparent, so weight matters far more than resolution). Blank keeps every one of those
+surfaces plain.
 
 Colors are hex values. `_includes/theme.html` converts each one to an `R G B` triple (via the `hex_to_rgb` Liquid filter in `_plugins/theme_filters.rb`) and emits them as CSS custom properties (`--c-primary`, `--c-line-strong`, `--c-warn`, …) that Tailwind's `rgb(var(--c-x) / <alpha>)` utility classes read — so changing a hex value here re-themes the whole site on the next build, no CSS edits required. Keep text/background pairs at WCAG AA contrast (4.5:1 for body text); the setup wizards warn if `on_dark` on `primary_dark` falls under 4.5:1, and `npm run validate` fails if `ink`, `muted` or `primary` fall under 4.5:1 on `surface_tint`.
 
@@ -266,6 +324,7 @@ Everything on `/governance/` comes from this file; the page (`governance/index.m
 eyebrow: "Governance"
 title: "How this catalog is governed"
 summary: "…"                    # one paragraph under the title
+image: ""                       # optional illustration beside the intro (blank = text-only)
 intro: |                        # Markdown
   …
 review:
@@ -383,7 +442,7 @@ npm run build:showcase -- cohort-portal       # the landing and one example (fas
 
 | File | What it holds |
 | --- | --- |
-| `_data/showcase.yml` | Everything the landing page says: headline, the blurb and screenshot for each example, the feature list, the "how publishing works" steps. |
+| `_data/showcase.yml` | Everything the landing page says: headline, the blurb and screenshot for each example, the feature list, the "how publishing works" steps. `hero_image` (optional, blank by default) layers an illustration into the landing hero the same way `hero.image` does on a catalog's home page. |
 | `_showcase/<preset-id>/` | The sample content each example is built from — entries, and any module data that preset turns on. |
 | `assets/images/showcase/` | The screenshots on the landing's example cards. A card whose file is missing shows a framed placeholder instead, so the page is complete without them. |
 | `_data/showcase_presets.json` | Generated at build time from `assets/js/configurator/presets.js`: the per-example facts each card states — field and filter counts, entry noun, which modules are on. Never hand-written, so it cannot drift from the wizard. |

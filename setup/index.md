@@ -67,6 +67,16 @@ robots: noindex
 
 </section>
 
+{%- comment -%} Completion illustration for the Review step, from the deployment-owned
+`images.wizard_complete` key in _data/site.yml. Rendered here so Jekyll resolves the
+baseurl and confirms the file exists — steps/review.js clones this template when
+present and shows a text-only banner when it is not (blank key included). {%- endcomment -%}
+{%- assign su_done_art = site.data.site.images.wizard_complete | default: '' -%}
+{%- assign su_done_found = su_done_art | static_file -%}
+{%- if su_done_found -%}
+<template id="wizard-complete-art"><img src="{{ su_done_art | relative_url }}" alt="" width="160" height="160" loading="lazy" decoding="async" class="h-full w-full object-contain"></template>
+{%- endif -%}
+
 <script id="current-config" type="application/json">{{ site.data.site | jsonify }}</script>
 <script id="current-theme" type="application/json">{{ site.data.theme | jsonify }}</script>
 <script id="current-schema" type="application/json">{{ site.data.schema | jsonify }}</script>

@@ -93,19 +93,32 @@ const stepNav = document.querySelector('#wizard-steps');
 /** Render the numbered step pills above the wizard body. */
 function renderStepNav() {
   stepNav.replaceChildren(
-    ...STEP_META.map((meta, index) =>
-      el('button', {
-        type: 'button',
-        class: `filter-pill${index === state.step ? ' is-active' : ''}`,
-        'aria-current': index === state.step ? 'step' : null,
-        // The step id, not its position: quality/pa11yci.js drives the wizard
-        // through these pills and must not be re-numbered every time a step
-        // is added or split.
-        'data-step': STEPS[index],
-        text: `${index + 1}. ${meta.label}`,
-        onclick: () => goTo(index),
-      })
-    )
+    ...STEP_META.map((meta, index) => {
+      // "Done" is positional — every step behind the current one was validated
+      // to get past it. Validating untouched steps instead would check them
+      // all on first load, since the defaults are valid.
+      const done = index < state.step;
+      return el(
+        'button',
+        {
+          type: 'button',
+          class: `wizard-step-pill${index === state.step ? ' is-active' : ''}${done ? ' is-done' : ''}`,
+          'aria-current': index === state.step ? 'step' : null,
+          // The step id, not its position: quality/pa11yci.js drives the wizard
+          // through these pills and must not be re-numbered every time a step
+          // is added or split.
+          'data-step': STEPS[index],
+          onclick: () => goTo(index),
+        },
+        [
+          el('span', { class: 'wizard-step-dot', 'aria-hidden': 'true' }, [
+            el('span', { class: 'wizard-step-index', text: String(index + 1) }),
+          ]),
+          el('span', { class: 'wizard-step-label', text: meta.label }),
+          done ? el('span', { class: 'sr-only', text: '(complete)' }) : false,
+        ]
+      );
+    })
   );
 }
 

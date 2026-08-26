@@ -435,6 +435,7 @@ Each `_data/cohorts/<year>.yml` file describes one cohort page (`cohorts/<year>/
 
 ```yaml
 title: "AI Practice Cohort 2026"
+image: ""      # optional illustration layered into the cohort hero (blank = built-in treatment)
 events:
   - id: kickoff
     name: "Cohort kickoff"

@@ -100,6 +100,22 @@
       ]
     }
   },
+  "/catalog/home-visit-note-summarizer-for-community-health-workers/thumb.jpg": {
+    "w": 800,
+    "h": 451,
+    "src_bytes": 33915,
+    "base": "/catalog/home-visit-note-summarizer-for-community-health-workers/thumb",
+    "variants": {
+      "avif": [
+        400,
+        800
+      ],
+      "webp": [
+        400,
+        800
+      ]
+    }
+  },
   "/catalog/inspection-backlog-dashboard/screenshots/01.png": {
     "w": 1280,
     "h": 800,
@@ -228,6 +244,22 @@
         400,
         800,
         1280
+      ],
+      "webp": [
+        400,
+        800
+      ]
+    }
+  },
+  "/catalog/wastewater-surveillance-trend-alerts/thumb.jpg": {
+    "w": 800,
+    "h": 451,
+    "src_bytes": 37932,
+    "base": "/catalog/wastewater-surveillance-trend-alerts/thumb",
+    "variants": {
+      "avif": [
+        400,
+        800
       ],
       "webp": [
         400,

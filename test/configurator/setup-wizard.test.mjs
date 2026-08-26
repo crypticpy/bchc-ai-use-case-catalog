@@ -73,7 +73,9 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 /** Click the numbered step pill, the way an admin jumps between steps. */
 function goToStep(oneBased) {
-  const pill = $$('#wizard-steps button').find((button) => button.textContent.startsWith(`${oneBased}.`));
+  const pill = $$('#wizard-steps button').find(
+    (button) => button.querySelector('.wizard-step-index').textContent === String(oneBased)
+  );
   assert.ok(pill, `no step pill ${oneBased}`);
   pill.click();
 }
@@ -126,8 +128,12 @@ test('the wizard boots on step 1 with one pill per step, each naming its step id
     ['start', 'basics', 'look', 'words', 'modules', 'fields', 'review']
   );
   assert.deepEqual(
-    $$('#wizard-steps button').map((button) => button.textContent),
-    ['1. Start', '2. Basics', '3. Look', '4. Words', '5. Modules', '6. Entry model', '7. Review']
+    $$('#wizard-steps button').map((button) => button.querySelector('.wizard-step-index').textContent),
+    ['1', '2', '3', '4', '5', '6', '7']
+  );
+  assert.deepEqual(
+    $$('#wizard-steps button').map((button) => button.querySelector('.wizard-step-label').textContent),
+    ['Start', 'Basics', 'Look', 'Words', 'Modules', 'Entry model', 'Review']
   );
   assert.equal($('#step-heading').textContent, 'Choose a starting point');
   assert.deepEqual(errors, []);
@@ -619,6 +625,13 @@ test('repositoryFromLocation names the repository a github.io address serves', a
   assert.equal(repositoryFromLocation('bigcities.github.io', '/ai-catalog/setup/'), 'bigcities/ai-catalog');
   // A user/organization site serves from the root of a repo named after the host.
   assert.equal(repositoryFromLocation('bigcities.github.io', '/setup/'), 'bigcities/bigcities.github.io');
+  // A project repository literally named `setup` serves the page at /setup/setup/.
+  assert.equal(repositoryFromLocation('bigcities.github.io', '/setup/setup/'), 'bigcities/setup');
+  // The canonical file URL on a root site is still the page's own route.
+  assert.equal(
+    repositoryFromLocation('bigcities.github.io', '/setup/index.html'),
+    'bigcities/bigcities.github.io'
+  );
   // A custom domain names neither owner nor repository.
   assert.equal(repositoryFromLocation('catalog.example.org', '/setup/'), null);
   assert.equal(repositoryFromLocation('github.io', '/setup/'), null);

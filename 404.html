@@ -22,6 +22,8 @@ the `catalog` module. Local assigns are prefixed `nf_`.
 {%- if nf_cfg.modules.catalog and nf_entries.size > 0 -%}{%- assign nf_recent = nf_entries | slice: 0, 3 -%}{%- endif -%}
 
 <div class="mx-auto max-w-xl py-16 text-center">
+  {%- assign nf_img = nf_cfg.images.not_found | default: '' -%}
+  {%- if nf_img != '' -%}<div class="mx-auto mb-6 h-40 w-40" aria-hidden="true">{% include picture.html src=nf_img alt='' sizes="160px" class="h-full w-full object-contain" %}</div>{%- endif -%}
   <span class="eyebrow">404</span>
   <h1 class="mt-2 font-heading text-4xl font-semibold text-brand-primary-dark">We couldn't find that page</h1>
   <p class="mt-4 text-brand-muted">It may have moved or the link is out of date.</p>
