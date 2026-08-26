@@ -218,5 +218,21 @@
         800
       ]
     }
+  },
+  "/catalog/wastewater-surveillance-trend-alerts/thumb.jpg": {
+    "w": 800,
+    "h": 451,
+    "src_bytes": 37932,
+    "base": "/catalog/wastewater-surveillance-trend-alerts/thumb",
+    "variants": {
+      "avif": [
+        400,
+        800
+      ],
+      "webp": [
+        400,
+        800
+      ]
+    }
   }
 }
