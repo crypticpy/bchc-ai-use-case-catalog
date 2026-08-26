@@ -15,7 +15,7 @@ area:
 stage: Pilot
 summary: "Community health workers record a short voice memo after each home visit; the tool transcribes it, drafts the structured visit note in our case-management format, and queues it for the CHW to review and file — turning a 20-minute typing task into a 4-minute review."
 impact: "Visit notes filed same-day rose from 54% to 93% in the eight-week pilot"
-review_status: Under review
+review_status: Reviewed & approved
 ai_role: AI is part of the solution
 ai_types:
   - Speech & transcription
