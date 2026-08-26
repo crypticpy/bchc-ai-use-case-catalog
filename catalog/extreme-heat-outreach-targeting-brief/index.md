@@ -16,7 +16,7 @@ area:
 stage: Idea / exploring
 summary: "A worked plan for using the county's existing heat-vulnerability index plus forecast data to decide, two days ahead of a heat event, which neighborhoods get door-knocking, which get robocalls, and which cooling centers to extend — written up for other jurisdictions to adapt before we build anything."
 impact: ""
-review_status: Under review
+review_status: Reviewed & approved
 ai_role: AI was used to build it
 ai_types:
   - Generative text (LLM)
