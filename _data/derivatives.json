@@ -118,6 +118,22 @@
       ]
     }
   },
+  "/catalog/merge-this-a-live-publishing-demo/thumb.jpg": {
+    "w": 800,
+    "h": 451,
+    "src_bytes": 30021,
+    "base": "/catalog/merge-this-a-live-publishing-demo/thumb",
+    "variants": {
+      "avif": [
+        400,
+        800
+      ],
+      "webp": [
+        400,
+        800
+      ]
+    }
+  },
   "/catalog/onboarding-checklist-assistant/screenshots/01.png": {
     "w": 1280,
     "h": 800,
