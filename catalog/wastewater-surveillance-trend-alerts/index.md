@@ -15,7 +15,7 @@ area:
 stage: In production
 summary: Watches the weekly wastewater sampling results for the metro's five treatment plants, flags statistically unusual rises for COVID, flu and RSV, and posts a short plain-language alert to the epi team's channel before the Monday briefing.
 impact: Epi team saw the winter flu rise nine days before case reports confirmed it
-review_status: Under review
+review_status: Reviewed & approved
 ai_role: AI is part of the solution
 ai_types:
   - Prediction & forecasting
@@ -59,7 +59,7 @@ data_sources:
   - Weekly wastewater sample results from the five metro treatment plants
   - State respiratory dashboard (public) for corroboration
 audience: Internal staff
-data_governance_notes: ""
+data_governance_notes: "Plant-level aggregate counts only — no case-level or personal data anywhere in the pipeline. Alerts are internal decision support for the epi team; the public state dashboard is used to corroborate trends, not fed by this tool."
 contact_name: Priya Raman
 contact_title: Surveillance Data Manager
 contact_email: "priya.raman@example.org"
