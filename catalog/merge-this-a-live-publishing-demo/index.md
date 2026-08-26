@@ -3,7 +3,7 @@ layout: entry
 render_with_liquid: false
 title: "Merge this — a live publishing demo"
 slug: merge-this-a-live-publishing-demo
-published: "2026-08-26"
+published: "2026-08-27"
 featured: false
 thumbnail: ""
 organization: Big Cities Health Coalition (prototype demo)
@@ -15,7 +15,7 @@ area:
 stage: Pilot
 summary: "This entry was submitted through the catalog's own public web form and merged live during the August 27 work-group walkthrough. It documents the catalog itself: a GitHub-hosted, open-source template where use cases arrive as web-form submissions, get reviewed as pull requests, and publish as pages — no server, no database, no hosting cost."
 impact: "Filed as a web form, reviewed as a pull request, published with one click — during the meeting"
-review_status: Under review
+review_status: Reviewed & approved
 ai_role: AI was used to build it
 ai_types:
   - Generative text (LLM)
