@@ -56,5 +56,10 @@ existed still builds. {%- endcomment -%}
     --motion-base: {{ th_m.base | default: '180ms' }};
     --motion-slow: {{ th_m.slow | default: '240ms' }};
     --ease-brand: {{ th_m.ease | default: 'cubic-bezier(0.2, 0, 0, 1)' }};
+    {%- comment -%} Optional texture tile for tinted surfaces; components reference
+    var(--pattern-url, none), so leaving `texture` blank keeps them flat. {%- endcomment -%}
+    {%- if th_theme.texture and th_theme.texture != '' %}
+    --pattern-url: url("{{ th_theme.texture | relative_url }}");
+    {%- endif %}
   }
 </style>

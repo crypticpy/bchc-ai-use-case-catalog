@@ -1,10 +1,11 @@
 # Documentation
 
-Twenty-two documents, four different readers. Find your row.
+Twenty-three documents, four different readers. Find your row.
 
 | Page | Who it is for | When to read it |
 |---|---|---|
 | [launch.md](launch.md) | Someone who just created a repository from the template | First. Start to finish, about 40 minutes, ends with an entry you published yourself. |
+| [../AGENTS.md](../AGENTS.md) | An AI coding agent handed a copy to configure | The agent-facing setup runbook: the interview checklist, the ownership contract, and the settings only a human can click. |
 | [configuration.md](configuration.md) | Whoever owns `_data/*.yml` | When you want to change a setting and need to know the key, or what a key does. |
 | [content-model.md](content-model.md) | Whoever decides what an entry holds | When the shipped fields are not your fields — designing a schema, adding a field type, choosing a taxonomy people will actually filter by. |
 | [search.md](search.md) | Whoever owns the taxonomy | When search finds the wrong thing, or nothing — synonyms, tag aliases, the facet landing pages and the A–Z directory, all from `_data/search.yml`. |

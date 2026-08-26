@@ -89,6 +89,10 @@ leads with; remaining facets fill in only if fewer than four qualify.
 {%- assign hero_meta_field = schema.fields | card_fields: 'meta' | first -%}
 
 <section class="hero">
+  {%- comment -%} Optional illustration layer: sits above the dot grid and below the
+  copy, masked with the same 112° fade so the left half stays a calm ground for the
+  headline. Decorative — the hero copy carries the meaning. {%- endcomment -%}
+  {% if cfg.hero.image and cfg.hero.image != '' %}<div class="hero-art" aria-hidden="true">{% include picture.html src=cfg.hero.image alt='' sizes="100vw" class="hero-art-img" eager=true %}</div>{% endif %}
   <div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-center lg:gap-16 lg:px-8 lg:py-24">
     <div class="max-w-prose">
       {% if cfg.hero.eyebrow %}<p class="eyebrow-on-dark">{{ cfg.hero.eyebrow }}</p>{% endif %}
@@ -223,8 +227,8 @@ the eye reads "here is how the collection is organised" before the first entry. 
     {%- comment -%} The grid lists live entries, so it can be empty while the catalog
     is not (everything deprecated); that case points at the catalog, which keeps
     deprecated entries for the record. {%- endcomment -%}
-    {% if total == 0 %}{% include empty-state.html icon='sparkles' title='Nothing published yet' body='Once the first entries are approved they will show up here.' cta_url=home_empty_cta cta_label='Submit the first one' %}
-    {% elsif live.size == 0 %}{% include empty-state.html icon='sparkles' title='Nothing current right now' body='Every entry is marked deprecated. They are kept for the record in the catalog.' cta_url=catalog_url cta_label='Browse the catalog' %}{% endif %}
+    {% if total == 0 %}{% include empty-state.html icon='sparkles' image=cfg.images.empty_catalog title='Nothing published yet' body='Once the first entries are approved they will show up here.' cta_url=home_empty_cta cta_label='Submit the first one' %}
+    {% elsif live.size == 0 %}{% include empty-state.html icon='sparkles' image=cfg.images.empty_catalog title='Nothing current right now' body='Every entry is marked deprecated. They are kept for the record in the catalog.' cta_url=catalog_url cta_label='Browse the catalog' %}{% endif %}
   </section>
   {% endif %}
 
