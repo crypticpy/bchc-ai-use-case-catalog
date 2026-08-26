@@ -54,7 +54,15 @@ question.
   </nav>
   {%- endif -%}
 
-  {% if gv.intro %}<div class="prose-body mt-8">{{ gv.intro | markdownify }}</div>{% endif %}
+  {%- comment -%} Optional stewardship illustration (governance.yml `image`) sits
+  beside the intro at sm+; on narrow screens the copy keeps the column. {%- endcomment -%}
+  {%- assign gv_art = gv.image | default: '' -%}
+  {%- if gv.intro or gv_art != '' -%}
+  <div class="mt-8{% if gv.intro and gv_art != '' %} grid gap-8 sm:grid-cols-[minmax(0,1fr)_13rem] sm:items-start{% endif %}">
+    {% if gv.intro %}<div class="prose-body">{{ gv.intro | markdownify }}</div>{% endif %}
+    {% if gv_art != '' %}<div class="page-art hidden sm:block" aria-hidden="true">{% include picture.html src=gv_art alt='' sizes="208px" class="h-auto w-full" %}</div>{% endif %}
+  </div>
+  {%- endif -%}
 
   {%- if gv_steps.size > 0 -%}
   <section class="mt-12" aria-labelledby="review">

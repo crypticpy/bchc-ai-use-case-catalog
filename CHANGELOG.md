@@ -8,6 +8,37 @@ major version, and each entry says so when it happens.
 
 ## [Unreleased]
 
+## [1.9.0-rc.5] — 2026-08-26
+
+### Added
+
+- A full visual pass over every surface (#34, #35, #37). Illustration slots —
+  hero, social link-preview card, submit form and its paused state, about, events,
+  resources, governance, cohort journey, four empty states, the 404 page, the wizard's
+  success moment, and an optional background texture — are now available as `_data/*.yml`
+  keys for a deployment to fill with its own artwork (`npm run images` builds AVIF/WebP
+  derivatives). The keys ship blank apart from the subtle background texture: every
+  surface renders a polished flat treatment out of the box. The submit progress rail
+  and the setup wizard's step pills became real steppers, review and confirmation
+  panels gained hierarchy and a drawn-check success moment, and
+  `submit.accepting: false` can pause intake without removing the page.
+- `AGENTS.md`: a setup runbook for AI coding agents handed a copy of this template —
+  what to ask before configuring, which files the copy owns versus the template, the
+  configure → generate → validate loop, and the GitHub settings only a human can click.
+- The accessibility gate now also audits `/compare/`, the A–Z directory and the 404
+  page on every pull request.
+
+### Fixed
+
+- Past event rows kept WCAG AA text contrast (they now recede via grayscale, which
+  preserves luminance, instead of opacity, which does not), and the cohort hero's
+  breadcrumb separators no longer sat at 2.2:1 on the dark ground.
+- Three grid layouts (resource groups, the cohort sidebar, materials lists) no longer
+  overflow narrow phones: their truncated rows could force the grid wider than the
+  320–414px viewports.
+- The showcase example switcher's open menu no longer slides underneath the sticky
+  site header — the popover moved to the overlay layer the filter sheet already uses.
+
 ## [1.9.0-rc.4] — 2026-08-25
 
 ### Added
@@ -1049,7 +1080,8 @@ fixed in this release, and the remaining P3s are listed in `docs/roadmap.md`.
   in-browser and CLI configurators, GitHub-issue submission flow, events /
   cohorts / resources modules, Lunr search, thumbnails workflow.
 
-[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.4...HEAD
+[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.5...HEAD
+[1.9.0-rc.5]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.4...v1.9.0-rc.5
 [1.9.0-rc.4]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.3...v1.9.0-rc.4
 [1.9.0-rc.3]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.2...v1.9.0-rc.3
 [1.9.0-rc.2]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.1...v1.9.0-rc.2

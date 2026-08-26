@@ -27,7 +27,7 @@ export function renderStart(rerender) {
           'button',
           {
             type: 'button',
-            class: `card p-0 text-left transition hover:-translate-y-0.5 ${selected ? 'ring-4 ring-brand-primary/30 border-brand-primary' : ''}`,
+            class: `card card-hover p-0 text-left ${selected ? 'ring-4 ring-brand-primary/30 border-brand-primary' : ''}`,
             'aria-pressed': selected ? 'true' : 'false',
             onclick: () => {
               if (

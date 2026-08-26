@@ -11,8 +11,10 @@
   .card-hover { @apply transition-[box-shadow,transform] duration-base ease-brand hover:-translate-y-px hover:shadow-e1 focus-within:shadow-e1; }
   .card-header { @apply border-b border-brand-line px-6 py-4; }
   .card-title { @apply font-heading text-lg font-semibold text-brand-primary-dark; }
-  /* A full-bleed tinted section (the caller supplies the container inside). */
-  .band { @apply bg-surface-tint; }
+  /* A full-bleed tinted section (the caller supplies the container inside).
+     --pattern-url is an optional texture tile from theme.yml (`texture:`); unset,
+     the fallback keeps the band flat. The tile carries its own near-transparency. */
+  .band { @apply bg-surface-tint; background-image: var(--pattern-url, none); background-size: 480px auto; }
   /* A tinted panel: sidebar cards, the fact strip, the home CTA. */
   .panel { @apply rounded-card bg-surface-tint; }
   .eyebrow { @apply text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-brand-primary; }
@@ -55,13 +57,26 @@
     -webkit-mask-image: linear-gradient(112deg, transparent 38%, #000 100%);
     mask-image: linear-gradient(112deg, transparent 38%, #000 100%);
   }
+  /* Optional hero illustration (site.yml `hero.image`): same stacking level as the
+     dot grid but later in the tree, so it paints over the dots and under the copy.
+     The same 112° mask keeps the left half a calm ground for the headline, and the
+     dimmed image stays a texture, not a subject fighting the copy for attention. */
+  .hero-art { @apply pointer-events-none absolute inset-0 -z-10; }
+  .hero-art-img {
+    @apply h-full w-full object-cover object-right opacity-70;
+    -webkit-mask-image: linear-gradient(112deg, transparent 32%, #000 88%);
+    mask-image: linear-gradient(112deg, transparent 32%, #000 88%);
+  }
   /* The footer is the hero's ground mirrored — glow bottom-left, no dot grid — so the
-     page closes the way it opened. */
+     page closes the way it opened. The optional theme texture tiles over the
+     glow (subtlety is baked into the tile file, same contract as .band). */
   .site-footer {
     @apply bg-brand-primary-dark text-brand-on-dark;
     background-image:
+      var(--pattern-url, none),
       radial-gradient(48rem 24rem at 8% 120%, rgb(var(--c-primary) / 0.45), transparent 62%),
       linear-gradient(308deg, rgb(var(--c-primary-dark)) 0%, rgb(var(--c-primary-dark)) 50%, rgb(var(--c-primary) / 0.45) 140%);
+    background-size: 480px auto, auto, auto;
   }
   .hero-title { @apply font-heading font-semibold leading-[1.08] tracking-[-0.01em] text-white; font-size: clamp(2.25rem, 1.75rem + 2vw, 3rem); text-wrap: balance; }
   /* Home hero stat line: separators are decorative pseudo-elements, so they are
@@ -101,7 +116,8 @@
      hues meet, and quiet enough that the button stays the loudest thing in it. */
   .cta-panel {
     @apply panel relative overflow-hidden ring-1 ring-inset ring-brand-primary/10;
-    background-image: linear-gradient(112deg, rgb(var(--c-primary) / 0.07), transparent 55%, rgb(var(--c-secondary) / 0.07));
+    background-image: var(--pattern-url, none), linear-gradient(112deg, rgb(var(--c-primary) / 0.07), transparent 55%, rgb(var(--c-secondary) / 0.07));
+    background-size: 480px auto, auto;
   }
   /* No `prose-slate` and no `max-w-prose`: both set properties `prose` already sets, and
      @apply emits in stylesheet order rather than in the order written, so slate's
@@ -112,6 +128,11 @@
   /* Last line of a paragraph never left as a single short word. Progressive: ignored
      where unsupported, and it never changes the measure. */
   .prose-body p { text-wrap: pretty; }
+  /* Optional page-header illustration band (module pages): a wide strip clipped to
+     the card radius. Height is capped, not fixed, so a shorter image never letterboxes
+     and the strip stays a header accent rather than a hero. */
+  .page-art { @apply overflow-hidden rounded-card shadow-e0; }
+  .page-art-img { @apply max-h-72 w-full object-cover; }
   /* The display measure: headings and lead copy read wider than 16px body text. */
   .measure-display { max-width: var(--measure-display); }
   .sr-only-focusable:not(:focus):not(:active) { @apply sr-only; }

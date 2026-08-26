@@ -2,6 +2,8 @@
 
 Guidance for AI coding agents working in this repository — a Jekyll/GitHub Pages template where site behavior is driven by `_data/*.yml`, not hardcoded in templates or scripts.
 
+**Which repo are you in?** This file is for work on the template itself. If you are in a *copy* — a repository created from this template that you were asked to configure for an organization — read `AGENTS.md` instead: it is the setup runbook, and this file's "keep it organization-agnostic" rule does not apply to a copy.
+
 ## What this is
 
 A GitHub-Pages-hosted catalog template, shipped configured as a generic AI Use Case Catalog (the `ai-use-cases` preset, also served as the showcase example at `/examples/ai-use-cases/`). Keep it organization-agnostic: the health-coalition deployment it grew out of now lives in its own repository, `crypticpy/bchc-ai-use-case-catalog`, and no organization-specific names belong here. Content is authored through GitHub issues/PRs (see `docs/admin-guide.md`); there is no server and no database. Full docs: `README.md`, `docs/configuration.md`, `docs/content-model.md`, `docs/admin-guide.md`; the map of the repository family (this template, the BCHC deployment, deploy variables) is `docs/ecosystem.md` — keep it current when a repository is renamed, transferred or retired.
