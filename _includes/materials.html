@@ -13,7 +13,10 @@
             {% assign mt_type = item.type | default: '' | downcase %}
             {% assign mt_icon_name = 'document' %}
             {% if mt_type contains 'slide' or mt_type contains 'deck' %}{% assign mt_icon_name = 'presentation' %}{% elsif mt_type contains 'code' or mt_type contains 'hands' %}{% assign mt_icon_name = 'terminal' %}{% elsif mt_type contains 'video' %}{% assign mt_icon_name = 'presentation' %}{% endif %}
-            <li>
+            {%- comment -%} min-w-0: grid items default to min-width:auto, so the
+            link-row's nowrap (truncate) text would set the track's min-content
+            width and overflow narrow viewports. {%- endcomment -%}
+            <li class="min-w-0">
               <a class="link-row" href="{% if item.url contains '://' %}{{ item.url }}{% else %}{{ item.url | relative_url }}{% endif %}" {% if item.url contains '://' %}target="_blank" rel="noopener noreferrer"{% endif %}>
                 <span class="flex min-w-0 items-center gap-3">
                   <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary">{% include icon.html name=mt_icon_name size='sm' %}</span>

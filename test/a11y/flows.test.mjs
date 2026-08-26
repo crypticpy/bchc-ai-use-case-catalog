@@ -626,8 +626,16 @@ describe('assistive-technology flows', { skip: SKIP, concurrency: false }, () =>
     assert.equal(heading.name, 'Names & contact');
     assert.match(await textOf(page, '#wizard .eyebrow'), /^Step 2 of \d+$/);
     assert.equal(
-      await page.evaluate(() => document.querySelector('[aria-current="step"]').textContent.trim()),
-      '2. Basics'
+      await page.evaluate(() =>
+        document.querySelector('[aria-current="step"] .wizard-step-label').textContent.trim()
+      ),
+      'Basics'
+    );
+    assert.equal(
+      await page.evaluate(() =>
+        document.querySelector('[aria-current="step"] .wizard-step-index').textContent.trim()
+      ),
+      '2'
     );
 
     // Blanking a required answer and moving on must mark the control at the

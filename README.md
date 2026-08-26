@@ -8,7 +8,7 @@ The site is hosted on GitHub Pages and managed entirely through GitHub: no serve
 
 ## Add an entry
 
-Fill in the [**Submit** form](https://crypticpy.github.io/bchc-ai-use-case-catalog/submit/) on the site — one page, with a live preview of the card your entry will produce — or open the [Submit a use case issue form](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=new-entry.yml) directly. Automation turns the issue into a pull request with the entry drafted and any screenshots downloaded into it; a maintainer reviews and merges, and the entry is live a couple of minutes later.
+Fill in the [**Submit** form](https://crypticpy.github.io/bchc-ai-use-case-catalog/submit/) on the site — a stepped form that walks you through a few short sections, with a short form that hides every optional question and a live preview of the card your entry will produce — or open the [Submit a use case issue form](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=new-entry.yml) directly. Automation turns the issue into a pull request with the entry drafted and any screenshots downloaded into it; a maintainer reviews and merges, and the entry is live a couple of minutes later.
 
 ## Maintainers
 
@@ -16,7 +16,7 @@ Fill in the [**Submit** form](https://crypticpy.github.io/bchc-ai-use-case-catal
 
 > The catalog currently carries the demo entries the site shipped with — every page says so until they are cleared (`npm run eject:samples`, or the *Apply setup* issue form).
 
-Built on the [Civic Catalog Template](https://github.com/crypticpy/phct); see [`docs/upgrading.md`](docs/upgrading.md) for pulling in template improvements.
+Built on the [Pub Health Catalog Template (PHCT)](https://github.com/crypticpy/phct); see [`docs/upgrading.md`](docs/upgrading.md) for pulling in template improvements.
 
 ## Features
 
@@ -31,11 +31,13 @@ Built on the [Civic Catalog Template](https://github.com/crypticpy/phct); see [`
 - **Modules.** Turn catalog, submit, carousel, stats, events, cohorts, resources and governance on or off independently; navigation and the home page adapt automatically, and pages under a disabled module are dropped from the build.
 - **Theming.** Colors, fonts and corner rounding live in [`_data/theme.yml`](_data/theme.yml) and become CSS variables consumed by Tailwind — no CSS editing required for a rebrand. Every colour has one semantic job, so a re-skin cannot quietly break contrast.
 - **Accessibility as a build rule, not a pass.** Nothing is signalled by colour or icon alone, every control has a visible focus ring and a ≥3:1 border, filter changes are announced once, and the whole catalog still works with JavaScript disabled.
-- **CI content pipeline.** Front-matter and file-size validation on every pull request, automatic thumbnail generation from uploaded PDFs, and workflows that scaffold cohort years, events and schedule updates from issues.
+- **CI content pipeline.** Front-matter and file-size validation on every pull request, automatic thumbnail generation from uploaded PDFs, and workflows that scaffold cohort years, events and schedule updates from issues. Scaffolded content pull requests are labelled at creation so code-review bots can be told to skip them — entries are data, not code; a `.sourcery.yaml` configures exactly that for the Sourcery bot.
 
-## Quick start
+## Run your own
 
-1. **Use this template** on GitHub (or clone it) to create your own repository.
+This site is one deployment of a reusable template. To stand up a catalog like it for your own organization:
+
+1. **Create your own repository** from the [Pub Health Catalog Template](https://github.com/crypticpy/phct) (**Use this template** on GitHub, or clone it).
 2. **Turn on the three settings**: Pages source (Settings → Pages → Source → **GitHub Actions**), pull requests for Actions (Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**), and the content labels (Actions tab → **Bootstrap labels** → *Run workflow*).
 3. **Configure the site** — open `/setup/` on the deployed site for the browser wizard (no terminal), or run `npm install && npm run setup` locally. Both write `_data/site.yml`, `_data/theme.yml`, `_data/schema.yml`, `_data/navigation.yml`, `_config.yml` and `.github/ISSUE_TEMPLATE/new-entry.yml`, from the same four presets. With no terminal, paste the wizard's three `_data/*.yml` files into the **Apply setup** issue form and the automation opens the pull request for you.
 4. **Clear the demo content** — ten fictional organizations, a sample events calendar, a sample cohort. Until they are gone every page carries a *Demo content* banner saying so. `npm run eject:samples` removes it all, turns the banner off and switches the `governance` module off until you have rewritten `_data/governance.yml` in your own words; the Apply setup issue has a checkbox that does the same thing.
@@ -45,7 +47,7 @@ Each of those steps has a detail you will want on the day: **[`docs/launch.md`](
 
 ## How content gets in
 
-1. A contributor fills out the **Submit** form (`/submit/`) — one page, with a live preview of the card their entry will produce — or opens the **Submit a use case** GitHub issue form directly.
+1. A contributor fills out the **Submit** form (`/submit/`) — a stepped form that walks the schema's field groups one section at a time, with a short form that hides every optional question and a live preview of the card their entry will produce — or opens the **Submit a use case** GitHub issue form directly.
 2. The form data becomes a GitHub issue labelled `content:new-entry`. Screenshots are dragged onto the issue at this point.
 3. The `New entry from issue` workflow runs `scripts/new_entry_from_issue.mjs`, which reads `_data/schema.yml`, downloads any attached images into `catalog/<slug>/screenshots/` (up to 8 files, 15 MB total, PNG/JPEG/GIF/WebP), and opens a pull request containing `catalog/<slug>/index.md`. The pull request body carries the maintainer checklist — the review criteria from `_data/governance.yml`, the mechanics, the review-status flip — and, when an answer matches a field's `escalate_on` list in the schema (an unticked PII/PHI attestation, PHI under *Data it touches*, a public-facing audience), a **Closer review** block and the `review:data-governance` label.
 4. Larger attachments — a `deck.pdf` — are added to the entry folder directly in that pull request. Any `file` field flagged `thumbnail: true` gets a `thumb.jpg` rendered from its first page automatically by the `Generate entry thumbnails` workflow.
@@ -89,7 +91,7 @@ A fork is a copy, not a subscription: template releases do not reach you on thei
 ```bash
 git remote add template https://github.com/crypticpy/phct.git
 git fetch template --tags
-npm run upgrade:check -- --to v1.9.0 # read-only: what this exact release changes, in two lists
+npm run upgrade:check -- --to v1.9.0-rc.5 # read-only: what this exact release changes, in two lists
 ```
 
 The whole protected-update and manual-recovery recipe: [`docs/upgrading.md`](docs/upgrading.md).
@@ -118,7 +120,7 @@ npm run build     # generate schema-derived files, build CSS, build the Jekyll s
 Other useful scripts:
 
 ```bash
-npm run setup      # configuration wizard (see Quick start)
+npm run setup      # configuration wizard (see Run your own)
 npm run generate   # regenerate the issue template + configurator defaults, and sync _config.yml from _data/site.yml
 npm run validate   # parse all _data/*.yml and run the front-matter / file-size checks CI runs on pull requests
 npm test           # Node unit tests; `npm run test:ruby` for the Ruby validators

@@ -22,8 +22,11 @@
   .example-switcher[open] .example-switcher-chevron { @apply rotate-180; }
   .example-switcher-menu { @apply mt-2 flex flex-col gap-0.5; }
   @media (min-width: 640px) {
+    /* z-50, not z-40: the banner precedes the sticky z-40 site header in the DOM,
+       so at equal z-index the header paints over the open menu's first rows. The
+       overlay tier (z-50, shared with the filter sheet) keeps the popover on top. */
     .example-switcher-menu {
-      @apply absolute right-0 top-full z-40 mt-1 w-64 rounded-card border border-brand-line bg-surface-card p-1.5 shadow-e1;
+      @apply absolute right-0 top-full z-50 mt-1 w-64 rounded-card border border-brand-line bg-surface-card p-1.5 shadow-e1;
     }
   }
   .example-switcher-link {

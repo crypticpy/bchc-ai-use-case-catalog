@@ -164,7 +164,26 @@ export function renderReview() {
   const applySetupUrl = repository
     ? `https://github.com/${repository}/issues/new?template=apply-setup.yml`
     : '';
+  // A success moment before the working document: every check passed, so say so.
+  // The illustration comes from a <template> setup/index.md only renders when the
+  // image file exists (and with the site's baseurl already applied), so a copy
+  // without the artwork gets the text banner alone.
+  const doneArt = document.getElementById('wizard-complete-art');
+  const banner = el('div', { class: 'card flex items-center gap-5 px-6 py-5' }, [
+    ...(doneArt
+      ? [el('div', { class: 'h-24 w-24 shrink-0', 'aria-hidden': 'true' }, [doneArt.content.cloneNode(true)])]
+      : []),
+    el('div', { class: 'min-w-0' }, [
+      el('p', { class: 'card-title', text: 'Your configuration is ready' }),
+      el('p', {
+        class: 'mt-1 text-sm text-brand-muted',
+        text: 'Every check passed. Publish the files below and the site rebuilds with these settings.',
+      }),
+    ]),
+  ]);
+
   const body = el('div', { class: 'space-y-6' }, [
+    banner,
     el('div', { class: 'card' }, [
       el('div', { class: 'card-header' }, [
         el('p', { class: 'card-title', text: 'How to publish these changes' }),

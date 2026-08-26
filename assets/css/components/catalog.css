@@ -74,9 +74,14 @@
      on .entry-card would still resolve against the row track and stretch it). */
   .entry-card--text { @apply h-auto; }
   .entry-card--text .entry-summary { @apply line-clamp-4; }
+  /* A slim keel of the brand palette (the optional theme texture tiles over
+     it) so a catalog with no screenshots reads as a set of designed cards
+     rather than a bordered list. */
+  .entry-card--text::before { @apply block h-1.5 w-full shrink-0 content-['']; background-image: var(--pattern-url, none), linear-gradient(100deg, rgb(var(--c-primary)), rgb(var(--c-secondary)) 55%, rgb(var(--c-accent))); background-size: 480px auto, auto; }
 
   /* List view: the card collapses into one row, media and summary drop out. */
   .entry-grid[data-view="list"] .entry-card { @apply h-auto rounded-none border-0 border-b border-brand-line bg-transparent shadow-none; }
+  .entry-grid[data-view="list"] .entry-card--text::before { @apply hidden; }
   .entry-grid[data-view="list"] .entry-media { @apply hidden; }
   .entry-grid[data-view="list"] .entry-summary { @apply hidden; }
   .entry-grid[data-view="list"] .entry-body { @apply gap-1.5 px-1 py-4 sm:px-2; }
