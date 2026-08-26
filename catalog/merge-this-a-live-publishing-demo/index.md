@@ -3,7 +3,7 @@ layout: entry
 render_with_liquid: false
 title: "Merge this — a live publishing demo"
 slug: merge-this-a-live-publishing-demo
-published: "2026-08-26"
+published: "2026-08-27"
 featured: false
 thumbnail: ""
 organization: Big Cities Health Coalition (prototype demo)
