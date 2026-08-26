@@ -83,7 +83,32 @@ scripts:
 {%- endcomment -%}
 {%- assign gh_repo = cfg.github.repository | default: '' -%}
 
+{%- comment -%}
+  `submit.accepting: false` pauses intake without removing the page: readers get
+  a clear notice (and the email route when one is configured) instead of a form
+  whose submissions nobody will review. Distinct from `modules.submit`, which
+  removes the page and its links from the build entirely. A site.yml written
+  before the key existed has no `accepting` at all, which is not `false`, so
+  older deployments keep accepting.
+{%- endcomment -%}
+{%- if cfg.submit.accepting == false -%}
 <section class="max-w-prose">
+  <span class="eyebrow">Contribute</span>
+  <h1 class="page-title mt-2">Submissions are paused</h1>
+</section>
+<div class="mt-8 max-w-xl">
+  {%- assign sub_closed_msg = cfg.submit.closed_message | default: '' -%}
+  {%- if sub_closed_msg == '' -%}{%- capture sub_closed_msg -%}The maintainers are not taking new {{ singular | downcase }} submissions right now. Check back soon — everything already published stays available.{%- endcapture -%}{%- endif -%}
+  {% include empty-state.html icon='clock' image=cfg.submit.closed_image title='Not accepting submissions right now' body=sub_closed_msg %}
+  {%- if fallback_email != '' -%}
+  <p class="mt-4 text-sm text-brand-muted">Working on something time-sensitive? <a class="font-medium text-brand-primary underline-offset-2 hover:underline" href="mailto:{{ fallback_email }}?subject={{ singular | prepend: '[' | append: '] New entry' | uri_escape }}">Email the maintainers</a> and they will pick it up when intake reopens.</p>
+  {%- endif -%}
+</div>
+{%- else -%}
+
+{%- assign sub_art = cfg.submit.image | default: '' -%}
+<section{% if sub_art != '' %} class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-center"{% endif %}>
+  <div class="max-w-prose">
   <span class="eyebrow">Contribute</span>
   <h1 class="page-title mt-2">Submit {{ singular | downcase | with_article }}</h1>
   <p class="mt-4 text-lg text-brand-muted">{{ cfg.submit.intro | default: 'Tell us about your work. Maintainers review every submission before it is published.' }}</p>
@@ -102,6 +127,8 @@ scripts:
   {%- if cfg.modules.governance -%}
   <p class="mt-3 text-sm text-brand-muted">Before you start, the <a class="font-medium text-brand-primary underline-offset-2 hover:underline" href="{{ '/governance/' | relative_url }}">governance page</a> has the five things reviewers check and the rules on privacy and licensing — you keep ownership of anything you share.</p>
   {%- endif -%}
+  </div>
+  {% if sub_art != '' %}<div class="page-art hidden lg:block" aria-hidden="true">{% include picture.html src=sub_art alt='' sizes="256px" class="h-auto w-full" %}</div>{% endif %}
 </section>
 
 {%- comment -%}
@@ -130,14 +157,14 @@ scripts:
   <nav class="hidden lg:col-start-1 lg:row-start-1 lg:block" aria-label="Form sections" data-form-chrome>
     <div class="progress-rail lg:sticky lg:top-24">
       <p class="progress-count" data-progress-count>0 of {{ form_groups.size }} sections complete</p>
-      <ul class="mt-3 space-y-0.5">
+      <ul class="mt-3">
         {%- for g in form_groups %}
-        <li>
+        <li class="progress-step">
           <a class="progress-link" href="#section-{{ g.key }}" data-progress-link="{{ g.key }}" data-done="false">
-            <span class="progress-dot" aria-hidden="true"></span>
-            <span>{{ g.title }}<span class="sr-only" data-progress-state> — not started</span></span>
+            <span class="progress-dot" aria-hidden="true"><span class="progress-num">{{ forloop.index }}</span>{% include icon.html name='check' size='xs' class='progress-check' %}</span>
+            <span class="pt-0.5">{{ g.title }}<span class="sr-only" data-progress-state> — not started</span></span>
             {%- comment -%}Filled in by assets/js/submit.js when a submit attempt finds problems in this section.{%- endcomment -%}
-            <span class="ml-auto shrink-0 text-xs font-semibold text-brand-accent" data-progress-errors hidden></span>
+            <span class="ml-auto shrink-0 pt-0.5 text-xs font-semibold text-brand-accent" data-progress-errors hidden></span>
           </a>
         </li>
         {%- endfor %}
@@ -229,7 +256,7 @@ scripts:
       Shown instead of the draft bar when the browser refuses localStorage.
       Private browsing is the common cause; a full quota is the other.
     {%- endcomment -%}
-    <p class="draft-bar" data-draft-unavailable hidden>This browser will not save a draft — you may be in a private window. Copy your answers somewhere safe before you leave this page.</p>
+    <p class="draft-bar draft-bar--warn" data-draft-unavailable hidden>This browser will not save a draft — you may be in a private window. Copy your answers somewhere safe before you leave this page.</p>
 
     {%- comment -%}
       Small screens have no sticky rail, so this is the only place the
@@ -530,3 +557,4 @@ scripts:
   {%- comment -%}One trailing "+n" for the signal strip, matching the card's cap of four items in total.{%- endcomment -%}
   <template data-signal-overflow><span class="signal" data-overflow-text></span></template>
 </div>
+{%- endif -%}

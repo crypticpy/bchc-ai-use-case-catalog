@@ -16,6 +16,9 @@
 # ---------------------------------------------------------------------------
 
 title: "Pub Health Catalog Template"
+# Optional hero illustration (site-relative path), layered into the dark hero
+# ground and fading in toward the right; leave blank for the gradient alone.
+hero_image: ""
 eyebrow: "Open source · built for public-sector teams"
 tagline: "One repository, no server, four ways to run it."
 lead: "A catalog site that lives on GitHub Pages and is managed entirely through GitHub: someone fills in a form, a maintainer merges a pull request, the site rebuilds. The four examples below are this same repository with different settings — open any of them and click around."

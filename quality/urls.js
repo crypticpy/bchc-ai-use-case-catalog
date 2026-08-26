@@ -84,18 +84,25 @@ function moduleOn(name) {
 /**
  * Absolute URLs for the gate: the static pages plus the sample entries.
  * `governance` is null when that module is off — `_plugins/modules.rb` drops
- * the page, so auditing it would only find a 404.
+ * the page, so auditing it would only find a 404. `compare` belongs to the
+ * catalog module and is gated the same way; `atoz` additionally needs entries,
+ * because `_plugins/facet_pages.rb` skips the A–Z directory of an empty
+ * catalog (the state a fresh `npm run setup` leaves behind).
  * @param {string} base e.g. `http://127.0.0.1:4173`.
- * @returns {{ home: string, catalog: string, submit: string, governance: string|null, entries: string[] }}
+ * @returns {{ home: string, catalog: string, submit: string, governance: string|null, compare: string|null, atoz: string|null, notFound: string, entries: string[] }}
  */
 function qualityUrls(base) {
   const at = (p) => `${base.replace(/\/$/, '')}${p}`;
+  const entries = sampleEntryPaths();
   return {
     home: at('/'),
     catalog: at(`/${entryPath()}/`),
     submit: at('/submit/'),
     governance: moduleOn('governance') ? at('/governance/') : null,
-    entries: sampleEntryPaths().map(at),
+    compare: moduleOn('catalog') ? at('/compare/') : null,
+    atoz: moduleOn('catalog') && entries.length > 0 ? at(`/${entryPath()}/a-z/`) : null,
+    notFound: at('/404.html'),
+    entries: entries.map(at),
   };
 }
 

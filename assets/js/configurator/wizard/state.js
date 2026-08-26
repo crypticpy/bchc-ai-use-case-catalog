@@ -61,10 +61,14 @@ export function repositoryFromLocation(hostname, pathname) {
   if (!host.endsWith('.github.io')) return null;
   const owner = host.slice(0, -'.github.io'.length);
   if (!owner || owner.includes('.')) return null;
-  const [first] = String(pathname || '')
+  const segments = String(pathname || '')
     .split('/')
     .filter(Boolean);
-  return first && first !== 'setup' ? `${owner}/${first}` : `${owner}/${host}`;
+  const [first, second] = segments;
+  // A leading `setup` segment is the page's own route on a root site (`/setup/`,
+  // `/setup/index.html`) unless it is followed by another `setup` — then it is a
+  // project repository literally named `setup` serving its own `/setup/` route.
+  return first && (first !== 'setup' || second === 'setup') ? `${owner}/${first}` : `${owner}/${host}`;
 }
 
 /**

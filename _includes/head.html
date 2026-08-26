@@ -82,5 +82,8 @@
   {% if hd_cfg.analytics.plausible_domain and hd_cfg.analytics.plausible_domain != '' %}
   <script defer data-domain="{{ hd_cfg.analytics.plausible_domain }}" src="https://plausible.io/js/script.js"></script>
   {% endif %}
+  {%- comment -%} The social preview image (site.social.og_image) is injected into
+  page.image by _plugins/social_image.rb so jekyll-seo-tag emits the og:image /
+  twitter:card pair itself — emitting them here would duplicate its tags. {%- endcomment -%}
   {% seo title=false %}
 </head>

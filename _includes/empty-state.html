@@ -2,17 +2,25 @@
 Empty-state panel: an icon, a heading, a sentence and an optional call to action.
 
 Usage: {% include empty-state.html icon='sparkles' title='Coming soon' body=body cta_url=url cta_label='…' %}
-Params: icon, title, body; cta_url + cta_label (both optional).
+Params: icon, title, body; cta_url + cta_label (both optional); image (optional —
+a site-relative illustration path that replaces the icon circle; decorative, so
+the title and body still carry the meaning).
 
-`cta_url` is compared against '' rather than tested for truth: in Liquid only nil
-and false are falsy, so a caller that clears the CTA with `assign x = ''` (which is
-how the submit-module gate does it) would otherwise render a link to nowhere.
+`cta_url` (and `image`) are compared against '' rather than tested for truth: in
+Liquid only nil and false are falsy, so a caller that clears the CTA with
+`assign x = ''` (which is how the submit-module gate does it) would otherwise
+render a link to nowhere.
 
 Local assigns are prefixed `es_`.
 {%- endcomment -%}
 {%- assign es_cta_url = include.cta_url | default: '' -%}
+{%- assign es_image = include.image | default: '' -%}
 <div class="card flex flex-col items-center gap-3 px-6 py-12 text-center">
+  {%- if es_image != '' -%}
+  <div class="h-36 w-36" aria-hidden="true">{% include picture.html src=es_image alt='' sizes="144px" class="h-full w-full object-contain" %}</div>
+  {%- else -%}
   <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary">{% include icon.html name=include.icon size='lg' %}</span>
+  {%- endif -%}
   <h3 class="font-heading text-lg font-semibold text-brand-primary-dark">{{ include.title | default: 'Nothing here yet' }}</h3>
   <p class="max-w-md text-sm text-brand-muted">{{ include.body }}</p>
   {% if es_cta_url != '' %}<a class="btn-primary mt-2" href="{{ es_cta_url | relative_url }}">{{ include.cta_label | default: 'Learn more' }}</a>{% endif %}

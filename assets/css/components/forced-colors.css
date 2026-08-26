@@ -43,24 +43,28 @@
   .filter-pill[disabled],
   .filter-pill.is-empty { border-style: dashed; }
 
-  /* Submit progress: three states, three shapes — empty ring, thick ring, solid disc. The
-     dot is aria-hidden by design (the state is in sr-only text alongside), so a sighted
-     High Contrast user has no fallback if the shapes collapse, and `partial` is a gradient
-     today, i.e. nothing here. The dot grows from 8 to 12px because three ring weights are
-     not separable at 8px: a 3px border on an 8px box is a filled circle, so `partial` and
-     `true` would still read the same.
+  /* Submit progress: the numbered circle carries its own content cue (a number,
+     then a check when done), so forcing only has to keep number-on-Canvas and
+     check-on-disc legible; `partial` still gets a thick ring since its tint fill
+     does not survive.
      The `[data-done]` selector is carried through so the reset matches the specificity of
      the state rules in forms.css it is correcting (0,3,0); `data-done` is always present
      (submit/index.md ships it as "false" and assets/js/submit.js only ever rewrites it). */
   .progress-link[data-done] .progress-dot {
     forced-color-adjust: none;
-    height: 0.75rem;
-    width: 0.75rem;
     background: Canvas;
     border-color: CanvasText;
+    color: CanvasText;
   }
-  .progress-link[data-done="true"] .progress-dot { background: CanvasText; }
+  .progress-link[data-done="true"] .progress-dot { background: CanvasText; color: Canvas; }
   .progress-link[data-done="partial"] .progress-dot { border-width: 3px; }
+  /* The connecting track is a background-color box: Canvas on Canvas. */
+  .progress-step::before { background: CanvasText; }
+
+  /* Review-step numbers and the confirmation check sit on tint fills that
+     forcing drops; an edge keeps them reading as discs. */
+  .review-step-num,
+  .confirm-check { border: 1px solid CanvasText; }
 
   /* Search suggestions: the 15% tint disappears and the 4px left rule resolves to
      CanvasText on every row, active or not. */
@@ -77,7 +81,8 @@
   /* "Current" markers whose only surviving cue is font-weight. */
   .toc-link[aria-current="true"]::before,
   .progress-link[aria-current="true"]::before,
-  .progress-link[aria-current="step"]::before { content: "\25b8\00a0"; }
+  .progress-link[aria-current="step"]::before,
+  .wizard-step-pill[aria-current="step"]::before { content: "\25b8\00a0"; }
 
   /* Sections the short form skipped dim via opacity, which survives forcing,
      but pair it with a shape so "skipped" reads as a state (same rule as the

@@ -274,10 +274,14 @@ drop interactive chrome and flow the rail after the prose.
 `.field-input` (`line_strong` border, `aria-invalid` → warn), `.field-error` below, `.field-option`
 (card-style radio/checkbox with `has-[:checked]`, secondary text `.field-option-desc`) laid out in a
 `.field-options` / `.field-options-wide` grid, `.checkbox`, `.radio`, `.field-note`. Submit page:
-`.form-section`, `.progress-rail`/`.progress-link`/`.progress-dot` (`.progress-count` for the
-answered/total text), `.error-summary*`, `.links-row`, `.image-previews` (each thumbnail is an
-`.image-preview`), `.preview-panel` (its collapsible label below `lg` is `.preview-summary`),
-`.draft-bar`/`.draft-status`.
+`.form-section`, `.progress-rail`/`.progress-step` (each step draws the connecting track)/
+`.progress-link`/`.progress-dot` (a numbered circle: `.progress-num` inside, swapped for the
+`.progress-check` icon when the section completes; `.progress-count` for the answered/total text),
+`.error-summary*`, `.links-row`, `.image-previews` (each thumbnail is an `.image-preview`),
+`.preview-panel` (its collapsible label below `lg` is `.preview-summary`),
+`.draft-bar`/`.draft-status` (`.draft-bar--warn` for the browser-will-not-save caution),
+`.review-step-num` (the read-back card's echo of the rail number) and `.confirm-check` /
+`.confirm-check-path` (the confirmation panel's drawn check).
 
 ### Page furniture (`site.css`)
 
@@ -292,7 +296,11 @@ Home: `.hero` (dark gradient ground + masked dot grid — see "Surfaces"), `.her
 the hero's right column at ≥1024 px (`home.hero_latest_count`), `.band` for the "Browse by"
 section, `.value-props` / `.value-prop-title` / `.value-prop-body` (the three value propositions
 as text over a hairline, not cards), `.cta-panel` for the "Contribute" section, and
-`.site-footer` (the hero's gradient mirrored).
+`.site-footer` (the hero's gradient mirrored). Optional imagery layers: `.hero-art` /
+`.hero-art-img` (`hero.image` faded into the hero ground), `.page-art` / `.page-art-img`
+(the page-header banners and floated illustrations), and the `--pattern-url` texture
+(`theme.yml → texture`) tiled over `.band`, `.cta-panel`, `.site-footer` and the
+`.entry-card--text::before` keel.
 
 ### Setup wizard (`setup.css`)
 
@@ -323,8 +331,9 @@ accessibility ≥ 0.95). The recurring rules:
 Windows High Contrast Mode (`forced-colors: active`) replaces `color`, `background-color`,
 `border-color`, `outline-color`, `fill` and `stroke` with the OS palette and **drops `box-shadow`
 and CSS gradients entirely**. This system encodes selection as a brand fill (`.filter-pill` active,
-`.view-toggle[aria-pressed]`), progress as a gradient (`.progress-dot` half-fill) and focus as a
-`ring-*` box-shadow — all three vanish, and a pressed pill computes identically to an unpressed one.
+`.view-toggle[aria-pressed]`), progress as tinted fills (`.progress-dot`'s partial and done
+states) and focus as a `ring-*` box-shadow — all three vanish, and a pressed pill computes
+identically to an unpressed one.
 
 The rule: **a selected, current or complete state must survive as a shape or as a system colour,
 never as a brand fill.** The corrections live in `assets/css/components/forced-colors.css`, imported

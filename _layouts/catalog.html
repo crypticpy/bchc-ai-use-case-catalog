@@ -70,6 +70,7 @@ rule client-side; they stay in the count because they stay in the catalog. {%- e
         vocabulary the query nearly hit, which is the one recovery that finds
         something the reader could not have found by retyping. {%- endcomment -%}
         <div class="card hidden px-6 py-12 text-center" data-empty-state>
+          {% if cfg.images.empty_search and cfg.images.empty_search != '' %}<div class="mx-auto mb-4 h-36 w-36" aria-hidden="true">{% include picture.html src=cfg.images.empty_search alt='' sizes="144px" class="h-full w-full object-contain" %}</div>{% endif %}
           <p class="font-heading text-lg font-semibold text-brand-primary-dark" data-empty-cause>No {{ plural | downcase }} match the current filters.</p>
           <p class="mt-1 text-sm text-brand-muted" data-empty-hint>Remove a filter to widen the search.</p>
           <div class="mt-4 flex flex-wrap items-center justify-center gap-2 empty:mt-0" data-empty-suggestions hidden></div>
@@ -86,7 +87,7 @@ rule client-side; they stay in the count because they stay in the catalog. {%- e
           {% capture cat_empty_body %}No {{ plural | downcase }} have been published yet.{% endcapture %}
           {% assign cat_empty_cta = '' %}
           {% if cfg.modules.submit %}{% assign cat_empty_cta = '/submit/' %}{% endif %}
-          {% include empty-state.html icon='sparkles' title='Coming soon' body=cat_empty_body cta_url=cat_empty_cta cta_label='Be the first to submit' %}
+          {% include empty-state.html icon='sparkles' image=cfg.images.empty_catalog title='Coming soon' body=cat_empty_body cta_url=cat_empty_cta cta_label='Be the first to submit' %}
         {% endif %}
       </section>
     </div>
