@@ -31,7 +31,7 @@ Built on the [Pub Health Catalog Template (PHCT)](https://github.com/crypticpy/p
 - **Modules.** Turn catalog, submit, carousel, stats, events, cohorts, resources and governance on or off independently; navigation and the home page adapt automatically, and pages under a disabled module are dropped from the build.
 - **Theming.** Colors, fonts and corner rounding live in [`_data/theme.yml`](_data/theme.yml) and become CSS variables consumed by Tailwind — no CSS editing required for a rebrand. Every colour has one semantic job, so a re-skin cannot quietly break contrast.
 - **Accessibility as a build rule, not a pass.** Nothing is signalled by colour or icon alone, every control has a visible focus ring and a ≥3:1 border, filter changes are announced once, and the whole catalog still works with JavaScript disabled.
-- **CI content pipeline.** Front-matter and file-size validation on every pull request, automatic thumbnail generation from uploaded PDFs, and workflows that scaffold cohort years, events and schedule updates from issues. Scaffolded content pull requests are labelled at creation so code-review bots can be told to skip them — entries are data, not code; a `.sourcery.yaml` configures exactly that for the Sourcery bot.
+- **CI content pipeline.** Front-matter and file-size validation on every pull request, automatic thumbnail generation from uploaded PDFs, and workflows that scaffold cohort years, events and schedule updates from issues. Scaffolded content pull requests are labelled at creation so code-review bots can be told to skip them — entries are data, not code; for Sourcery the skip lives in its dashboard (Review Settings → Ignore title keywords — the template admin guide documents it).
 
 ## Run your own
 
