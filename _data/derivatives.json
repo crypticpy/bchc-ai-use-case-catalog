@@ -84,6 +84,22 @@
       ]
     }
   },
+  "/catalog/extreme-heat-outreach-targeting-brief/thumb.jpg": {
+    "w": 800,
+    "h": 451,
+    "src_bytes": 41654,
+    "base": "/catalog/extreme-heat-outreach-targeting-brief/thumb",
+    "variants": {
+      "avif": [
+        400,
+        800
+      ],
+      "webp": [
+        400,
+        800
+      ]
+    }
+  },
   "/catalog/home-visit-note-summarizer-for-community-health-workers/thumb.jpg": {
     "w": 800,
     "h": 451,
