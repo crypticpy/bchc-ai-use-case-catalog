@@ -18,6 +18,10 @@ Fill in the [**Submit** form](https://crypticpy.github.io/bchc-ai-use-case-catal
 
 Built on the [Pub Health Catalog Template (PHCT)](https://github.com/crypticpy/phct); see [`docs/upgrading.md`](docs/upgrading.md) for pulling in template improvements.
 
+## What's next
+
+[`docs/bchc/feature-ledger.md`](docs/bchc/feature-ledger.md) is the public record of where the catalog is going: what is being built now, what has been requested, and the design questions still to settle. Have an idea or feedback? Open a [feature request](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=feature.yml) — maintainers triage requests into the ledger.
+
 ## Features
 
 - **GitHub-as-CMS.** Anyone can propose an entry through a web form or a GitHub issue. Automation turns the issue into a pull request with the entry already drafted — screenshots downloaded into the entry folder and all — and a maintainer reviews and merges it.
