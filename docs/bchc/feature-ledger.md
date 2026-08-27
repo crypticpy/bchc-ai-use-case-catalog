@@ -49,9 +49,30 @@ tracks them from BCHC's point of view regardless of which repository the work la
   not reviewed*); and a plain disclaimer on entries with external links telling peers
   to run their own security review before deploying.
 
+- **Instant search on every device.** The search engine is built in the reader's
+  browser, which is what keeps the catalog serverless and private — and what makes the
+  first search slow on a weak phone once the catalog is large. The plan: build the
+  index in a background thread while the reader is still looking at the page, cache
+  the built index in the browser keyed to the catalog's content so repeat visits skip
+  the work entirely, and on devices too weak to hide the cost, replace the silent stall
+  with an honest **Load full search** button and a real progress readout. A public
+  "How search works" page explains the trade: nothing the reader types ever leaves
+  their device, because there is no server to send it to.
+
 ## Under consideration
 
-*(Empty — new feature requests land here after triage.)*
+- **The search scaling ladder.** Recorded now so the growth path is a decision already
+  made, not a scramble later. **Rung 1 (current):** in-browser index with the
+  performance work above — measured to 1,000 entries. **Rung 2
+  ([Pagefind](https://pagefind.app)):** if the catalog outgrows that, switch the index
+  build to CI with Pagefind, which pre-shards the index into static files so the
+  browser downloads only the fragments a query touches — still no server, still
+  private, comfortable into the tens of thousands of pages. **Rung 3 (sponsored search
+  sidecar):** if the catalog outgrows *that*, or the coalition wants semantic search,
+  stand up a small hosted search service on sponsored infrastructure
+  (Railway, Supabase, or Azure — Microsoft is a coalition sponsor). This is the first
+  rung where a reader's query leaves their device, so it comes with a privacy
+  write-up, not just a deploy.
 
 ## Design questions to settle before building
 
@@ -78,7 +99,11 @@ first.
 - **Embedding-based semantic search.** A stronger upgrade to concept matching:
   precompute text embeddings in CI and rank by meaning. Deferred until the
   corpus-derived concept map proves insufficient — it adds a model dependency to the
-  build and real payload weight.
+  build and real payload weight. Decided in August 2026: no AI runs in the reader's
+  browser and no model dependency enters the build — the catalog's design premise is
+  low resource use on whatever device a coalition member has. If meaning-aware search
+  ever needs more than the concept map, it lives in the sponsored sidecar (rung 3 of
+  the scaling ladder above), where its cost is the service's, not the reader's.
 
 ## Shipped
 
