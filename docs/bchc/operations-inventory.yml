@@ -114,8 +114,8 @@ open_admin_remediations:
 
 drills:
   template_update: { last_run: 2026-08-26, result: pass, evidence: "v1.9.0-rc.5 consumed via PR #14 with checksum-verified protected files; the rc.6 run additionally proved the fail-closed ownership-contract gate (run 33134382533) before PR #30." }
-  rollback: { last_run: null, result: not_run }
-  protected_data_takedown: { last_run: null, result: not_run }
+  rollback: { last_run: 2026-08-28, result: partial, evidence: "Offline leg proven: revert of the rc.6 update merge (c0826d9) applies cleanly — 58 template files return to their v1.9.0-rc.5 state, .phct/template-lock restored, zero deployment-owned content touched. The on-GitHub leg (revert pull request through required checks, human approval, merge, Pages redeploy and smoke test per docs/maintaining.md) is deliberately deferred so the live demo is not rolled back mid release line; exercise it in the rc.7/stable update window before recording a full pass." }
+  protected_data_takedown: { last_run: 2026-08-28, result: partial, evidence: "Ordinary unpublish rehearsed end to end: PR #32 (852669b) removed the demo entry's page, uploaded media and derivatives record in one reviewed PR, verified 404 on the live site and absent from search.json after the Pages deploy. The protected-data leg of docs/incidents.md (history rewrite, GitHub garbage collection, fork/cache sweep, source-issue deletion) remains unrehearsed; run it against a disposable copy before recording a full pass." }
   credential_rotation: { last_run: null, result: not_run }
   backup_restore: { last_run: 2026-08-28, result: pass, evidence: "Mirror clones of both repositories bundled, bundle-verified, restored, and fsck-checked; restored HEADs matched mirrors (phct 321c146, bchc 19b22cb)." }
   owner_transfer: { last_run: null, result: not_run }
