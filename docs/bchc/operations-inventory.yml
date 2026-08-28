@@ -114,8 +114,8 @@ open_admin_remediations:
 
 drills:
   template_update: { last_run: 2026-08-26, result: pass, evidence: "v1.9.0-rc.5 consumed via PR #14 with checksum-verified protected files; the rc.6 run additionally proved the fail-closed ownership-contract gate (run 33134382533) before PR #30." }
-  rollback: { last_run: null, result: not_run }
-  protected_data_takedown: { last_run: null, result: not_run }
+  rollback: { last_run: 2026-08-28, result: pass, evidence: "Revert of the rc.6 update merge (c0826d9) applied cleanly off-line: 58 template files returned to their v1.9.0-rc.5 state, .phct/template-lock restored to v1.9.0-rc.5, zero deployment-owned content touched." }
+  protected_data_takedown: { last_run: 2026-08-28, result: pass, evidence: "Live-publishing demo entry (PR #27) removed via PR #32 (852669b): entry page, uploaded media and derivatives record all deleted in one reviewed PR; verified 404 on the live site and absent from search.json after the Pages deploy." }
   credential_rotation: { last_run: null, result: not_run }
   backup_restore: { last_run: 2026-08-28, result: pass, evidence: "Mirror clones of both repositories bundled, bundle-verified, restored, and fsck-checked; restored HEADs matched mirrors (phct 321c146, bchc 19b22cb)." }
   owner_transfer: { last_run: null, result: not_run }
