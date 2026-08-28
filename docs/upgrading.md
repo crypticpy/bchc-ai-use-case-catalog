@@ -24,9 +24,9 @@ a deployment-owned path. Checksums prove the protected set is identical afterwar
 
 The machine-readable source is [`.phct/ownership.yml`](../.phct/ownership.yml). `npm run
 ownership:check` fails if that manifest, `.gitattributes`, the generator output list, or the PHCT
-version lock drift apart. In particular, `_data/governance.yml`, `_data/search.yml`, and
-`_data/derivatives.json` are deployment-owned; `_data/modules.yml`, `_data/showcase.yml`,
-`_showcase/`, and showcase images are PHCT-owned.
+version lock drift apart. In particular, `_data/governance.yml`, `_data/search.yml`,
+`_data/derivatives.json`, and `_data/security_signals.json` are deployment-owned;
+`_data/modules.yml`, `_data/showcase.yml`, `_showcase/`, and showcase images are PHCT-owned.
 
 Before writing any file, the updater compares the current and target release's ordered ownership
 rules. If they differ, the update fails closed. Apply `.gitattributes` and

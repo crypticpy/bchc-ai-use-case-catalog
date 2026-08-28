@@ -251,17 +251,17 @@ maintainer can diagnose a failed workflow and roll back without live coaching.
 After work packages 0–4 are green:
 
 1. Freeze reusable changes and update the evidence ledger from current live data.
-2. Open a release-record PR that sets the package/lock version to `1.9.0-rc.5`, updates CHANGELOG,
+2. Open a release-record PR that sets the package/lock version to `1.9.0-rc.6`, updates CHANGELOG,
    migration notes, documentation status, supported scale/browser statements, and release links.
 3. Run the entire parent suite from a clean clone and require every protected check on the exact
    release-record head.
 4. Confirm the generated showcase and every preset come from that same commit.
-5. Create immutable tag `v1.9.0-rc.5` only from the merged, verified release commit.
+5. Create immutable tag `v1.9.0-rc.6` only from the merged, verified release commit.
 6. Publish candidate notes with full SHA, compatibility impact, protected-path migrations,
    rollback instructions, known limitations, SBOM, SBOM SHA-256, and CI evidence.
 7. Verify tag-to-commit equality and download/inspect the published release assets.
 
-If further parent fixes are required, create rc.6; never move or replace rc.5.
+If further parent fixes are required, create rc.7; never move or replace rc.6.
 
 Exit: one immutable parent candidate contains all intended reusable polish and complete evidence.
 
@@ -314,8 +314,8 @@ does not imply that fictional content is real.
 ## Work package 8 — stable publication and deployment
 
 1. After the candidate and live gates pass, open a stable release-record PR directly on top of the
-   accepted rc.5 commit. Change `package.json`, `package-lock.json`, CHANGELOG, release status, and
-   other version-bearing release documentation from `1.9.0-rc.5` to `1.9.0`; do not include a
+   accepted rc.6 commit. Change `package.json`, `package-lock.json`, CHANGELOG, release status, and
+   other version-bearing release documentation from `1.9.0-rc.6` to `1.9.0`; do not include a
    reusable behaviour change.
 2. Review the candidate-to-stable diff against that allowlist and run every protected parent check
    on the exact stable-version head.
@@ -325,7 +325,7 @@ does not imply that fictional content is real.
    statement, known limitations, candidate provenance, and links to exact CI runs.
 5. Run BCHC's updater against `v1.9.0`. Let it open a stable update PR whose lock release, lock SHA,
    parent package version, and fetched tag all agree; do not hand-edit the candidate lock.
-6. Mark the rc.5 BCHC candidate PR superseded only after the stable update PR exists and its
+6. Mark the rc.6 BCHC candidate PR superseded only after the stable update PR exists and its
    provenance is verified. Retain both PRs as evidence.
 7. Re-run protected-file checksums and the complete downstream suite on the stable update head.
 8. Human-review and merge the stable BCHC update, then verify the Pages deployment SHA and all

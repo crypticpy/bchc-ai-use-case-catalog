@@ -61,6 +61,12 @@ jobs:
               { name: 'Add event details', label: 'content:new-event', match: (t) => t.startsWith('Event:') },
               { name: 'Start a new cohort year', label: 'content:new-year', match: (t) => t.startsWith('[Cohort]') },
               { name: 'Update a cohort schedule', label: 'content:schedule', match: (t) => t.startsWith('Schedule:') },
+              { name: 'Refresh an entry', label: 'content:refresh', match: (t) => t.startsWith('Refresh:') },
+              {
+                name: 'Also deployed by',
+                label: 'content:also-deployed-by',
+                match: (t) => t.startsWith('Also deployed by:'),
+              },
               // The entry form's prefix is the singular noun the site was
               // configured with — "[Use case] ", "[Resource] ", "[Project] " —
               // so it is matched by shape, minus the prefixes above and the
@@ -88,7 +94,7 @@ jobs:
               body: [
                 `This looks like a **${form.name}** submission, but the label the automation needs is missing — usually because the repository's labels were never set up.`,
                 '',
-                `A maintainer should run **Actions → Bootstrap labels → Run workflow** once, then add the \`${form.label}\` label to this issue (or close it and resubmit the form).`,
+                `A maintainer should run **Actions → Bootstrap labels → Run workflow** once, then add the \`${form.label}\` label to this issue. Adding the label by itself will not start anything, though — every content workflow watches for the issue being opened or edited, not labelled — so make any small edit to the issue afterward (open it, add a space, save) to wake it up. Closing this issue and asking for the form to be resubmitted works too, now that the label exists.`,
                 '',
                 'Nothing you wrote is lost — it is all saved on this issue.',
               ].join('\n'),

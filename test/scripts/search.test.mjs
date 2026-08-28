@@ -26,10 +26,14 @@ const SEARCH = fs.readFileSync(path.join(ROOT, 'assets', 'js', 'search.js'), 'ut
 
 /**
  * A booted catalog page with search wired up.
- * @param {{index?: object, fetch?: Function, noLunr?: boolean}} [options]
+ * @param {{index?: object, fetch?: Function, noLunr?: boolean, cores?: number,
+ *   entries?: number, workerUrl?: string}} [options]
  *   index overrides the payload /search.json resolves with; fetch replaces the
  *   whole stub (to fail, hang, or count calls); noLunr boots without the
  *   library, the way a blocked CDN-free build would if the bundle 404'd.
+ *   cores pins navigator.hardwareConcurrency, and entries/workerUrl stamp the
+ *   input's data-search-entries / data-search-worker the way
+ *   _includes/results-header.html would, for the gate and worker paths.
  * @returns {Promise<object>}
  */
 async function boot(options = {}) {
@@ -58,6 +62,16 @@ async function boot(options = {}) {
     else window.addEventListener('load', resolve);
   });
 
+  if (options.cores !== undefined) {
+    Object.defineProperty(window.navigator, 'hardwareConcurrency', {
+      configurable: true,
+      value: options.cores,
+    });
+  }
+  const inputEl = window.document.querySelector('[data-filter="search"]');
+  if (options.entries !== undefined) inputEl.setAttribute('data-search-entries', String(options.entries));
+  if (options.workerUrl) inputEl.setAttribute('data-search-worker', options.workerUrl);
+
   if (!options.noLunr) window.eval(LUNR);
   window.eval(SEARCH);
 
@@ -74,6 +88,9 @@ async function boot(options = {}) {
     status: document.querySelector('[data-search-status]'),
     floor: document.querySelector('[data-search-floor]'),
     more: document.querySelector('[data-search-more]'),
+    gate: document.querySelector('[data-search-gate]'),
+    gateLoad: document.querySelector('[data-search-load]'),
+    gateProgress: document.querySelector('[data-search-progress]'),
     rows: () => Array.from(document.querySelectorAll('[data-search-results] [role="option"]')),
     slots: () =>
       Array.from(document.querySelectorAll('[data-entry-id]'))
@@ -357,9 +374,368 @@ test('a common literal query keeps title relevance without expensive fuzzy expan
   assert.match(page.more.textContent, /Show 29 more/);
 });
 
+/**
+ * An index whose concept map pairs "chatbot" with "assistant" — the pairing
+ * _plugins/search_index.rb derives from prose, not one anybody wrote down.
+ * @param {{concepts?: object, literal?: boolean}} [options]
+ *   concepts overrides the payload's concept block; literal:false removes the
+ *   entry that carries the typed word, leaving concept hits as the only answer.
+ * @returns {object}
+ */
+function conceptIndex({ concepts, literal = true } = {}) {
+  const entry = (id, title, text) => ({
+    id,
+    kind: 'entry',
+    title,
+    summary: '',
+    facets: '',
+    sections: [{ h: 'What it does', a: 'what-it-does', t: text }],
+    url: `/catalog/${id}/`,
+  });
+  return {
+    synonyms: {},
+    concepts: concepts ?? { weight: 0.9, max_expansions: 4, terms: { chatbot: ['assistant'] } },
+    docs: [
+      // Says "assistant" everywhere and never says the typed word.
+      entry(
+        'chat-desk',
+        'Assistant desk',
+        'The assistant drafts an assistant reply for every assistant queue.'
+      ),
+      ...(literal
+        ? [
+            entry(
+              'chatbot-pilot',
+              'Service pilot',
+              'A note near the end of the write-up mentions the chatbot.'
+            ),
+          ]
+        : []),
+      entry('permit-queue', 'Permit queue', 'Nothing here is about conversation at all.'),
+    ],
+  };
+}
+
+test('the concept map reaches an entry that never uses the typed word', async () => {
+  const page = await boot({ index: conceptIndex() });
+  await page.type('chatbot');
+
+  assert.ok(page.window.__searchMatches.has('chat-desk'), 'expected the concept-only entry');
+  assert.ok(page.window.__searchMatches.has('chatbot-pilot'), 'expected the literal entry');
+});
+
+test('a concept match never outranks the entry that used the reader’s own word', async () => {
+  // chat-desk would win on score alone: it says "assistant" four times across
+  // title and body, against one passing mention of "chatbot".
+  const page = await boot({ index: conceptIndex() });
+  await page.type('chatbot');
+
+  assert.equal(page.window.__searchOrder[0], 'chatbot-pilot');
+  assert.equal(page.window.__searchOrder.at(-1), 'chat-desk');
+});
+
+test('with nothing literal to rank against, concept hits are the answer', async () => {
+  const page = await boot({ index: conceptIndex({ literal: false }) });
+  await page.type('chatbot');
+
+  assert.deepEqual([...page.window.__searchMatches], ['chat-desk']);
+});
+
+test('the concept layer can be switched off', async () => {
+  const off = await boot({
+    index: conceptIndex({ concepts: { weight: 0.9, max_expansions: 4, terms: {} } }),
+  });
+  await off.type('chatbot');
+  assert.deepEqual([...off.window.__searchMatches], ['chatbot-pilot']);
+
+  const capped = await boot({
+    index: conceptIndex({ concepts: { weight: 0.9, max_expansions: 0, terms: { chatbot: ['assistant'] } } }),
+  });
+  await capped.type('chatbot');
+  assert.deepEqual([...capped.window.__searchMatches], ['chatbot-pilot']);
+});
+
+test('a payload with no concept block at all behaves as it did before there was one', async () => {
+  const index = conceptIndex();
+  delete index.concepts;
+  const page = await boot({ index });
+  await page.type('chatbot');
+
+  assert.deepEqual([...page.window.__searchMatches], ['chatbot-pilot']);
+});
+
+test('a concept weight above 1 cannot lift a concept hit past a literal one', async () => {
+  const page = await boot({
+    index: conceptIndex({ concepts: { weight: 99, max_expansions: 4, terms: { chatbot: ['assistant'] } } }),
+  });
+  await page.type('chatbot');
+
+  assert.equal(page.window.__searchOrder[0], 'chatbot-pilot');
+});
+
+test('a concept-matched event never renders above the entries the reader’s words found', async () => {
+  // Non-entry hits lead the listbox, which is right for a literal event hit and
+  // wrong for a concept-derived one: it would put a row the reader never asked
+  // for above the entry that used their own word.
+  const page = await boot({
+    index: {
+      synonyms: {},
+      concepts: { weight: 0.9, max_expansions: 4, terms: { chatbot: ['assistant'] } },
+      docs: [
+        {
+          id: 'event:2026:clinic',
+          kind: 'event',
+          title: 'Assistant clinic',
+          summary: 'An assistant workshop for the assistant cohort.',
+          facets: '',
+          sections: [{ h: null, a: null, t: 'Every assistant question, answered by an assistant.' }],
+          url: '/events/2026/clinic/',
+        },
+        {
+          id: 'chatbot-pilot',
+          kind: 'entry',
+          title: 'Service pilot',
+          summary: '',
+          facets: '',
+          sections: [
+            { h: 'What it does', a: 'what-it-does', t: 'A note near the end mentions the chatbot.' },
+          ],
+          url: '/catalog/chatbot-pilot/',
+        },
+      ],
+    },
+  });
+  await page.type('chatbot');
+  const urls = page
+    .rows()
+    .map((li) => li.dataset.url)
+    .filter(Boolean);
+
+  assert.deepEqual(urls, ['/catalog/chatbot-pilot/#what-it-does', '/events/2026/clinic/']);
+});
+
+test('a snippet marks the word lunr matched, not a longer word that starts with it', async () => {
+  // "data" is a prefix of "database", which the stemmer keeps as a different
+  // term. Marking the earlier "database" would deep-link the reader to the
+  // wrong section, under a word the index never matched.
+  const page = await boot({
+    index: {
+      synonyms: {},
+      docs: [
+        {
+          id: 'records-cleanup',
+          kind: 'entry',
+          title: 'Records cleanup',
+          summary: 'A summary that stays clear of the query.',
+          facets: '',
+          sections: [
+            { h: 'Background', a: 'background', t: 'The database migration ran overnight without incident.' },
+            {
+              h: 'What it does',
+              a: 'what-it-does',
+              t: 'It improves data quality for every resident record.',
+            },
+          ],
+          url: '/catalog/records-cleanup/',
+        },
+      ],
+    },
+  });
+  await page.type('data');
+  const row = page.rows().find((li) => li.dataset.url && li.dataset.url.includes('records-cleanup'));
+
+  assert.ok(row, 'expected a row for the entry whose body matched');
+  assert.equal(row.dataset.url, '/catalog/records-cleanup/#what-it-does');
+  assert.equal(page.listbox.querySelector('mark').textContent, 'data');
+});
+
+test('the withheld offer says “related to” once a concept hit is behind it', async () => {
+  const index = {
+    synonyms: {},
+    concepts: { weight: 0.9, max_expansions: 4, terms: { chatbot: ['assistant'] } },
+    docs: [
+      {
+        id: 'chatbot-desk',
+        kind: 'entry',
+        title: 'Chatbot desk',
+        summary: 'The chatbot desk answers a chatbot question with a chatbot.',
+        facets: 'Chatbot',
+        sections: [{ h: 'What it does', a: 'what-it-does', t: 'A chatbot, front to back.' }],
+        url: '/catalog/chatbot-desk/',
+      },
+      {
+        id: 'permit-tracker',
+        kind: 'entry',
+        title: 'Permit tracker',
+        summary: 'Tracks permits from application to issue.',
+        facets: '',
+        sections: [
+          {
+            h: 'How to reuse',
+            a: 'how-to-reuse',
+            t:
+              'The tracker is a long write-up about permits, inspections, queues, notices, ' +
+              'letters, reviewers, records and residents, which in one aside mentions the chatbot ' +
+              'before returning to permits, inspections, queues, notices and reviewers again.',
+          },
+        ],
+        url: '/catalog/permit-tracker/',
+      },
+      {
+        id: 'assistant-desk',
+        kind: 'entry',
+        title: 'Assistant desk',
+        summary: '',
+        facets: '',
+        sections: [{ h: 'What it does', a: 'what-it-does', t: 'The assistant drafts an assistant reply.' }],
+        url: '/catalog/assistant-desk/',
+      },
+    ],
+  };
+
+  const page = await boot({ index });
+  await page.type('chatbot');
+  assert.equal(page.floor.hidden, false);
+  assert.match(page.more.textContent, /more related to “chatbot”/);
+
+  // The same withheld entry, with the layer off, does still mention it.
+  const off = await boot({ index: { ...index, concepts: { weight: 0.9, max_expansions: 0, terms: {} } } });
+  await off.type('chatbot');
+  assert.equal(off.floor.hidden, false);
+  assert.match(off.more.textContent, /more that mentions? “chatbot”/);
+});
+
 test('without lunr the box reports itself unavailable instead of throwing', async () => {
   const page = await boot({ noLunr: true });
 
   assert.equal(page.status.classList.contains('hidden'), false);
   assert.match(page.status.textContent, /unavailable/i);
+});
+
+/* --------------------------------------------------------- the load gate */
+
+test('the gate never appears for a small catalog or a capable device', async () => {
+  const small = await boot({ cores: 2, entries: 4 });
+  assert.equal(small.gate.hidden, true);
+
+  const capable = await boot({ cores: 8, entries: 1000 });
+  assert.equal(capable.gate.hidden, true);
+  await capable.type('notice');
+  assert.deepEqual([...capable.window.__searchMatches], ['notice-translation']);
+});
+
+test('a weak device facing a large catalog waits behind the gate', async () => {
+  const page = await boot({ cores: 2, entries: 1000 });
+  assert.equal(page.gate.hidden, false);
+
+  await page.type('notice');
+  // Nothing was fetched, nothing was filtered, and the status line says why.
+  assert.equal(page.requests.length, 0);
+  assert.equal(page.window.__searchMatches, null);
+  assert.match(page.status.textContent, /Load full search/);
+  // Clearing the box clears the pointer with it.
+  await page.type('');
+  assert.equal(page.status.textContent, '');
+});
+
+test('the gate button loads the index and answers the waiting query', async () => {
+  const page = await boot({ cores: 2, entries: 1000 });
+  await page.type('notice');
+  page.gateLoad.click();
+  await settle(page.window);
+
+  assert.equal(page.requests.filter((r) => r.url === '/search.json').length, 1);
+  assert.equal(page.gate.hidden, true);
+  assert.deepEqual([...page.window.__searchMatches], ['notice-translation']);
+  // From here the box behaves like any other device's.
+  await page.type('permit');
+  assert.deepEqual([...page.window.__searchMatches], ['permit-tracker']);
+  assert.equal(page.requests.filter((r) => r.url === '/search.json').length, 1);
+});
+
+/* ------------------------------------------------------- the worker path */
+
+/**
+ * The serialized index assets/js/search-worker.js would post, built inside
+ * the page's own lunr so revive-versus-build equivalence is exercised on the
+ * exact bytes the worker contract carries.
+ * @param {object} window a booted page's window (lunr already evaluated).
+ * @param {object} index the payload to build from.
+ * @returns {object} `lunr.Index.prototype.toJSON()` output.
+ */
+function serializedIndex(window, index) {
+  window.__payload = index;
+  return window.eval(
+    `lunr(function () {
+      this.ref('i');
+      this.field('title', { boost: 10 });
+      this.field('summary', { boost: 4 });
+      this.field('facets', { boost: 3 });
+      this.field('body');
+      window.__payload.docs.forEach((d, i) =>
+        this.add({
+          i: String(i), title: d.title, summary: d.summary, facets: d.facets,
+          body: (d.sections || []).map((s) => s.t || '').filter(Boolean).join(' '),
+        })
+      );
+    }).toJSON()`
+  );
+}
+
+test('a worker-built index is adopted without any main-thread fetch or build', async () => {
+  const page = await boot({ workerUrl: '/assets/js/search-worker.js' });
+  const serialized = serializedIndex(page.window, INDEX);
+  const seen = { messages: [], urls: [] };
+  page.window.Worker = class {
+    constructor(url) {
+      seen.urls.push(url);
+    }
+    postMessage(msg) {
+      seen.messages.push(msg);
+      setTimeout(() => {
+        this.onmessage({ data: { type: 'progress', phase: 'build' } });
+        this.onmessage({ data: { type: 'ready', payload: INDEX, serialized, cached: true } });
+      }, 0);
+    }
+    terminate() {
+      seen.terminated = true;
+    }
+  };
+
+  await page.type('notice');
+
+  assert.deepEqual(seen.urls, ['/assets/js/search-worker.js']);
+  // Parsed through JSON: the message object was born in the jsdom realm, and
+  // strict deep equality would reject its foreign Object.prototype.
+  assert.deepEqual(JSON.parse(JSON.stringify(seen.messages)), [{ url: '/search.json', version: '' }]);
+  assert.equal(seen.terminated, true);
+  assert.equal(page.requests.length, 0);
+  assert.deepEqual([...page.window.__searchMatches], ['notice-translation']);
+  const row = page.rows().find((li) => li.dataset.url.includes('notice-translation'));
+  assert.ok(row, 'the listbox offers the worker-indexed entry');
+});
+
+test('a broken worker falls back to the inline build without a visible seam', async () => {
+  // A worker whose very construction throws (a CSP that bans worker-src)…
+  const page = await boot({ workerUrl: '/assets/js/search-worker.js' });
+  page.window.Worker = class {
+    constructor() {
+      throw new Error('workers disabled');
+    }
+  };
+  await page.type('notice');
+  assert.equal(page.requests.filter((r) => r.url === '/search.json').length, 1);
+  assert.deepEqual([...page.window.__searchMatches], ['notice-translation']);
+
+  // …and one that starts, then reports it could not build.
+  const errored = await boot({ workerUrl: '/assets/js/search-worker.js' });
+  errored.window.Worker = class {
+    postMessage() {
+      setTimeout(() => this.onmessage({ data: { type: 'error', error: 'no index for you' } }), 0);
+    }
+    terminate() {}
+  };
+  await errored.type('notice');
+  assert.equal(errored.requests.filter((r) => r.url === '/search.json').length, 1);
+  assert.deepEqual([...errored.window.__searchMatches], ['notice-translation']);
 });

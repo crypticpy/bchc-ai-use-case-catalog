@@ -270,6 +270,51 @@ class CheckFrontMatterTest < Minitest::Test
     assert(failures.any? { |f| f.include?("`resources[2]` is not a URL") }, failures.inspect)
   end
 
+  # `email` and `note` are the two optional extras a `links` item may carry.
+  # Optional means an item without them still validates; present means the
+  # address gets the same "@" test an `email` FIELD gets, because it is
+  # published as a mailto link either way.
+  def test_a_links_item_may_carry_an_email_and_a_note
+    write_entry("link-extras", <<~FM)
+      title: T
+      slug: link-extras
+      summary: S
+      published: "2026-01-05"
+      resources:
+        - label: Multnomah County
+          url: https://www.multco.us/health
+          email: digital-services@multco.us
+          note: We kept the classifier and retrained it on our own transcripts.
+        - label: Plain item
+          url: https://example.gov
+    FM
+
+    failures, = run_check
+    assert(failures.none? { |f| f.include?("`resources") }, failures.inspect)
+  end
+
+  def test_a_links_item_email_is_held_to_the_same_shape_as_an_email_field
+    write_entry("link-bad-email", <<~FM)
+      title: T
+      slug: link-bad-email
+      summary: S
+      published: "2026-01-05"
+      resources:
+        - label: Somewhere
+          url: https://example.gov
+          email: reach us on teams
+        - label: Elsewhere
+          url: https://example.org
+          note:
+            - not
+            - text
+    FM
+
+    failures, = run_check
+    assert(failures.any? { |f| f.include?("`resources[0].email` does not look like an email address") }, failures.inspect)
+    assert(failures.any? { |f| f.include?("`resources[1].note` must be text") }, failures.inspect)
+  end
+
   def test_url_and_email_shapes
     write_entry("shapes", <<~FM)
       title: T

@@ -8,6 +8,94 @@ major version, and each entry says so when it happens.
 
 ## [Unreleased]
 
+## [1.9.0-rc.6] — 2026-08-27
+
+### Added
+
+- Stale entries now ask to be refreshed. The monthly verification sweep opens
+  one issue per entry past the `catalog.verify_after_days` window, @mentioning
+  the submitter — a new optional *Your GitHub username* form field, stored
+  under the schema's `entry.submitter_key` — plus everyone named in
+  `catalog.refresh_mentions`, opening at most `catalog.refresh_max_new_issues`
+  new issues per run (20 by default). The issue's two one-click answers open
+  the new **Refresh an entry** form: "still accurate" becomes a one-line pull
+  request stamping `verified: <today>`; "something changed" queues the notes
+  for a maintainer under the `review:refresh-changes` label. The staleness
+  notice on the entry page gained a **Still accurate? Confirm it** link, and a
+  reminder closes itself once its entry is confirmed by any route.
+- Organizations that deployed an entry's solution can attach themselves to it.
+  The **Also deployed by** form collects organization, link, and an optional
+  contact address and note; a bot pull request splices the item into the
+  entry's `also_deployed_by` list (`links` items may now carry `email` and
+  `note` keys, honored everywhere links render). A resubmission matching an
+  existing row by organization or link updates it in place — and the pull
+  request says it is a replacement, with a checklist line asking the reviewer
+  to confirm the submitter represents that organization.
+- Security signals, observed rather than asserted. A monthly sweep reads each
+  entry's linked GitHub repository — existence, archive state, last push,
+  license, security policy, OpenSSF Scorecard — into the deployment-owned
+  `_data/security_signals.json` (256 KiB cap, `SECURITY_SIGNALS` kill switch),
+  rendered as a rail card on the entry page beside the new maintainer-only
+  `security_review` status field, under a standing disclaimer: the catalog
+  links to code, it does not vouch for it.
+- Search understands more than the reader's exact words. The build derives a
+  concept map from the catalog itself — which words keep turning up in the same
+  entries without being common everywhere — and the search box quietly widens
+  each query with the top related words. A concept hit always ranks strictly
+  below every hit the reader's own words found, in the list and in the listbox,
+  and the withheld-results button says "related to" instead of "that mention"
+  when concept hits sit behind it. Derivation is deterministic, tuned by a new
+  `concepts:` block in `_data/search.yml`, and stays off below 12 entries,
+  where corpus statistics are noise, not signal.
+- Structured field values are searchable as words: a `links` field's labels and
+  an `images` field's alt text now reach the index, so an entry can be found by
+  the name of a resource it links to. Real addresses (`https://`, `mailto:`,
+  `tel:`, and bare emails) stay out; prose that happens to carry a colon stays
+  in.
+- **Also deployed by** listings are searchable: an entry can now be found by
+  the name of an organization running it, while each deployment's link and
+  contact address stay out of the index.
+- "Search at a thousand entries" is a measured budget, not a hope. The
+  performance fixture now builds catalogs at 0/1/10/100/500/1000 entries, a
+  real browser drives search, filtering and compare at every size named in
+  `interaction_entries`, and `quality/performance-budgets.json` carries each
+  size's `scale_budgets`. The measured table lives in `docs/search.md`; the
+  query itself stays at 3–9 ms even at 1,000 entries — what grows is the grid
+  render, which is the number the budgets watch.
+- The cost of building search moved off the reader's path. Where the browser
+  has workers, the fetch, the parse and the whole lunr build run in
+  `assets/js/search-worker.js` while the page stays responsive, and the page
+  revives the result with `lunr.Index.load` — a fraction of the build. A
+  finished build is kept in IndexedDB, keyed to a content hash the plugin now
+  stamps into the payload (`generated_at` excluded, so a redeploy that changes
+  nothing keeps the cache warm): a return visit to an unchanged catalog
+  searches instantly, with no download and no build. Any worker or cache
+  failure falls back silently to the original inline path.
+- A low-powered device facing a large catalog is asked, not stalled. At 300+
+  entries on a device reporting few cores or little memory, the automatic
+  index load is replaced by a **Load full search** button that narrates real
+  progress — bytes downloaded, then the build — while typing keeps offering
+  the tag and filter suggestions that never needed an index. Off-screen entry
+  cards also stopped costing anything: `content-visibility: auto` lets the
+  browser skip layout and paint for the cards outside the viewport, which at a
+  thousand entries is most of the grid.
+- `/about/search/`: a public "How search works" page telling the reader what
+  the architecture means for them — no query log by design, nothing typed ever
+  leaves the device — and how the serverless engineering above holds up as the
+  catalog grows. Linked from the About page; shipped only while the catalog
+  module is on.
+
+All of it is additive — the new schema fields are optional, and no existing
+entry or preset has to change.
+
+### Changed
+
+- The verification sweep opens one issue per stale entry instead of one rolling
+  monthly issue, so every reminder has an owner, a thread, and an ending. A
+  live deployment upgrading to this release should close its old
+  "Verification sweep — YYYY-MM" issue by hand once — the new sweep does not
+  know it exists.
+
 ## [1.9.0-rc.5] — 2026-08-26
 
 ### Added
@@ -1080,7 +1168,8 @@ fixed in this release, and the remaining P3s are listed in `docs/roadmap.md`.
   in-browser and CLI configurators, GitHub-issue submission flow, events /
   cohorts / resources modules, Lunr search, thumbnails workflow.
 
-[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.5...HEAD
+[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.6...HEAD
+[1.9.0-rc.6]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.5...v1.9.0-rc.6
 [1.9.0-rc.5]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.4...v1.9.0-rc.5
 [1.9.0-rc.4]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.3...v1.9.0-rc.4
 [1.9.0-rc.3]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.2...v1.9.0-rc.3

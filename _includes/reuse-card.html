@@ -121,9 +121,16 @@ I found your entry "{{ rc_entry.title }}" in the {{ rc_site_name }} and wanted t
     <div>
       <p class="rail-term">{{ rc_f.label | escape }}</p>
       <ul class="mt-1.5 space-y-1" role="list">
+        {%- comment -%} `email` and `note` are the optional extras a `links` item may
+        carry (see `type: links` in _data/schema.yml). Both render under the row,
+        never inside the anchor: an <a> inside an <a> is invalid, and the note is
+        not part of the link's name. A string item (the bare-URL shorthand)
+        answers nil to both, so an ordinary resource list is untouched. {%- endcomment -%}
         {%- for rc_l in rc_links -%}
           {%- assign rc_url = rc_l.url | default: rc_l -%}
           {%- assign rc_label = rc_l.label | default: rc_url -%}
+          {%- assign rc_link_email = rc_l.email | default: '' -%}
+          {%- assign rc_note = rc_l.note | default: '' -%}
           {%- if rc_url == nil or rc_url == '' -%}{%- continue -%}{%- endif -%}
           <li>
             {%- if rc_demo_sample -%}
@@ -137,6 +144,14 @@ I found your entry "{{ rc_entry.title }}" in the {{ rc_site_name }} and wanted t
               <span class="min-w-0"><span class="block leading-snug">{{ rc_label | escape }}</span><span class="link-host block truncate text-xs text-brand-muted">{{ rc_url | link_host | escape }}</span></span>
               <span class="sr-only"> (opens in a new tab)</span>
             </a>
+            {%- endif -%}
+            {%- if rc_note != '' -%}<p class="ml-6 mt-0.5 text-xs text-brand-muted">{{ rc_note | escape }}</p>{%- endif -%}
+            {%- if rc_link_email != '' -%}
+              {%- if rc_demo_sample -%}
+              <p class="ml-6 mt-0.5 text-xs text-brand-muted">Fictional contact — demo only</p>
+              {%- else -%}
+              <p class="ml-6 mt-0.5 text-xs"><a class="text-brand-primary hover:underline" href="mailto:{{ rc_link_email | escape }}"><span class="break-all">{{ rc_link_email | escape }}</span></a></p>
+              {%- endif -%}
             {%- endif -%}
           </li>
         {%- endfor -%}

@@ -22,6 +22,10 @@ Markup contract (assets/js/filters.js + assets/js/search.js):
   [data-search-floor]/[data-search-more]
                              the "show the weaker matches" button, hidden until a
                              query has hits below the relevance floor
+  [data-search-gate]/[data-search-load]/[data-search-progress]
+                             the on-demand "Load full search" control: search.js
+                             unhides it on a low-powered device facing a large
+                             catalog and narrates real progress while it loads
   .results-header-controls   the JS-only controls (search, sort, view switch); hidden
                              by CSS when <html> has no `js` class (see head.html)
 
@@ -61,7 +65,7 @@ Local assigns are prefixed `rh_`.
     <search class="results-header-controls relative min-w-[12rem] flex-1 basis-full sm:basis-auto sm:max-w-sm" role="search" aria-label="Search {{ rh_plural }}">
       <label class="sr-only" for="catalog-search">Search {{ rh_plural }}</label>
       <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-brand-muted">{% include icon.html name='search' size='sm' %}</span>
-      <input id="catalog-search" class="search-box" type="search" role="combobox" aria-expanded="false" aria-controls="search-listbox" aria-autocomplete="list" aria-haspopup="listbox" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="Search {{ rh_plural }}…" data-filter="search" data-search-index="{{ '/search.json' | relative_url }}">
+      <input id="catalog-search" class="search-box" type="search" role="combobox" aria-expanded="false" aria-controls="search-listbox" aria-autocomplete="list" aria-haspopup="listbox" autocomplete="off" spellcheck="false" enterkeyhint="search" placeholder="Search {{ rh_plural }}…" data-filter="search" data-search-index="{{ '/search.json' | relative_url }}" data-search-worker="{{ '/assets/js/search-worker.js' | relative_url }}" data-search-version="{{ site.search_index.version }}" data-search-entries="{{ site.search_index.entries }}">
       <ul id="search-listbox" class="search-listbox" role="listbox" aria-label="Search suggestions" data-search-results hidden></ul>
     </search>
 
@@ -94,6 +98,15 @@ Local assigns are prefixed `rh_`.
     served HTML (htmlcs H91 checks it whether or not the wrapper is hidden);
     search.js replaces it with the count and the query. {%- endcomment -%}
     <button type="button" class="filter-showall mt-0" data-search-more>Show weaker matches</button>
+  </div>
+
+  {%- comment -%} On a low-powered device facing a large catalog, building the
+  search index is seconds of work, so search.js unhides this and waits: the
+  reader chooses when to spend the time and watches real progress while it
+  happens. Every other device never sees it. {%- endcomment -%}
+  <div class="mt-2 flex flex-wrap items-center gap-2" data-search-gate hidden>
+    <button type="button" class="filter-showall mt-0" data-search-load>Load full search</button>
+    <span class="text-xs text-brand-muted" role="status" data-search-progress></span>
   </div>
 
   <p class="sr-only" role="status" data-filter-status></p>

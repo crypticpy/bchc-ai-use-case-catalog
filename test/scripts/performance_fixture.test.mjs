@@ -6,6 +6,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 
 import {
+  assertScaleBudgetNames,
   assetTransferBytes,
   budgetFindings,
   configuredEntryPath,
@@ -13,6 +14,7 @@ import {
   normalizedBaseurl,
   pageMetrics,
   parseArgs,
+  retainedTiers,
   scaleBudgetFindings,
 } from '../../scripts/performance_fixture.mjs';
 
@@ -61,6 +63,48 @@ test('a scale-specific search payload cap is enforced at its configured fixture 
     scaleBudgetFindings({ ...metrics, entries: 500, search_json_gzip_bytes: 101 }, scaleConfig),
     [{ name: 'search_json_gzip_bytes', actual: 101, maximum: 100 }]
   );
+});
+
+// A tier's browser budgets live beside its payload budgets, but they are
+// measured in Chrome by scripts/interaction_performance.mjs — this pass must
+// walk past them rather than demand a value it never took.
+test('a browser budget in the same scale block is not mistaken for a payload metric', () => {
+  const scaleConfig = {
+    scale_budgets: { 500: { search_json_gzip_bytes: 100, search_response_p95_ms: 250 } },
+  };
+  assert.deepEqual(
+    scaleBudgetFindings({ ...metrics, entries: 500, search_json_gzip_bytes: 1 }, scaleConfig),
+    []
+  );
+});
+
+// A budget nothing measures reads as enforcement and is not — the whole point
+// of the file is that every number in it is a limit somebody checks.
+test('a misspelled scale budget fails the run instead of being skipped', () => {
+  const scaleConfig = { scale_budgets: { 500: { search_response_p95ms: 250 } } };
+  assert.throws(
+    () => scaleBudgetFindings({ ...metrics, entries: 100 }, scaleConfig),
+    /scale_budgets\["500"\] budgets search_response_p95ms, which nothing measures/
+  );
+  assert.throws(() => assertScaleBudgetNames(scaleConfig), /search_cold_response_ms/);
+});
+
+test('every budget the checked-in tiers name is measured by one of the two gates', () => {
+  const budgets = JSON.parse(
+    fs.readFileSync(new URL('../../quality/performance-budgets.json', import.meta.url), 'utf8')
+  );
+  assert.doesNotThrow(() => assertScaleBudgetNames(budgets));
+});
+
+test('the browser fixture is retained for every reviewed tier the run actually built', () => {
+  const budgets = { supported_entries: 100, interaction_entries: [100, 500, 1000] };
+  assert.deepEqual(retainedTiers([0, 1, 100, 500], budgets), { retained: [100, 500], missing: [1000] });
+  assert.deepEqual(retainedTiers([10], budgets), { retained: [], missing: [100, 500, 1000] });
+  // With no reviewed list the supported ceiling is the only tier measured.
+  assert.deepEqual(retainedTiers([100, 500], { supported_entries: 100 }), {
+    retained: [100],
+    missing: [],
+  });
 });
 
 test('the performance probe derives a customized entry path from the fixture schema', (t) => {

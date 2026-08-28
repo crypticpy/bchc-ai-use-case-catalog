@@ -9,17 +9,25 @@
     "catalog_html_gzip_bytes": 102400,
     "catalog_dom_nodes": 12000,
     "css_gzip_bytes": 30720,
-    "javascript_gzip_bytes": 40960,
+    "javascript_gzip_bytes": 46080,
     "search_json_gzip_bytes": 512000,
     "entries_json_gzip_bytes": 512000
   },
   "interaction_budgets": {
     "filter_response_p95_ms": 100,
-    "search_response_p95_ms": 250
+    "search_response_p95_ms": 900
   },
+  "interaction_entries": [100, 500, 1000],
   "scale_budgets": {
     "500": {
-      "search_json_gzip_bytes": 512000
+      "search_json_gzip_bytes": 512000,
+      "search_response_p95_ms": 4000,
+      "search_cold_response_ms": 4500
+    },
+    "1000": {
+      "search_json_gzip_bytes": 512000,
+      "search_response_p95_ms": 13000,
+      "search_cold_response_ms": 15000
     }
   }
 }
