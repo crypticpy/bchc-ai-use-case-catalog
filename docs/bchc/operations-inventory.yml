@@ -1,7 +1,7 @@
 schema_version: 1
 repository: crypticpy/bchc-ai-use-case-catalog
-last_verified: 2026-08-22
-verified_by: codex_read_only_api_audit
+last_verified: 2026-08-28
+verified_by: claude_code_read_only_api_audit
 
 # Read-only evidence gathered through the authenticated GitHub REST API. Values of
 # secrets, tokens, recovery codes, private keys, and non-public contacts are excluded.
@@ -42,19 +42,30 @@ people:
   backup_release_maintainer: pending_bchc_assignment
 
 settings:
+  # Re-verified 2026-08-28 through the authenticated read-only REST API
+  # (repos, rules/branches/main, actions/permissions, pages endpoints).
   repository_visibility: public
   default_branch: main
-  branch_ruleset: protect-branch
-  branch_ruleset_scope: all_branches
-  pull_requests_required: false
+  branch_ruleset: protect-main
+  branch_ruleset_scope: main
+  pull_requests_required: true
   required_approvals: 0
-  required_checks: []
-  conversation_resolution_required: false
+  extra_approval_required_for_unattributed_changes: true
+  required_checks:
+    - "Lint, test and build"
+    - "Build every preset and module combination"
+    - "Coverage evidence"
+    - "Analyze javascript-typescript"
+    - "Analyze ruby"
+    - "scale"
+    - "lint"
+  required_checks_strict_up_to_date: true
+  conversation_resolution_required: true
   force_push_blocked: true
   deletion_blocked: true
   tag_protection: false
-  actions_allowed: all
-  default_workflow_permissions: write
+  actions_allowed: selected
+  default_workflow_permissions: read
   actions_may_approve_pull_requests: true
   sha_pinning_enforced_by_repository_setting: false
   pages_source_github_actions: true
@@ -64,13 +75,13 @@ settings:
   custom_domain_owner: not_applicable_until_configured
   dns_renewal_owner: not_applicable_until_configured
   discussions: false
-  private_vulnerability_reporting: false
+  private_vulnerability_reporting: true
   secret_scanning: true
   push_protection: true
   open_secret_scanning_alerts: 0
-  dependabot_alerts: false
-  dependabot_security_updates: false
-  codeql: no_analysis_found
+  dependabot_alerts: true
+  dependabot_security_updates: true
+  codeql: active_last_analysis_2026-08-28
 
 automation:
   expected_variables:
@@ -78,30 +89,33 @@ automation:
     - SUBMISSIONS_OPEN
     - VERIFICATION_SWEEP
   repository_variables_present: []
+  # Verified 2026-08-28: leaving all three unset is the intended configuration
+  # for this deployment. Unset SUBMISSIONS_OPEN means submissions are open
+  # (workflows gate on != 'false'), and unset CATALOG_SHOWCASE correctly keeps
+  # showcase-only build paths off outside the template repository.
   repository_secrets_present_not_values: []
   optional_secrets_supported:
     - CONTENT_BOT_TOKEN_optional
   token_owner: not_applicable_no_repository_secret
   token_expiry_reviewed: not_applicable_no_repository_secret
 
+# Completed since 2026-08-22 and verified live on 2026-08-28:
+# require_pull_requests_on_main, require_current_release_checks (7 contexts,
+# strict), require_conversation_resolution, reduce_default_workflow_permissions
+# (now read), enable_dependabot_alerts_and_security_updates,
+# enable_private_vulnerability_reporting, establish_codeql_analysis (active),
+# confirm_expected_repository_variables_or_document_defaults (documented above),
+# reauthenticate_gh_cli_for_maintainable_release_operations.
 open_admin_remediations:
-  - require_pull_requests_on_main
   - require_one_or_more_human_approvals
-  - require_current_release_checks
-  - require_conversation_resolution
-  - reduce_default_workflow_permissions_and_disable_action_approval
+  - disable_actions_pull_request_approval
   - add_immutable_release_tag_protection
-  - enable_dependabot_alerts_and_security_updates
-  - enable_private_vulnerability_reporting
-  - establish_codeql_analysis_after_candidate_update
-  - confirm_expected_repository_variables_or_document_defaults
   - confirm_notification_delivery_with_primary_and_backup_maintainers
-  - reauthenticate_gh_cli_for_maintainable_release_operations
 
 drills:
-  template_update: { last_run: null, result: not_run }
+  template_update: { last_run: 2026-08-26, result: pass, evidence: "v1.9.0-rc.5 consumed via PR #14 with checksum-verified protected files; the rc.6 run additionally proved the fail-closed ownership-contract gate (run 33134382533) before PR #30." }
   rollback: { last_run: null, result: not_run }
   protected_data_takedown: { last_run: null, result: not_run }
   credential_rotation: { last_run: null, result: not_run }
-  backup_restore: { last_run: null, result: not_run }
+  backup_restore: { last_run: 2026-08-28, result: pass, evidence: "Mirror clones of both repositories bundled, bundle-verified, restored, and fsck-checked; restored HEADs matched mirrors (phct 321c146, bchc 19b22cb)." }
   owner_transfer: { last_run: null, result: not_run }

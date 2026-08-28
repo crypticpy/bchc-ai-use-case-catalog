@@ -23,6 +23,16 @@ export default [
       globals: { ...globals.browser, lunr: 'readonly' },
     },
   },
+  // The search worker is worker-scope code: self/importScripts/postMessage
+  // instead of window.
+  {
+    files: ['assets/js/search-worker.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: { ...globals.worker, lunr: 'readonly' },
+    },
+  },
   {
     files: [
       'scripts/**/*.mjs',

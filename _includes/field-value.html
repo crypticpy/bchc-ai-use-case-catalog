@@ -62,12 +62,22 @@ Local assigns are prefixed `fv_` so nothing leaks into the caller's scope.
     {%- endif -%}
 
   {%- when 'links' -%}
+    {%- comment -%}
+    A `links` item is `{label, url}` and may also carry `email` (a contact address
+    for that link) and `note` (one sentence about it). Both are optional and both
+    are additions to the row rather than changes to it, so an item that has
+    neither renders exactly as it always did. They sit OUTSIDE the anchor: an
+    <a> inside an <a> is invalid, and the note is not part of the link's name.
+    A string item (the bare-URL shorthand) answers nil to both.
+    {%- endcomment -%}
     {%- assign fv_links = fv_v -%}
     {%- if fv_links.first -%}
     <ul class="space-y-2" role="list">
       {%- for fv_l in fv_links -%}
         {%- assign fv_url = fv_l.url | default: fv_l -%}
         {%- assign fv_label = fv_l.label | default: fv_url -%}
+        {%- assign fv_email = fv_l.email | default: '' -%}
+        {%- assign fv_note = fv_l.note | default: '' -%}
         {%- if fv_url and fv_url != '' -%}
         <li>
           {%- if fv_demo_sample -%}
@@ -86,6 +96,14 @@ Local assigns are prefixed `fv_` so nothing leaks into the caller's scope.
             <span class="sr-only">(opens in a new tab)</span>
             {% include icon.html name='external-link' size='sm' class='shrink-0 text-brand-primary' %}
           </a>
+          {%- endif -%}
+          {%- if fv_note != '' -%}<p class="mt-1 px-4 text-xs text-brand-muted">{{ fv_note | escape }}</p>{%- endif -%}
+          {%- if fv_email != '' -%}
+            {%- if fv_demo_sample -%}
+            <p class="mt-1 inline-flex items-center gap-1.5 px-4 text-xs text-brand-muted">{% include icon.html name='info' size='xs' %}<span>Fictional contact — demo only</span></p>
+            {%- else -%}
+            <p class="mt-1 px-4 text-xs"><a class="inline-flex items-center gap-1.5 font-medium text-brand-primary hover:underline" href="mailto:{{ fv_email | escape }}">{% include icon.html name='mail' size='xs' %}<span class="break-all">{{ fv_email | escape }}</span></a></p>
+            {%- endif -%}
           {%- endif -%}
         </li>
         {%- endif -%}

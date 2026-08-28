@@ -8,6 +8,18 @@
 //   [data-search-live]         sr-only role="status": how many suggestions are open
 //   [data-search-floor]        wrapper for the "show the weaker matches" button
 //   [data-search-more]         that button
+//   [data-search-gate]         wrapper for the on-demand "Load full search" control,
+//                              unhidden on a low-powered device facing a large catalog
+//   [data-search-load]         its button
+//   [data-search-progress]     its role="status" progress line
+//
+// The input also carries data-search-worker (the path to
+// assets/js/search-worker.js), data-search-version (the payload's content
+// version) and data-search-entries (the catalog's entry count), stamped by
+// _plugins/search_index.rb via _includes/results-header.html. Where the
+// browser has workers, the fetch and the whole lunr build happen off the main
+// thread and finished builds come back from IndexedDB on unchanged catalogs;
+// without them (or when the worker fails) the original inline build runs.
 //   [data-match-slot]          optional, inside an entry card (_includes/entry-card.html):
 //                              filled with the section + snippet that matched
 //   [data-empty-suggestions]   optional, inside the zero-result panel (_layouts/catalog.html):
@@ -24,8 +36,10 @@
 //   window.__catalogFilters.apply(k, v)   turn one of them on
 //
 // Vocabulary matches lead as filter suggestions; configured synonyms widen
-// document recall at lower weight. A relevance floor keeps passing body mentions
-// behind an explicit “show more” action without removing typo tolerance.
+// document recall at lower weight, and the corpus-derived concept map widens it
+// again strictly behind every literal hit. A relevance floor keeps passing body
+// mentions behind an explicit “show more” action without removing typo
+// tolerance.
 (function () {
   const input = document.querySelector('[data-filter="search"]');
   if (!input) return;
@@ -34,7 +48,13 @@
   const liveEl = document.querySelector('[data-search-live]');
   const floorEl = document.querySelector('[data-search-floor]');
   const moreBtn = document.querySelector('[data-search-more]');
+  const gateEl = document.querySelector('[data-search-gate]');
+  const gateBtn = document.querySelector('[data-search-load]');
+  const gateProgress = document.querySelector('[data-search-progress]');
   const indexUrl = input.dataset.searchIndex || '/search.json';
+  const workerUrl = input.dataset.searchWorker || '';
+  const indexVersion = input.dataset.searchVersion || '';
+  const catalogEntries = Number(input.dataset.searchEntries) || 0;
 
   // Share of the top hit's score a result must reach to make the grid.
   const RELEVANCE_FLOOR = 0.25;
@@ -46,6 +66,9 @@
   // A hung connection (captive portal, a proxy that accepts and never answers)
   // must fail loudly rather than leave `loading` pending for ever.
   const FETCH_TIMEOUT = 8000;
+  // Entries at which building the index is seconds of work on a weak device —
+  // which is when the reader gets asked (the gate) instead of stalled.
+  const HEAVY_ENTRIES = 300;
 
   if (typeof lunr === 'undefined') {
     if (statusEl) {
@@ -72,6 +95,10 @@
   // term -> [term, …] from _data/search.yml, already bidirectional and
   // lowercased by _plugins/search_index.rb.
   let synonyms = {};
+  // The corpus-derived concept map and its two query-side knobs, read from the
+  // payload by readConcepts(). Empty until the index loads, and empty for good
+  // on a catalog that switched the layer off or is too small to derive one.
+  let concepts = { terms: {}, weight: 0.9, max: 0 };
   let loading = null;
   let attempts = 0;
   let options = [];
@@ -82,6 +109,23 @@
   let lifted = null;
   let annotationFrame = null;
   let annotationTimer = null;
+
+  /**
+   * A device where seconds of index building would be felt: few cores or
+   * little memory. Absent signals count as capable — the gate is for devices
+   * that SAY they are constrained, not for browsers that stay quiet.
+   * @returns {boolean}
+   */
+  function constrained() {
+    const cores = navigator.hardwareConcurrency || 0;
+    const memory = navigator.deviceMemory || 0;
+    return (cores > 0 && cores < 4) || (memory > 0 && memory < 4);
+  }
+
+  // True while full search waits behind the "Load full search" button: a
+  // low-powered device facing a large catalog. The build-time entry count and
+  // the runtime device signals each carry half of that decision.
+  let gated = Boolean(gateEl && gateBtn) && catalogEntries >= HEAVY_ENTRIES && constrained();
 
   // Unhide before writing: a live region that is still `display:none` when its
   // text changes is not announced by every screen reader.
@@ -95,7 +139,13 @@
    * Flatten a doc's sections into the single string lunr indexes as `body`,
    * remembering where each section starts so a match position can be traced
    * back to the heading it fell under.
-   * @param {object} doc a search.json doc, annotated in place.
+   *
+   * Returns a NEW doc rather than annotating the parsed one, so the write-up is
+   * held once: the joined body and the spans are all the rest of this file
+   * reads, and keeping `sections` beside them left a second copy of every
+   * write-up alive for the life of the page.
+   * @param {object} doc a search.json doc.
+   * @returns {object} the doc this file uses: no sections, plus body and spans.
    */
   function prepare(doc) {
     const parts = [];
@@ -109,63 +159,124 @@
       parts.push(text);
       at += text.length;
     });
-    doc.body = parts.join(' ');
-    doc.spans = spans;
-    doc.literal = Object.fromEntries(
-      ['title', 'summary', 'facets', 'body'].map((field) => [field, String(doc[field] || '').toLowerCase()])
-    );
-  }
-
-  function literalCount(value, term) {
-    const text = String(value || '');
-    let count = 0;
-    let at = text.indexOf(term);
-    while (at >= 0) {
-      const before = at > 0 && /[\p{L}\p{N}]/u.test(text[at - 1]);
-      const end = at + term.length;
-      const after = end < text.length && /[\p{L}\p{N}]/u.test(text[end]);
-      if (!before && !after) count += 1;
-      at = text.indexOf(term, at + Math.max(1, term.length));
-    }
-    return count;
-  }
-
-  /** Avoid expensive relevance scoring when one literal word matches much of the supported catalog. */
-  function commonLiteralQuery(terms, extra) {
-    if (terms.length !== 1 || extra.length) return null;
-    const term = terms[0];
-    const fields = [
-      ['title', 10],
-      ['summary', 4],
-      ['facets', 3],
-      ['body', 1],
-    ];
-    const hits = docs
-      .map((doc, index) => {
-        let score = 0;
-        const metadata = {};
-        fields.forEach(([field, boost]) => {
-          const count = literalCount(doc.literal[field], term);
-          if (!count) return;
-          metadata[field] = {};
-          score += boost * Math.log1p(count);
-        });
-        return score ? { doc, score, meta: { [term]: metadata }, index } : null;
-      })
-      .filter(Boolean);
-    if (hits.length < 25) return null;
-    return hits
-      .sort((left, right) => right.score - left.score || left.index - right.index)
-      .map(({ doc, score, meta }) => ({ doc, score, meta }));
+    return {
+      id: doc.id,
+      title: doc.title,
+      summary: doc.summary,
+      facets: doc.facets,
+      url: doc.url,
+      kind: doc.kind,
+      body: parts.join(' '),
+      spans: spans,
+    };
   }
 
   /**
-   * Fetch and index `/search.json`, memoizing the result. A failed load is
-   * never memoized (see file header) so the next call retries, up to two
-   * attempts before giving up with a visible message.
+   * Fetch and index `/search.json`, memoizing the result. With a worker
+   * available the fetch, the parse and the whole lunr build leave the main
+   * thread (assets/js/search-worker.js) — and come straight back from the
+   * worker's IndexedDB copy when the catalog is unchanged since the last
+   * visit. Browsers without workers get the original inline build below; so
+   * does any worker that fails, which is why a worker failure is silent.
    * @returns {Promise<boolean>} whether `idx` is now usable.
    */
   function load() {
+    if (idx) return Promise.resolve(true);
+    if (loading) return loading;
+    if (typeof Worker !== 'undefined' && workerUrl) {
+      loading = loadViaWorker().catch(() => {
+        loading = null;
+        return loadInline();
+      });
+      return loading;
+    }
+    return loadInline();
+  }
+
+  /**
+   * Put a payload and a prebuilt index into service. `lunr.Index.load` over
+   * the worker's serialized build is a fraction of the cost of building.
+   * @param {object} data the /search.json payload.
+   * @param {object} serialized `lunr.Index.prototype.toJSON()` output.
+   */
+  function adopt(data, serialized) {
+    docs = ((data && data.docs) || []).map(prepare);
+    synonyms = (data && data.synonyms) || {};
+    concepts = readConcepts(data && data.concepts);
+    idx = lunr.Index.load(serialized);
+  }
+
+  /**
+   * Build the index in assets/js/search-worker.js, narrating download and
+   * build progress onto the gate's status line while it happens.
+   * @returns {Promise<boolean>} resolves true; rejects so load() can fall
+   *   back to the inline build.
+   */
+  function loadViaWorker() {
+    return new Promise((resolve, reject) => {
+      let worker;
+      try {
+        worker = new Worker(workerUrl);
+      } catch (e) {
+        reject(e);
+        return;
+      }
+      const fail = (error) => {
+        worker.terminate();
+        reject(error);
+      };
+      worker.onerror = (e) => fail(new Error(e && e.message ? e.message : 'worker error'));
+      worker.onmessage = (e) => {
+        const msg = e.data || {};
+        if (msg.type === 'progress') {
+          progress(msg);
+          return;
+        }
+        if (msg.type !== 'ready') {
+          fail(new Error(msg.error || 'worker failed'));
+          return;
+        }
+        try {
+          adopt(msg.payload, msg.serialized);
+        } catch (error) {
+          fail(error);
+          return;
+        }
+        worker.terminate();
+        setStatus('');
+        resolve(true);
+      };
+      worker.postMessage({ url: indexUrl, version: indexVersion });
+    });
+  }
+
+  /**
+   * Honest progress on the gate's status line: real numbers while they are
+   * known, a named phase when they are not. The Content-Length of a
+   * compressed response undercounts what the reader will actually receive,
+   * so the total is only shown while it stays ahead of the running count.
+   * @param {{phase: string, loaded?: number, total?: number}} msg
+   */
+  function progress(msg) {
+    if (!gateProgress) return;
+    if (msg.phase === 'build') {
+      gateProgress.textContent = 'Building the search index…';
+      return;
+    }
+    const kb = Math.round((msg.loaded || 0) / 1024);
+    gateProgress.textContent =
+      msg.total && msg.total >= (msg.loaded || 0)
+        ? 'Downloading the index — ' + kb + ' of ' + Math.round(msg.total / 1024) + ' KB'
+        : 'Downloading the index — ' + kb + ' KB';
+  }
+
+  /**
+   * The original in-page load: fetch and build on the main thread, memoizing
+   * the result. A failed load is never memoized (see file header) so the next
+   * call retries, up to two attempts before giving up with a visible message.
+   * @returns {Promise<boolean>} whether `idx` is now usable.
+   */
+  function loadInline() {
     if (idx) return Promise.resolve(true);
     if (loading) return loading;
     attempts += 1;
@@ -179,16 +290,19 @@
         return r.json();
       })
       .then((data) => {
-        docs = (data && data.docs) || [];
+        docs = ((data && data.docs) || []).map(prepare);
         synonyms = (data && data.synonyms) || {};
-        docs.forEach(prepare);
+        concepts = readConcepts(data && data.concepts);
         idx = lunr(function () {
           this.ref('i');
           this.field('title', { boost: 10 });
           this.field('summary', { boost: 4 });
           this.field('facets', { boost: 3 });
           this.field('body');
-          this.metadataWhitelist = ['position'];
+          // No metadataWhitelist: `position` records every occurrence of every
+          // term in every field, the largest thing the index holds — and
+          // snippetFor() locates the term itself, for the one hit it is about
+          // to render rather than for all of them in advance.
           docs.forEach((d, i) =>
             this.add({
               i: String(i),
@@ -207,26 +321,22 @@
         loading = null;
         idx = null;
         setStatus(attempts < 2 ? 'Search is unavailable — retrying…' : 'Search is unavailable — try again.');
-        if (attempts < 2) return load();
+        if (attempts < 2) return loadInline();
         return false;
       });
     return loading;
   }
 
   /**
-   * Keep prefix/typo recall for every word in a multi-term query; otherwise an
-   * exact hit for one word can hide another word's approximate matches.
-   * @param {string} q raw search box value.
+   * The reader's own words, plus the editor's synonyms for them: everything a
+   * hit can be ranked on. Prefix/typo recall is kept for every word in a
+   * multi-term query, otherwise an exact hit for one word hides another word's
+   * approximate matches.
+   * @param {string[]} terms the query's words.
+   * @param {string[]} extra synonym terms.
    * @returns {{doc: object, score: number, meta: object}[]} ranked hits.
    */
-  function query(q) {
-    if (!idx) return [];
-    const lower = q.toLowerCase();
-    const terms = lower.split(/\s+/).filter(Boolean);
-    if (!terms.length) return [];
-    const extra = expand(lower, terms);
-    const common = commonLiteralQuery(terms, extra);
-    if (common) return common;
+  function literalHits(terms, extra) {
     const search = (approximate) =>
       idx.query((qb) => {
         terms.forEach((t) => {
@@ -250,6 +360,103 @@
     return hits
       .map((h) => ({ doc: docs[Number(h.ref)], score: h.score, meta: h.matchData.metadata }))
       .filter((h) => h.doc);
+  }
+
+  /**
+   * The entries the corpus-derived concept map reaches that the reader's own
+   * words did not — "chatbot" finding the write-up that only ever says "chat
+   * assistant".
+   *
+   * This is recall, never ranking. A doc the literal pass already found keeps
+   * its literal score untouched, and everything new lands strictly BELOW the
+   * weakest literal hit (`concepts.weight` of it), so no expansion can reorder
+   * — let alone outrank — a match the reader earned with their own words. With
+   * no literal hits to rank against, concept hits keep their own scores.
+   *
+   * @param {string[]} related concept terms.
+   * @param {object[]} literal the literal hits, best first.
+   * @returns {{doc: object, score: number, meta: object, concept: boolean}[]}
+   */
+  function conceptHits(related, literal) {
+    let hits;
+    try {
+      hits = idx.query((qb) => related.forEach((t) => qb.term(t, { boost: 1 })));
+    } catch (e) {
+      return [];
+    }
+    const seen = new Set(literal.map((h) => h.doc.id));
+    const fresh = hits
+      .map((h) => ({
+        doc: docs[Number(h.ref)],
+        score: h.score,
+        meta: h.matchData.metadata,
+        concept: true,
+      }))
+      .filter((h) => h.doc && !seen.has(h.doc.id));
+    if (!fresh.length || !literal.length) return fresh;
+    const ceiling = literal[literal.length - 1].score * concepts.weight;
+    const top = fresh[0].score || 1;
+    return fresh.map((h) => ({ ...h, score: (h.score / top) * ceiling }));
+  }
+
+  /**
+   * Rank the catalog against a query: literal hits first, then the concept
+   * layer's additions behind them.
+   * @param {string} q raw search box value.
+   * @returns {{doc: object, score: number, meta: object}[]} ranked hits.
+   */
+  function query(q) {
+    if (!idx) return [];
+    const lower = q.toLowerCase();
+    const terms = lower.split(/\s+/).filter(Boolean);
+    if (!terms.length) return [];
+    const extra = expand(lower, terms);
+    const literal = literalHits(terms, extra);
+    const related = relate(terms, extra);
+    return related.length ? literal.concat(conceptHits(related, literal)) : literal;
+  }
+
+  /**
+   * Read the payload's concept block, clamping every knob to a range that
+   * keeps the guarantee above true whatever `_data/search.yml` says.
+   * @param {object|undefined} raw `concepts` from /search.json.
+   * @returns {{terms: object, weight: number, max: number}}
+   */
+  function readConcepts(raw) {
+    const block = raw && typeof raw === 'object' ? raw : {};
+    const number = (value, fallback) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
+    return {
+      terms: block.terms && typeof block.terms === 'object' ? block.terms : {},
+      // 1 puts a concept hit level with the weakest literal hit; anything above
+      // that would let it climb past one, so the clamp is the guarantee.
+      weight: Math.min(1, Math.max(0, number(block.weight, 0.9))),
+      max: Math.max(0, Math.trunc(number(block.max_expansions, 4))),
+    };
+  }
+
+  /**
+   * The concept terms a query earns, taken a round at a time so one word of a
+   * multi-word query cannot spend the whole budget.
+   * @param {string[]} terms the query's words.
+   * @param {string[]} extra synonym terms already being searched.
+   * @returns {string[]}
+   */
+  function relate(terms, extra) {
+    if (!concepts.max) return [];
+    const known = new Set(terms.concat(extra));
+    const lists = terms.map((term) => concepts.terms[term] || []);
+    const out = [];
+    for (let round = 0; out.length < concepts.max; round += 1) {
+      if (!lists.some((list) => list.length > round)) break;
+      for (const list of lists) {
+        if (out.length >= concepts.max) break;
+        const word = list[round];
+        if (!word || known.has(word)) continue;
+        known.add(word);
+        out.push(word);
+      }
+    }
+    return out;
   }
 
   /**
@@ -348,6 +555,50 @@
 
   /* ------------------------------------------------------------- snippets */
 
+  const WORD_CHAR = /[\p{L}\p{N}]/u;
+
+  /**
+   * A body word as the index would have stored it, so it can be compared with
+   * the term lunr matched.
+   * @param {string} word one whole word from the body.
+   * @returns {string} its stem, or '' when the pipeline drops it.
+   */
+  function stemOf(word) {
+    try {
+      const tokens = idx.pipeline.runString(word.toLowerCase());
+      return tokens.length ? String(tokens[0]) : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /**
+   * Where in a body a lunr term really matched. The term is a stem, so it also
+   * sits inside words the index never matched — `data` is a prefix of
+   * `database`, and marking that sends the reader to the wrong section under a
+   * word nothing matched. Each candidate is widened to its whole word and kept
+   * only if that word stems to the term; the scan carries past the rest.
+   *
+   * @param {string} text the doc body.
+   * @param {string} lower the same text lowercased.
+   * @param {string} term the stemmed term from lunr's match metadata.
+   * @returns {[number, number]|null} [start, length] of the word, or null.
+   */
+  function locate(text, lower, term) {
+    const needle = term.toLowerCase();
+    if (!needle) return null;
+    let at = lower.indexOf(needle);
+    while (at > -1) {
+      let start = at;
+      while (start > 0 && WORD_CHAR.test(text[start - 1])) start -= 1;
+      let end = at + needle.length;
+      while (end < text.length && WORD_CHAR.test(text[end])) end += 1;
+      if (stemOf(text.slice(start, end)) === term) return [start, end - start];
+      at = lower.indexOf(needle, Math.max(end, at + 1));
+    }
+    return null;
+  }
+
   /**
    * The best body match for a hit: where in the write-up it landed, which
    * section that is, and enough surrounding words to read.
@@ -366,15 +617,9 @@
       let length;
       if (position) [start, length] = position;
       else {
-        const needle = term.toLowerCase();
-        start = lower.indexOf(needle);
-        while (start > 0 && /[\p{L}\p{N}]/u.test(text[start - 1])) {
-          start = lower.indexOf(needle, start + 1);
-        }
-        if (start < 0) return;
-        let end = start + needle.length;
-        while (end < text.length && /[\p{L}\p{N}]/u.test(text[end])) end += 1;
-        length = end - start;
+        const found = locate(text, lower, term);
+        if (!found) return;
+        [start, length] = found;
       }
       if (!best || start < best[0]) best = [start, length];
     });
@@ -602,7 +847,10 @@
     options = [];
     const others = results.filter((h) => h.doc.kind !== 'entry').slice(0, 5);
     const entries = results.filter((h) => h.doc.kind === 'entry').slice(0, 5);
-    const hits = others.concat(entries);
+    // Grouping by kind alone would lift a concept-matched event above the
+    // entries the reader's own words found. The sort is stable, so each group
+    // keeps its ranked order and only the concept rows move, to the end.
+    const hits = others.concat(entries).sort((a, b) => (a.concept ? 1 : 0) - (b.concept ? 1 : 0));
     const count = vocab.length + hits.length;
     if (!count) {
       close();
@@ -688,18 +936,22 @@
   function publish(entries, q) {
     const top = entries.length ? entries[0].score : 0;
     const all = lifted === q;
-    const strong = all ? entries : entries.filter((h) => h.score >= top * RELEVANCE_FLOOR);
-    const weak = entries.length - strong.length;
+    const strong = [];
+    const weak = [];
+    entries.forEach((h) => (all || h.score >= top * RELEVANCE_FLOOR ? strong : weak).push(h));
     const ids = strong.map((h) => h.doc.id);
     announce(new Set(ids), ids);
     queueCardAnnotations(strong);
 
     if (!floorEl || !moreBtn) return;
-    floorEl.hidden = weak === 0;
+    floorEl.hidden = weak.length === 0;
+    // A concept hit is held back precisely because it never says the word, so
+    // the offer says what is true of every entry behind it.
+    const held = weak.some((h) => h.concept)
+      ? [' more related to “', ' more related to “']
+      : [' more that mentions “', ' more that mention “'];
     moreBtn.textContent =
-      weak === 1
-        ? 'Show 1 more that mentions “' + q + '”'
-        : 'Show ' + weak + ' more that mention “' + q + '”';
+      weak.length === 1 ? 'Show 1' + held[0] + q + '”' : 'Show ' + weak.length + held[1] + q + '”';
     moreBtn.dataset.searchMore = q;
   }
 
@@ -718,6 +970,7 @@
     if (!q) {
       lifted = null;
       if (floorEl) floorEl.hidden = true;
+      if (gated) setStatus('');
       queueCardAnnotations([]);
       renderSuggestions([]);
       announce(null, []);
@@ -729,6 +982,17 @@
     // /search.json is still in flight.
     const vocab = matchVocabulary(q, MAX_VOCAB_ROWS);
     renderSuggestions(matchVocabulary(q, MAX_EMPTY_CHIPS));
+    // Behind the gate the index is deliberately not loaded: the reader keeps
+    // the filter suggestions (which need no index) and an unfiltered grid,
+    // and the status line points at the button that spends the seconds on
+    // their say-so.
+    if (gated && !idx) {
+      setStatus('Full search is not loaded yet — use “Load full search” below.');
+      announce(null, []);
+      if (showList && document.activeElement === input) renderList([], vocab);
+      else close();
+      return;
+    }
     load().then((ok) => {
       // A newer keystroke has already been answered. This is reachable: the
       // retry path in load() adds a microtask hop, so a query chained on the
@@ -758,7 +1022,31 @@
     clearTimeout(timer);
     timer = setTimeout(run, 50);
   });
-  input.addEventListener('focus', () => load());
+  input.addEventListener('focus', () => {
+    if (!gated) load();
+  });
+
+  if (gated) {
+    gateEl.hidden = false;
+    gateBtn.addEventListener('click', () => {
+      // From here the reader has chosen to spend the time: drop the gate so
+      // every later path (focus, keystroke, retry) loads normally.
+      gated = false;
+      gateBtn.disabled = true;
+      if (gateProgress) gateProgress.textContent = 'Loading the search index…';
+      load().then((ok) => {
+        if (!ok) {
+          // loadInline() has already said why in [data-search-status]; leave
+          // the button armed so the reader can try again from here too.
+          gateBtn.disabled = false;
+          if (gateProgress) gateProgress.textContent = '';
+          return;
+        }
+        gateEl.hidden = true;
+        if (input.value.trim()) run(document.activeElement === input);
+      });
+    });
+  }
 
   if (moreBtn) {
     // Lifting the floor re-renders the current answer; it never re-queries and
@@ -827,11 +1115,13 @@
   // this is the only place that knows the index exists.
   if (input.value.trim()) run(document.activeElement === input);
 
-  // Backstop for the intent-based load above: warm the index when the browser
-  // is otherwise idle, so the first keystroke rarely waits on the network.
-  // Skipped on a metered or slow connection, where the index is a real cost.
+  // Backstop for the intent-based load above: build the whole index while the
+  // browser is idle, so the first keystroke rarely waits at all — the build
+  // runs in a worker where one exists, so "idle" stays honest either way.
+  // Skipped on a metered or slow connection, where the index is a real cost,
+  // and behind the gate, where loading is the reader's call to make.
   const conn = navigator.connection || {};
-  if (!conn.saveData && !/2g/.test(conn.effectiveType || '')) {
+  if (!gated && !conn.saveData && !/2g/.test(conn.effectiveType || '')) {
     const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
     idle(
       () => {

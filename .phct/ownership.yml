@@ -20,6 +20,7 @@ ownership:
     - _data/resources.yml
     - _data/cohorts/**
     - _data/metrics.json
+    - _data/security_signals.json
     - _data/derivatives.json
     - catalog/**
     - cohorts/**

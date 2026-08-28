@@ -16,8 +16,9 @@ page, or in the reference it links to.
 | **Private vulnerability reporting** | Settings → Security → Code security and analysis → **Private vulnerability reporting** → *Enable* | Off | Nobody can report a security problem privately; the issue chooser's fallback is the `organization.contact_email` inbox in `_data/site.yml`, so keep that current if your plan does not offer the setting. |
 | **Bootstrap labels** (run once) | Actions tab → **Bootstrap labels** → *Run workflow* | Never run | The issue forms ask for labels that do not exist yet, GitHub drops them silently, and no submission ever scaffolds a pull request. |
 | `SUBMISSIONS_OPEN` (variable) | Settings → Secrets and variables → Actions → **Variables** | Unset — anyone may submit | Set it to `false` to accept issue-driven work only from the owner, organization members and collaborators. Delete it to reopen. |
-| `VERIFICATION_SWEEP` (variable) | Same path | Unset — the sweep runs | Set it to `false` to stop the monthly [verification sweep](#the-monthly-verification-sweep) issue. A manual run still works. |
+| `VERIFICATION_SWEEP` (variable) | Same path | Unset — the sweep runs | Set it to `false` to stop the monthly [verification sweep](#the-monthly-verification-sweep) reminders. A manual run still works, and the refresh form on an entry page is unaffected. |
 | `CATALOG_METRICS` (variable) | Same path | Unset — metrics run | Set it to `false` to stop the monthly [catalog metrics](#the-monthly-catalog-metrics) schedule. A manual run still works. |
+| `SECURITY_SIGNALS` (variable) | Same path | Unset — the sweep runs | Set it to `false` to stop the monthly [security signals](#security-review) sweep. A manual run still works, the observations already published stay on the entry pages, and the `security_review` status you set by hand is unaffected. |
 | `CATALOG_SHOWCASE` (variable) | Same path | Unset — no showcase | Leave it unset. Set to `true` only if you want your copy to publish the template's landing page and example sites instead of your own catalog (see [the showcase](configuration.md#the-showcase)). |
 | `CONTENT_BOT_TOKEN` (secret, optional) | Settings → Secrets and variables → Actions → **Secrets** | Unset | Without it, generated pull requests report their results as **(dispatch)** statuses instead of ordinary checks. Nothing breaks — see [Checks on a generated pull request](#checks-on-a-generated-pull-request). |
 | `PHCT_UPDATE_TOKEN` (secret, needed only when an update changes workflows) | Same path | Unset | A template release that touches `.github/workflows/` stops with an actionable run summary before it opens a branch. Releases that do not touch workflows are unaffected. See [PHCT updates use a separate token](#phct-updates-use-a-separate-token). |
@@ -31,7 +32,7 @@ quietly rather than failing loudly.
 Work down this list once, in order. [Repository settings at a glance](#repository-settings-at-a-glance) above is the same set as a table, with the optional variables and secrets alongside.
 
 - [ ] **Pages source**: Settings → Pages → Source → **GitHub Actions** (not "Deploy from a branch").
-- [ ] **Actions can open pull requests**: Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**. Without this, every workflow that opens a pull request — the content forms (`new-entry`, `new-year`, `new-event`, `update-schedule`, `update-event-attachments`, `apply-setup`), the monthly metrics, the thumbnails, and the updated-date stamp — fails at its "Create pull request" step.
+- [ ] **Actions can open pull requests**: Settings → Actions → General → Workflow permissions → **Allow GitHub Actions to create and approve pull requests**. Without this, every workflow that opens a pull request — the content forms (`new-entry`, `new-year`, `new-event`, `refresh-entry`, `also-deployed-by`, `update-schedule`, `update-event-attachments`, `apply-setup`), the monthly metrics, the thumbnails, and the updated-date stamp — fails at its "Create pull request" step.
 - [ ] **Labels**: run the **Bootstrap labels** workflow once (Actions tab → *Bootstrap labels* → *Run workflow*), or create these by hand, exactly as named — the automation workflows filter on them:
   - `content:new-entry` — triggers `new-entry.yml`
   - `content:new-year` — triggers `new-year.yml`
@@ -39,7 +40,10 @@ Work down this list once, in order. [Repository settings at a glance](#repositor
   - `content:new-event` — triggers `new-event.yml`
   - `content:event-attachments` — triggers `update-event-attachments.yml`
   - `content:site-config` — triggers `apply-setup.yml` (maintainers only)
-  - `verification` — applied by `verification-sweep.yml` to its rolling issue; nothing triggers on it
+  - `content:refresh` — triggers `refresh-entry.yml` (answers to a refresh reminder)
+  - `content:also-deployed-by` — triggers `also-deployed-by.yml` (an organization saying they deployed an entry too)
+  - `verification` — applied by `verification-sweep.yml` to the refresh issue it keeps per stale entry; nothing triggers on it
+  - `review:refresh-changes` — applied by `refresh-entry.yml` when someone reports an entry out of date; nothing triggers on it
 
   The generated issue forms (`.github/ISSUE_TEMPLATE/*.yml`) already apply these labels when someone opens the issue; you just need the labels to exist in the repo first, or GitHub silently drops them.
 - [ ] **`_data/site.yml` → `github.repository`**: set to this repo's `owner/repo`. Drives the submit form's issue links and every "edit on GitHub" link.
@@ -175,6 +179,23 @@ housekeeping, and they are yours to merge like any content pull request: read th
 green, merge. The first publishes the "How the catalog is doing" figures; the second publishes the
 `updated:` dates for entries someone edited. Both are small, and both wait for you.
 
+**AI code-review bots, if your organization has installed any** (Sourcery, CodeRabbit, Copilot
+code review, and the like), should stay off content pull requests: an entry PR is catalog data,
+not code, and a wall of automated review comments makes the merge step confusing — worse, if your
+branch rules require conversations to be resolved, an unanswered bot thread can block the merge
+button entirely. Every scaffolded content PR is labelled with its
+`content:*` type (`content:new-entry`, `content:new-event`, `content:new-year`,
+`content:schedule`, `content:event-attachments`) when it is created, and its title always starts
+with one of five fixed prefixes: `Add entry:`, `Add event:`, `Scaffold cohort`, `Update cohort`,
+or `Update attachments for event`. For Sourcery, the setting that works is in its web dashboard,
+not the repository: app.sourcery.ai → Review Settings → **Ignore title keywords** — add the five
+prefixes there, without the trailing colon (`Add entry`, not `Add entry:`); the field matches
+keywords as whole words, and punctuation in a keyword keeps it from matching. (The template also ships a `.sourcery.yaml` with a skip-by-label rule, but that
+file only reaches Sourcery's older bot; the current review product ignores it.) If you use a
+different review bot, configure its equivalent skip setting — by label or by title prefix,
+whichever it supports — and leave it on for everything else, especially template update PRs,
+which are real code changes worth a bot's opinion.
+
 If you are working on the template itself rather than running a catalog,
 [maintaining.md](maintaining.md) describes a stricter release-engineering routine for the same
 bots.
@@ -192,23 +213,59 @@ bots.
 
 ## The monthly verification sweep
 
-A catalog decays quietly. The pilot in an entry became a production system, the contact changed jobs, the tool was retired — and nothing in the repository changes, so the entry keeps reading as current. The template handles this in two halves: the site tells *readers* when an entry is old, and this workflow tells *you*.
+A catalog decays quietly. The pilot in an entry became a production system, the contact changed jobs, the tool was retired — and nothing in the repository changes, so the entry keeps reading as current. The template handles this in three parts: the site tells *readers* when an entry is old, the sweep asks *the person who submitted it* whether it still holds, and their answer comes back as a pull request you review.
 
-**How old is old.** Every entry has a last-confirmed date: the newest of `verified`, `updated` and `published`. When that date is further back than `catalog.verify_after_days` in `_data/site.yml` (365 by default), the entry page shows a one-line note above the fact strip, its catalog card shows "Last confirmed <Month Year>", and the card sorts after fresher ones in the default order. Nothing turns amber and nothing is hidden — an entry nobody has re-checked in a year is still the best account of that project anyone has written down.
+**How old is old.** Every entry has a last-confirmed date: the newest of `verified`, `updated` and `published`. When that date is further back than `catalog.verify_after_days` in `_data/site.yml` (365 by default), the entry page shows a one-line note above the fact strip — now carrying a **Still accurate? Confirm it** link — its catalog card shows "Last confirmed <Month Year>", and the card sorts after fresher ones in the default order. Nothing turns amber and nothing is hidden: an entry nobody has re-checked in a year is still the best account of that project anyone has written down.
 
-**The sweep.** `.github/workflows/verification-sweep.yml` runs at 07:00 UTC on the 1st of each month (and on demand from the Actions tab). It lists the entries past the window and keeps **one** open issue — titled *Verification sweep — YYYY-MM*, labelled `verification` — holding a checklist with a link to each entry, its contact address, and an "edit front matter" link. Next month it rewrites that same issue rather than opening a second one, so a thread you have been working through keeps its comments. If every entry is inside the window, no issue is opened at all.
+**The sweep.** `.github/workflows/verification-sweep.yml` runs at 07:00 UTC on the 1st of each month (and on demand from the Actions tab). For each entry past the window it opens **one** issue labelled `verification`, titled *Still accurate? <entry title>*, holding the entry's link, its last-confirmed date and the two one-click answers below. Every issue carries a hidden `<!-- refresh-entry: <slug> -->` marker, which is how the next run finds the same thread and rewrites it in place rather than opening a second one — leave that line alone. An entry that has been confirmed since gets its issue closed with a note. If everything is inside the window, nothing is opened.
 
-The workflow only asks for `issues: write`. It never edits an entry, never closes anything, and never emails a contact — deciding an entry is still true is a person's job.
+**Who gets asked.** The issue @mentions the entry's submitter when they left a GitHub username in the optional *Your GitHub username* field (the schema's `entry.submitter_key` — see [content-model.md](content-model.md#top-level-structure)), plus everyone named in `catalog.refresh_mentions` in `_data/site.yml`. That list starts empty; put your maintainer team or a review group in it so an unanswered reminder has an owner. The template sends no email of its own — the mention is the whole notification, and GitHub delivers it however each mentioned account has notifications set (for most accounts, that is an email). A mention reaches a username whether or not it has any connection to your repository, and it recurs monthly while entries stay stale — so list people who agreed to be listed.
 
-**Clearing an item.** Ask the contact whether anything has changed, fix whatever has, and add (or update) one line in `catalog/<slug>/index.md`:
+**Not all at once.** A catalog that crosses the line in a clump would otherwise arrive as fifty notifications on the 1st. One run opens at most `catalog.refresh_max_new_issues` new issues (20 by default); the run summary says how many were deferred, and the next run — or a manual one from the Actions tab — picks up where it stopped, oldest first. Existing issues are always refreshed and never count against the cap.
+
+The sweep only asks for `issues: write`. It never edits an entry.
+
+**Answering one.** Both links in the issue open the same short form, *Refresh an entry* (`.github/ISSUE_TEMPLATE/refresh-entry.yml`), with the slug already filled in:
+
+- **Yes, still accurate** → `refresh-entry.yml` stamps `verified: <today>` on `catalog/<slug>/index.md` and opens a one-line pull request that closes the issue. The whole diff is one date. Merge it and the clock resets.
+- **No, something changed** → no pull request. Nobody can turn prose into a diff mechanically, so the notes are quoted into a comment addressed to the maintainers, the issue is labelled `review:refresh-changes` and stays open until a person has applied the change. That is your queue: filter issues by that label.
+
+A maintainer can always do it by hand instead — add or update one line in `catalog/<slug>/index.md`:
 
 ```yaml
 verified: "2026-08-17"
 ```
 
-That is the whole protocol. `verified` is a reserved key like `updated`: optional, `YYYY-MM-DD`, validated by `check_front_matter.rb` when present — and, unlike `updated`, never written by automation. Setting it resets the entry's clock even if nothing else about the entry changed — which is the point, since "we checked and it is still accurate" is real information.
+`verified` is a reserved key like `updated`: optional, `YYYY-MM-DD`, validated by `check_front_matter.rb` when present. Setting it resets the entry's clock even if nothing else about the entry changed — which is the point, since "we checked and it is still accurate" is real information. The refresh flow never moves it backwards and never touches sample content; when it declines to act it says why on the issue rather than going quiet.
 
-**Turning it off.** Set the repository variable `VERIFICATION_SWEEP` to `false` ([where](#repository-settings-at-a-glance)), or delete the workflow file. To change the window instead of removing the reminder, edit `catalog.verify_after_days` in `_data/site.yml` — the site notices and the sweep both read it, so they can never disagree.
+**Turning it off.** Set the repository variable `VERIFICATION_SWEEP` to `false` ([where](#repository-settings-at-a-glance)), or delete the workflow file — the refresh form still works for anyone who follows the link on an entry page. To change the window instead of removing the reminder, edit `catalog.verify_after_days` in `_data/site.yml` — the site notices and the sweep both read it, so they can never disagree. Setting `SUBMISSIONS_OPEN` to `false` also stops outside answers becoming pull requests; the issue gets a comment saying a maintainer will apply it by hand.
+
+## "Also deployed by" submissions
+
+The most useful fact about a use case is that somebody else has already run it, and the organization that can say so is not the one that wrote the entry. The **Also deployed by** form (`.github/ISSUE_TEMPLATE/also-deployed-by.yml`, linked from the bottom of every entry page with the slug already filled in) collects four things — organization, link, and an optional contact address and note — and `.github/workflows/also-deployed-by.yml` turns them into a pull request that appends one item to the entry's `also_deployed_by` list. A resubmission is matched against the existing list by its organization name or its link (either lowercased); when nothing matches, the item is added, and the pull request says "added". When something *does* match, the existing row is **replaced wholesale** — label, link, email and note all take the new values — and the pull request says so plainly: the title reads "Update the &lt;organization&gt; deployment listing on &lt;slug&gt;", the body states that this replaces an existing listing rather than adding one, and the maintainer checklist gains a line asking you to confirm the submitter actually represents that organization before you merge a listing that looks like theirs but isn't.
+
+The whole diff is one list in one entry's front matter. What to check before you merge:
+
+- [ ] **The organization is real**, and plausibly one the submitter belongs to. This is a claim about somebody else's page; the automation cannot verify it and neither can the diff.
+- [ ] **On an "update" pull request, the submitter plausibly represents the organization whose listing this replaces** — not just the organization named in the new row. Anyone can resubmit an org name or link that is already listed and overwrite its contact details.
+- [ ] **The link resolves and is theirs** — their deployment, their repository, their fork, or their organization's page. A link to the *original* project, or to a vendor's marketing page, is not evidence that this organization deployed anything.
+- [ ] **The email address, if there is one, was offered on purpose.** It goes on a public page as a `mailto:` link, which means it gets scraped. A shared team address is almost always the right answer; if a personal one arrived, ask on the issue before merging rather than publishing it and apologising afterwards.
+- [ ] **The note reads as information, not promotion.** One or two sentences about what they adapted, or would warn the next team about, is the point; a vendor pitch is not.
+- [ ] **The diff is that one list and nothing else.**
+
+Decline by closing the issue with a sentence about why — the submitter gets the notification, and nothing about the entry has changed. Nothing reaches the site until you merge. Setting `SUBMISSIONS_OPEN` to `false` stops outside submissions becoming pull requests at all; the issue gets a comment saying a maintainer will add it by hand.
+
+A maintainer can always do it by hand instead — the field is an ordinary [`links` list](content-model.md#links) whose items may carry the optional `email` and `note` keys:
+
+```yaml
+also_deployed_by:
+  - label: "Multnomah County Health Department"
+    url: "https://www.multco.us/health"
+    email: "digital-services@multco.us"
+    note: "Kept the classifier, retrained on their own call transcripts."
+```
+
+Which field the flow writes to is named by `entry.deployments_key` in `_data/schema.yml` ([content-model.md](content-model.md#also-deployed-by)); remove that pointer and the form reports that the feature is not configured and the entry pages stop offering the link.
 
 ## The monthly catalog metrics
 
@@ -226,6 +283,54 @@ The script writes `_data/metrics.json` only when the figures differ from the com
 The workflow asks for `contents: write` and `pull-requests: write` only for its maintenance branch and PR, plus `actions: write` to dispatch required checks when it uses the built-in token. It never pushes directly to the protected default branch.
 
 **Turning it off.** Set the repository variable `CATALOG_METRICS` to `false` ([where](#repository-settings-at-a-glance)) to stop the schedule — a manual run still works — or delete the workflow file. Deleting `_data/metrics.json` removes the block from the page. To change the sentence above the figures, set `metrics_intro` in `_data/governance.yml`.
+
+## Security review
+
+Some entries link to code, and a peer who finds one is a step away from running somebody else's software inside their own organization. **This catalog links to that code; it does not host it, run it, or audit it, and nothing on the site should ever be read as saying that it does.** Every entry with a repository link carries one plain sentence saying so, and no status, score or badge anywhere on the site overrides it.
+
+Around that sentence there are two layers, and it matters which is which.
+
+### The three review statuses
+
+`security_review` is an ordinary maintainer-set field — `form: false`, so no submission form asks for it, exactly like `review_status`. It appears in the entry's fact strip and in the catalog's filter panel. It says how much a *person* has looked, and nothing more:
+
+| Value | What it claims | What it does not claim |
+|---|---|---|
+| **Coalition security-reviewed** | A coalition maintainer read this project's security practices — its policy, its dependencies, how it handles data — on the day the pull request records. | That the code was audited, that it has no vulnerabilities, or that it is still true today. It is a point-in-time reading of practices. |
+| **Automated checks only** | Nobody has reviewed it. All that exists is what the monthly sweep could observe from the outside. | Anything at all about what the code does. |
+| **Not reviewed** | Nobody has looked at this project on the catalog's behalf. | — the honest default, and the right value whenever you are not sure. |
+
+Leaving the field off an entry reads the same way as **Not reviewed**: nothing appears in the fact strip. Set it in the entry's pull request, the same place you set `review_status`.
+
+### What the automated sweep observes
+
+`.github/workflows/security-signals.yml` runs at 08:00 UTC on the 3rd of each month (and on demand from the Actions tab). For each live entry whose repository link is a public `https://github.com/<owner>/<repo>` URL, `scripts/security_signals.mjs` records into `_data/security_signals.json`:
+
+- whether the repository still resolves, and whether it is **archived**;
+- the day it was **last pushed to**, and whether the owner is an organization or a personal account;
+- the **license** GitHub identified, and whether a **security policy** is published;
+- the public [**OpenSSF Scorecard**](https://scorecard.dev) score and date, with a few notable checks (code review, known vulnerabilities, pinned dependencies, static analysis).
+
+These are facts about how a project is *packaged*. Not one of them inspects what the code does. A repository with a perfect Scorecard can still be malicious, and a repository with no score at all — the normal case for a small public-sector project nobody has crawled — is not thereby suspect. The entry page presents them under "Automated observations" with the date they were taken, and says the same thing in a line underneath.
+
+The workflow never edits an entry and never touches `security_review`. It opens or updates one `automation/security-signals` pull request when something moved; skim the diff for anything worth acting on — a repository that has gone missing, a project that has been archived since, a score that fell — and merge it to publish. Unchanged observations open nothing. A failed call records `"unavailable"` rather than failing the run, so a rate limit does not turn the monthly job red.
+
+### Before you grant "Coalition security-reviewed"
+
+There is no automated gate on this value; it is a claim your coalition makes in public, under its own name. What is worth looking at before you make it:
+
+- [ ] **The link is the project it says it is** — the organization's own repository or a fork they maintain, not a mirror, a vendor's marketing page, or a similarly named project.
+- [ ] **Somebody is still there.** The last push, the open-issue response, whether it is archived. An unmaintained dependency is the most common way a reused project becomes a liability.
+- [ ] **A license that permits reuse**, and one your organization can actually accept.
+- [ ] **A security policy, or a way to report a problem privately.** A project with nowhere to send a vulnerability report has not thought about receiving one.
+- [ ] **The Scorecard, read as a prompt and not as a grade.** A low *Code-Review* score on a two-person team is a fact about the team; a low *Vulnerabilities* score is a thing to go and look at.
+- [ ] **Whatever the entry itself claims about data handling** still matches what the repository does.
+
+**None of this is a safety guarantee, and the site never says it is.** The status records that a named group looked, on a date, at the things above. A reusing organization still has to run its own security review before deploying — which is precisely what the sentence on every entry page tells them to do.
+
+> **Not settled yet.** Whether "Coalition security-reviewed" expires, how often it is renewed, and who on the coalition may grant it are governance decisions this template does not make for you. Until your community decides, treat the status as a record of one reading by one maintainer and write the date and the reviewer into the pull request that sets it.
+
+**Turning it off.** Set the repository variable `SECURITY_SIGNALS` to `false` ([where](#repository-settings-at-a-glance)) to stop the schedule — a manual run still works — or delete the workflow file. Deleting `_data/security_signals.json` removes the observations card from every entry page; the disclaimer sentence and the `security_review` status stay. Removing `entry.repo_key` from `_data/schema.yml` turns the whole feature off: the sweep reports that it is not configured and writes nothing, and neither the card nor the disclaimer renders. See [content-model.md](content-model.md#security-signals) and [configuration.md](configuration.md#_datasecurity_signalsjson).
 
 ## Screenshots and images
 

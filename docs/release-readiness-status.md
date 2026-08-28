@@ -1,16 +1,20 @@
 # PHCT and BCHC release-readiness status
 
-- Evidence date: 2026-08-26
+- Evidence date: 2026-08-27
 - PHCT starting baseline: `c9fcb223826f2fc8c945d894420c16a2b8ff5da0`
-- PHCT candidate: `v1.9.0-rc.5`, cut from protected `main` at the merge of the
-  flat-by-default imagery treatment ([PR #37](https://github.com/crypticpy/phct/pull/37),
+- PHCT candidate: `v1.9.0-rc.6`, cut from protected `main` at the merge of the
+  searchable "Also deployed by" listings ([PR #46](https://github.com/crypticpy/phct/pull/46),
   all ruleset-required contexts plus scale, audit, and CodeQL green at merged head
-  `61150bba1737fa3a957f5040c52cc5f3b2a34765` after a full CI re-trigger following the
-  2026-08-26 GitHub Actions outage) and this release pull request. It supersedes
-  [`v1.9.0-rc.4`](https://github.com/crypticpy/phct/releases/tag/v1.9.0-rc.4), published at
-  immutable commit `c41149eaacab353c82403477bf0c5b2f26a48650`, which itself superseded
-  [`v1.9.0-rc.3`](https://github.com/crypticpy/phct/releases/tag/v1.9.0-rc.3) at
-  `a9741c9845e0928ec6b6654e6e04b6ebe71c2233`; the
+  `cf55fd735d091172222801d551ee989abb3b0319`) — the head of the entry-lifecycle,
+  concept-search and search-performance line merged in
+  [PR #43](https://github.com/crypticpy/phct/pull/43),
+  [PR #44](https://github.com/crypticpy/phct/pull/44) and
+  [PR #45](https://github.com/crypticpy/phct/pull/45) — and this release pull request.
+  It supersedes
+  [`v1.9.0-rc.5`](https://github.com/crypticpy/phct/releases/tag/v1.9.0-rc.5), published at
+  immutable commit `607169f1b12c6bb44e959e626c19f2ca9eefa6f0`, which itself superseded
+  [`v1.9.0-rc.4`](https://github.com/crypticpy/phct/releases/tag/v1.9.0-rc.4) at
+  `c41149eaacab353c82403477bf0c5b2f26a48650`; the
   [`v1.9.0-rc.2`](https://github.com/crypticpy/phct/releases/tag/v1.9.0-rc.2) record at
   immutable commit `bb2e44714969d261ce77860ddd27af8c5d9626d0` with its 326-component SBOM
   remains the last full-matrix exact-head evidence below.
@@ -20,7 +24,7 @@
   [rc.2 run](https://github.com/crypticpy/bchc-ai-use-case-catalog/actions/runs/32599759546):
   immutable tag and full SHA resolved, protected paths preserved byte-for-byte,
   merged at `fd7206981c58107df626f50062f08ad6aee1a0e0`); the
-  published BCHC demo is locked to `v1.9.0-rc.4` pending the rc.5 update.
+  published BCHC demo is locked to `v1.9.0-rc.4` pending the rc.6 update (`v1.9.0-rc.5` was superseded before its downstream update ran).
 - Automated code baseline: **green**
 - Wider-demo candidate: **no-go until parent interface polish and the remaining manual/live demo gates pass**
 - Stable release and BCHC handoff: **no-go until the human and live-repository gates below pass**
@@ -47,9 +51,9 @@ that updater succeeds.
 |---|---|---|
 | Reproducible toolchain | Pass | Node 22.22.2, npm 10.9.4, Ruby 3.3.11, and Bundler 4.0.11 are exact-pinned and checked by `npm run doctor`. |
 | Live pull-request CI | Pass at reviewed heads | The rc.2 implementation retained the full Validate, coverage, preset matrix, scale/Chrome, supply-chain, CodeQL, workflow-lint, pa11y, assistive-flow, and desktop/mobile Lighthouse gates. PHCT PRs #17/#20 passed protected CI and review. The generated metrics head `9a486f6` then passed all seven ruleset-required contexts plus browser quality through trusted dispatches before PR #19 was intentionally closed unmerged. Every check on BCHC rc.2 update head `2017cda` is green. |
-| PHCT release verification | Pass | `npm run verify` completed at `8518694`: 598 Node tests across 601 TAP items including 3 suites, 203 Ruby tests with 509 assertions, 98 build-matrix tests, coverage, generated-file checks, preset/module/showcase builds, CSS, Jekyll, license, security-exception, SBOM, image, and internal-link gates. |
+| PHCT release verification | Pass | `npm run verify` completed under the exact-pinned toolchain at release-record commit `ce46cbdc5cdddda78878cb367b119fe9ef440aa1`: 796 Node tests across 3 suites, 233 Ruby tests with 578 assertions, 109 build-matrix tests across 6 suites, plus lint, formatting, coverage, generated-file, data/front-matter, license, security-exception, SBOM, image-derivative, production CSS, Jekyll production build, and built-site link gates. The final release-record head differs from that commit only by this evidence sentence, and every protected CI context runs on the exact head in the release pull request. |
 | Code coverage | Pass locally and in exact-head CI | Pinned runtime coverage passed reviewed regression floors: complete loaded Node production code 84.81% lines / 75.94% branches / 80.07% functions; focused security parsers 90.54% / 80.55% / 93.59%; updater and release-lock logic 72.79% / 77.39% / 87.76%; loaded Ruby production code 93.29% lines / 85.13% branches / 77.69% methods. Six Ruby CLI sources exercised by subprocess or integration gates are explicitly inventoried, and any new unrepresented Ruby source fails the gate. Validate retains JSON and raw TAP artifacts even when a floor fails. |
-| Exact BCHC update rehearsal | Pass for rc.4 | The real rc.4 updater run resolved `v1.9.0-rc.4` to full SHA `c41149eaacab353c82403477bf0c5b2f26a48650`, preserved the protected BCHC paths, regenerated BCHC-owned deployment output, and opened candidate [PR #7](https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/7) at `c4ac0d5de1921f8047cabbe3264b6cda517c52b2`. The complete downstream required-check set was green, and the PR merged at `fd7206981c58107df626f50062f08ad6aee1a0e0`, locking the published BCHC demo to `v1.9.0-rc.4`. The rc.2 rehearsal ([PR #4](https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/4) at `2017cda8b731ae52103c6b44232496d2c2fc8662`, 116 protected files byte-identical) remains the recorded checksum baseline. Repeat the same rehearsal and checksum gate for the rc.5 update. |
+| Exact BCHC update rehearsal | Pass for rc.4 | The real rc.4 updater run resolved `v1.9.0-rc.4` to full SHA `c41149eaacab353c82403477bf0c5b2f26a48650`, preserved the protected BCHC paths, regenerated BCHC-owned deployment output, and opened candidate [PR #7](https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/7) at `c4ac0d5de1921f8047cabbe3264b6cda517c52b2`. The complete downstream required-check set was green, and the PR merged at `fd7206981c58107df626f50062f08ad6aee1a0e0`, locking the published BCHC demo to `v1.9.0-rc.4`. The rc.2 rehearsal ([PR #4](https://github.com/crypticpy/bchc-ai-use-case-catalog/pull/4) at `2017cda8b731ae52103c6b44232496d2c2fc8662`, 116 protected files byte-identical) remains the recorded checksum baseline. Repeat the same rehearsal and checksum gate for the rc.6 update. |
 | Dependency vulnerabilities | Pass | The exact-head Supply chain job passed parsed npm and Bundler audits with zero active exceptions; critical or unidentified findings cannot be waived, and stale/expired/unused exceptions fail closed. |
 | Software bill of materials | Pass | The current lockfiles produce 326 CycloneDX components and 327 globally unique references including the application. Repeated npm package/version rows retain every lock path, Ruby platforms have qualified PURLs, and duplicate references fail generation. |
 | Secret scanning | Pass | Gitleaks v8.30.1 found no leaks in either working tree or the complete history of either repository. |
@@ -57,9 +61,9 @@ that updater succeeds.
 | Accessibility automation | Pass | Pa11y reported zero errors on 22 PHCT URLs and 18 BCHC URLs; all four keyboard-flow scenarios passed in each repository. |
 | Desktop Lighthouse | Pass | Four URLs and two runs per URL in each repository. Every category score was 100. PHCT maxima: FCP 323 ms, LCP 548 ms, TBT 0 ms, CLS 0.00186. BCHC maxima: FCP 324 ms, LCP 551 ms, TBT 0 ms, CLS 0.01155. |
 | Mobile Lighthouse | Pass | PHCT and BCHC scored 97–99 performance and 100 accessibility, best practices, and SEO. Maximum observed FCP was 1,280 ms, LCP 2,632 ms, TBT 0 ms, and CLS 0.008. |
-| Scale and interaction matrix | Pass at supported ceiling | The exact-head Linux run completed deterministic 0, 1, 10, 100, 500, and 1,000-entry builds plus real Chrome at 390×844/4× CPU. All enforced release budgets passed through the supported 100-entry ceiling; the retained report records zero release findings. |
+| Scale and interaction matrix | Pass at measured ceiling | The rc.6-head scale job completed deterministic 0, 1, 10, 100, 500, and 1,000-entry builds, and real Chrome at 390×844/4× CPU drove search, filtering, sorting, and compare at every size named in `interaction_entries` — including the worker-built index measured cold and warm — against each size's enforced `scale_budgets` in `quality/performance-budgets.json`. All enforced release budgets passed through the measured 1,000-entry ceiling; the measured table is maintained in `docs/search.md`. |
 | Supported 100-entry target | Pass | Linux CI measured a 13,004 ms build under `/phct-performance`, 523 files/20,861,404 bytes, 61,182-byte gzip catalog, 8,894 DOM nodes, 24,914-byte gzip CSS, 40,870-byte gzip catalog JavaScript, 16,913-byte gzip search data, and 20,622-byte comparison data. Chrome measured 177.0 ms warm-search p95 and 51.5 ms filter p95 against reviewed 250/100 ms limits; BCHC's real project path measured 88.2/15.2 ms locally. |
-| Higher-scale characterization | Informational finding | At 500 entries the Linux run built in 63.1 seconds with an 83,990-byte search payload, while the catalog reached 155,156 bytes gzip and 36,860 DOM nodes. At 1,000 entries it built in 166.7 seconds and produced a 108,558,639-byte artifact plus a 264,761-byte/71,819-node catalog. Pagination or incremental rendering is required before claiming support above 100 entries. |
+| Higher-scale characterization | Informational finding | At 500 entries the Linux run built in 63.1 seconds with an 83,990-byte search payload, while the catalog reached 155,156 bytes gzip and 36,860 DOM nodes. At 1,000 entries it built in 166.7 seconds and produced a 108,558,639-byte artifact plus a 264,761-byte/71,819-node catalog. Interaction latency is now budgeted and enforced to 1,000 entries (see the scale row above), and off-screen entry cards defer rendering via `content-visibility`; the page-weight and DOM-size characterization here still stands, so pagination or incremental rendering remains the recorded requirement before claiming full support above 100 entries. |
 | Protected downstream content | Pass in real tagged update | The machine-readable ownership manifest, ordered merge rules, protected-file checksums, generated-file regeneration, and immutable parent lock protected all 116 BCHC files in the real `v1.9.0-rc.2` updater run and generated PR #4. Repeat the same checksum gate for the final candidate and stable update. |
 
 Local Lighthouse and scale reports were written under `/tmp` and are intentionally ephemeral.

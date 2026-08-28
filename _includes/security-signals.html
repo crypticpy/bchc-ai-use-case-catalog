@@ -1,0 +1,136 @@
+{%- comment -%}
+"Has anybody looked at this code?" — the rail card on an entry that links to a
+repository.
+
+Two things live here, and only one of them is ever automated:
+
+  the disclaimer   one sentence, on EVERY entry that has a repository link.
+                   This catalog links to third-party code; it does not host it,
+                   run it, or audit it, and a reader who is about to deploy
+                   somebody else's software should hear that from us before they
+                   hear anything else. Plain Liquid, server-rendered, no
+                   JavaScript involved.
+  the observations what `_data/security_signals.json` recorded about the
+                   repository the last time the monthly sweep ran
+                   (scripts/security_signals.mjs). Facts about how the project
+                   is packaged — last push, archived, license, security policy,
+                   public OpenSSF Scorecard — and not one of them inspects what
+                   the code does. Rendered only when the file has a record for
+                   this entry and that record is `applicable`.
+
+The maintainer-set `security_review` field is deliberately NOT here: it is an
+ordinary `card: fact` select and renders itself in the fact strip and the filter
+panel like every other field. This card would only duplicate it.
+
+Which field holds the repository link is the schema's to say (`entry.repo_key`);
+no field key is named here. Without the pointer, or without a value on this
+entry, the whole card renders nothing.
+
+Usage:
+  {% include security-signals.html entry=page repo_key=ent_repo_key %}
+    entry     the entry page object
+    repo_key  the schema's `entry.repo_key` ('' turns the card off)
+
+Local assigns are prefixed `sig_` so nothing leaks into the caller's scope.
+{%- endcomment -%}
+{%- assign sig_entry = include.entry -%}
+{%- assign sig_repo_key = include.repo_key | default: '' -%}
+{%- assign sig_url = '' -%}
+{%- if sig_repo_key != '' -%}{%- assign sig_url = sig_entry[sig_repo_key] | default: '' -%}{%- endif -%}
+
+{%- if sig_url != '' -%}
+{%- assign sig_data = site.data.security_signals -%}
+{%- assign sig_rec = nil -%}
+{%- if sig_data.entries -%}{%- assign sig_rec = sig_data.entries[sig_entry.slug] -%}{%- endif -%}
+{%- unless sig_rec.applicable -%}{%- assign sig_rec = nil -%}{%- endunless -%}
+{%- assign sig_demo_sample = false -%}
+{%- if site.data.site.demo and sig_entry.sample -%}{%- assign sig_demo_sample = true -%}{%- endif -%}
+
+<section class="rail-card" aria-labelledby="rail-security-heading" id="rail-security">
+  <h2 class="rail-title flex items-center gap-1.5" id="rail-security-heading">{% include icon.html name='shield-check' size='xs' %}Security signals</h2>
+  <div class="mt-3 space-y-3">
+    {%- comment -%} The sentence first, before any number: a Scorecard score read
+    ahead of it is exactly the thing that gets mistaken for a safety rating. {%- endcomment -%}
+    <p class="text-xs leading-relaxed text-brand-muted">The catalog links to this code; it does not audit it. Run your own security review before deploying.</p>
+
+    {%- if sig_rec -%}
+    {%- comment -%} `unavailable` is a call that failed — a rate limit, a network
+    blip — and is said as "not available" rather than being hidden, because a
+    missing row and an unanswered question are different things. Every boolean is
+    compared to `true` or `false` explicitly: in Liquid a bare truthiness test is
+    false for `false` AND for a nil the record never carries, which would collapse
+    "no security policy" and "nobody could look" into the same row. {%- endcomment -%}
+    <div>
+      <p class="rail-term">Automated observations{% if sig_data.generated_at %} · {{ sig_data.generated_at | date: '%b %Y' }}{% endif %}</p>
+      <dl class="rail-list mt-1.5">
+        {%- if sig_rec.exists == false -%}
+        <div>
+          <dt class="rail-term">Repository</dt>
+          <dd class="rail-def text-brand-muted">Not found — it may have been renamed, removed or made private.</dd>
+        </div>
+        {%- endif -%}
+
+        {%- if sig_rec.archived == true -%}
+        <div>
+          <dt class="rail-term">Archived</dt>
+          <dd class="rail-def text-brand-muted">The project is archived and no longer being updated.</dd>
+        </div>
+        {%- endif -%}
+
+        {%- if sig_rec.pushed_at and sig_rec.pushed_at != '' -%}
+        <div>
+          <dt class="rail-term">Last push</dt>
+          <dd class="rail-def">{% if sig_rec.pushed_at == 'unavailable' %}<span class="text-brand-muted">Not available</span>{% else %}{{ sig_rec.pushed_at | date: '%B %Y' }}{% endif %}</dd>
+        </div>
+        {%- endif -%}
+
+        {%- comment -%} A 404 (`exists: false`) already says the repository is
+        gone; `license` and `security_policy` are both `null` in that case, and
+        without this gate they would fall to the "none published"/"none GitHub
+        could identify" branch — asserting a fact about a repository that was
+        never there to have one. {%- endcomment -%}
+        {%- if sig_rec.exists != false -%}
+        <div>
+          <dt class="rail-term">License</dt>
+          <dd class="rail-def">
+            {%- if sig_rec.license == 'unavailable' -%}<span class="text-brand-muted">Not available</span>
+            {%- elsif sig_rec.license and sig_rec.license != '' and sig_rec.license != 'NOASSERTION' -%}{{ sig_rec.license | escape }}
+            {%- else -%}<span class="text-brand-muted">None GitHub could identify</span>{%- endif -%}
+          </dd>
+        </div>
+
+        <div>
+          <dt class="rail-term">Security policy</dt>
+          <dd class="rail-def">
+            {%- if sig_rec.security_policy == true -%}Published
+            {%- elsif sig_rec.security_policy == false -%}<span class="text-brand-muted">None published</span>
+            {%- else -%}<span class="text-brand-muted">Not available</span>{%- endif -%}
+          </dd>
+        </div>
+        {%- endif -%}
+
+        <div>
+          <dt class="rail-term">OpenSSF Scorecard</dt>
+          <dd class="rail-def">
+            {%- assign sig_card = sig_rec.scorecard -%}
+            {%- if sig_card == 'unavailable' -%}<span class="text-brand-muted">Not available</span>
+            {%- elsif sig_card -%}
+              {%- capture sig_score -%}{{ sig_card.score }} / 10{% if sig_card.date %} · {{ sig_card.date | date: '%b %Y' }}{% endif %}{%- endcapture -%}
+              {%- if sig_demo_sample -%}
+              {{ sig_score }} <span class="block text-xs text-brand-muted">Sample score — demo only</span>
+              {%- else -%}
+              <a class="text-brand-primary hover:underline" href="{{ 'https://scorecard.dev/viewer/?uri=github.com/' | append: sig_rec.repo | escape }}" target="_blank" rel="noopener noreferrer">{{ sig_score }}<span class="sr-only"> — full report (opens in a new tab)</span></a>
+              {%- endif -%}
+              {%- if sig_card.checks.first -%}
+              <span class="mt-1 block text-xs text-brand-muted">{% for sig_c in sig_card.checks %}{{ sig_c.name | escape }} {{ sig_c.score }}{% unless forloop.last %} · {% endunless %}{% endfor %}</span>
+              {%- endif -%}
+            {%- else -%}<span class="text-brand-muted">No public score — most small projects are never crawled</span>{%- endif -%}
+          </dd>
+        </div>
+      </dl>
+      <p class="mt-2 text-xs leading-relaxed text-brand-muted">Recorded automatically from public GitHub and OpenSSF data. They describe how the project is packaged; none of them inspects what the code does.</p>
+    </div>
+    {%- endif -%}
+  </div>
+</section>
+{%- endif -%}

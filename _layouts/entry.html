@@ -77,6 +77,29 @@ condemn it, so there is no colour and no icon of alarm.
 {%- endcomment -%}
 {%- assign ent_verified_key = ent_schema.entry.verified_key | default: 'verified' -%}
 {%- assign ent_updated_key = ent_schema.entry.updated_key | default: 'updated' -%}
+{%- comment -%} `entry.deployments_key` names the `links` field listing the other
+organizations running this. It is a pointer like `status_key` and `submitter_key`,
+so nothing here names a field: absent — or naming a field this schema does not
+actually declare as `links` — and the "add your organization" link below is not
+offered at all, because the form behind it would have nowhere to write. {%- endcomment -%}
+{%- assign ent_deployments_key = ent_schema.entry.deployments_key | default: '' -%}
+{%- if ent_deployments_key != '' -%}
+  {%- assign ent_deployments_field = ent_fields | where: 'key', ent_deployments_key | where: 'type', 'links' | first -%}
+  {%- unless ent_deployments_field -%}{%- assign ent_deployments_key = '' -%}{%- endunless -%}
+{%- endif -%}
+{%- comment -%} `entry.repo_key` names the `url` field holding the project's
+repository link — the same pointer idiom again. It is what the "Security signals"
+rail card keys off: the catalog links to code it does not audit, and the card
+says so on every entry carrying such a link, with the monthly sweep's
+observations under it when `_data/security_signals.json` has any. A pointer at a
+field this schema does not actually declare as a `url` is treated as absent, so a
+half-configured schema renders nothing rather than a card about a link that is
+not there. {%- endcomment -%}
+{%- assign ent_repo_key = ent_schema.entry.repo_key | default: '' -%}
+{%- if ent_repo_key != '' -%}
+  {%- assign ent_repo_field = ent_fields | where: 'key', ent_repo_key | where: 'type', 'url' | first -%}
+  {%- unless ent_repo_field -%}{%- assign ent_repo_key = '' -%}{%- endunless -%}
+{%- endif -%}
 {%- capture ent_date_keys -%}{{ ent_verified_key }},{{ ent_updated_key }},published{%- endcapture -%}
 {%- assign ent_verify_days = ent_cfg.catalog.verify_after_days | default: 365 -%}
 {%- assign ent_check = page | verification: site.time, ent_verify_days, ent_date_keys -%}
@@ -112,9 +135,15 @@ schema keeps the link. {%- endcomment -%}
     {%- else -%}
       {%- capture ent_stale_lead -%}Published {{ ent_check.date | date: '%B %Y' }} and not confirmed since{%- endcapture -%}
     {%- endif -%}
+    {%- comment -%} The one-click way out of the notice, for the person who knows
+    the answer: the refresh form with this entry's slug already in it. Answering
+    "yes" opens a pull request that stamps `verified:` and clears the notice
+    (.github/ISSUE_TEMPLATE/refresh-entry.yml, refresh-entry.yml). Only rendered
+    when the site knows its repository — the same guard the edit links use.
+    {%- endcomment -%}
     <aside class="entry-stale">
       {% include icon.html name='clock' size='sm' class='mt-0.5 shrink-0' %}
-      <p>{{ ent_stale_lead }}. Details, costs and contacts may have changed — {% if ent_contact_anchor != '' %}<a href="{{ ent_contact_anchor }}">ask the contact</a>{% else %}ask the contact{% endif %} before relying on this.</p>
+      <p>{{ ent_stale_lead }}. Details, costs and contacts may have changed — {% if ent_contact_anchor != '' %}<a href="{{ ent_contact_anchor }}">ask the contact</a>{% else %}ask the contact{% endif %} before relying on this.{% if ent_cfg.github.repository and ent_cfg.github.repository != '' %} <span class="entry-no-print">Still accurate? <a href="https://github.com/{{ ent_cfg.github.repository }}/issues/new?template=refresh-entry.yml&amp;slug={{ page.slug | query_encode }}" target="_blank" rel="noopener noreferrer">Confirm it<span class="sr-only"> (opens in a new tab)</span></a> and the date resets.</span>{% endif %}</p>
     </aside>
   {%- endif -%}
 {%- endcapture -%}
@@ -305,6 +334,12 @@ facts, rail, body.
     body, so this is the in-page navigation for a long entry. {%- endcomment -%}
     {% include toc.html content=content sections=ent_section_index %}
     {{ ent_rail_cards }}
+    {%- comment -%} Directly under the Reuse card, which is where the repository
+    link itself is offered: the sentence about running your own review belongs
+    beside the invitation to reuse the code, not three screens away. Renders
+    nothing at all when the schema names no repository field or this entry has no
+    link in it. {%- endcomment -%}
+    {% include security-signals.html entry=page repo_key=ent_repo_key %}
     {%- if ent_adopted != '' -%}
     <section class="rail-card" aria-labelledby="rail-adopted-heading" id="rail-adopted">
       <h2 class="rail-title flex items-center gap-1.5" id="rail-adopted-heading">{% include icon.html name='share' size='xs' %}Adopted by {{ ent_adopted_count }}</h2>
@@ -320,6 +355,14 @@ facts, rail, body.
       <ul class="entry-no-print mt-3 space-y-2 text-sm" role="list">
         <li><a class="entry-action-link" href="https://github.com/{{ ent_cfg.github.repository }}/edit/{{ ent_cfg.github.branch | default: 'main' }}/{{ page.path | escape }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='edit' size='sm' %}Suggest an edit<span class="sr-only"> (opens in a new tab)</span></a></li>
         <li><a class="entry-action-link" href="https://github.com/{{ ent_cfg.github.repository }}/issues/new?title={{ 'Update: ' | append: page.title | query_encode }}&amp;body={{ 'Requested change for ' | append: page.url | append: ':%0A%0A' }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='flag' size='sm' %}Report an issue<span class="sr-only"> (opens in a new tab)</span></a></li>
+        {%- comment -%} The quiet way for the reader who has already done this to say
+        so: the "Also deployed by" form with this entry's slug filled in, which becomes
+        a pull request adding one line to the Reuse card. Shown whether or not anybody
+        is listed yet — an empty list is exactly the case that needs the first one —
+        and only when the schema points at a field to write to. {%- endcomment -%}
+        {%- if ent_deployments_key != '' -%}
+        <li><a class="entry-action-link" href="https://github.com/{{ ent_cfg.github.repository }}/issues/new?template=also-deployed-by.yml&amp;slug={{ page.slug | query_encode }}" target="_blank" rel="noopener noreferrer">{% include icon.html name='users' size='sm' %}Deployed this too? Add your organization<span class="sr-only"> (opens in a new tab)</span></a></li>
+        {%- endif -%}
       </ul>
       {%- endif -%}
     </section>

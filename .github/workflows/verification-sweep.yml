@@ -1,13 +1,20 @@
 name: Verification sweep
 
-# Once a month, list the catalog entries nobody has confirmed inside the window
-# in _data/site.yml (`catalog.verify_after_days`) and keep ONE open issue with
-# that checklist. The site already tells readers when an entry is old; this is
-# the other half — telling the maintainers, somewhere they will see it.
+# Once a month, find the catalog entries nobody has confirmed inside the window
+# in _data/site.yml (`catalog.verify_after_days`) and open ONE refresh issue per
+# entry, mentioning the person who submitted it. The site already tells readers
+# when an entry is old; this is the other half — asking the people who can say
+# whether it is still true.
 #
-# It is a reminder, not a gate: it never edits an entry, never closes anything,
-# and asks for nothing but `issues: write`. Clearing an item is a human deciding
-# the entry is still true and saying so with `verified:` in a pull request.
+# It is a reminder, not a gate: it never edits an entry and asks for nothing but
+# `issues: write`. Confirming an entry is a human answering the refresh form,
+# which opens a pull request of its own (refresh-entry.yml).
+#
+# Each issue carries `<!-- refresh-entry: <slug> -->`, which is how the next run
+# finds the same thread instead of opening a second one. An entry that has been
+# confirmed since gets its issue closed with a note. New issues per run are
+# capped by `catalog.refresh_max_new_issues`; the rest are named in the run
+# summary and picked up next month, never dropped in silence.
 #
 # Turn the schedule off by setting the repository variable VERIFICATION_SWEEP
 # to `false` (Settings -> Secrets and variables -> Actions -> Variables), or by
@@ -24,7 +31,7 @@ on:
 permissions: {}
 
 # A manual run while the monthly one is in flight would otherwise race it and
-# could open a second issue before the first has been searched for.
+# could open a second issue for an entry before the first has been searched for.
 concurrency:
   group: verification-sweep
   cancel-in-progress: false
@@ -69,18 +76,23 @@ jobs:
         id: sweep
         run: node scripts/verification_sweep.mjs
 
-      - name: Open or update the sweep issue
-        if: steps.sweep.outputs.count != '0'
+      # Runs whatever the count is: with nothing stale there may still be issues
+      # from last month whose entries have since been confirmed, and those are
+      # closed here rather than left to rot with the label on them.
+      - name: Open, refresh and close the entry refresh issues
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          SWEEP_TITLE: ${{ steps.sweep.outputs.title }}
-          SWEEP_BODY: ${{ steps.sweep.outputs.body }}
+          SWEEP_ISSUES: ${{ steps.sweep.outputs.issues }}
+          SWEEP_SLUGS: ${{ steps.sweep.outputs.slugs }}
+          SWEEP_COUNT: ${{ steps.sweep.outputs.count }}
+          SWEEP_MAX_NEW: ${{ steps.sweep.outputs.max_new }}
         with:
           script: |
             const { owner, repo } = context.repo;
-            const title = process.env.SWEEP_TITLE;
-            const body = process.env.SWEEP_BODY;
-            const labels = ['verification'];
+            const wanted = JSON.parse(process.env.SWEEP_ISSUES || '[]');
+            const staleSlugs = new Set(String(process.env.SWEEP_SLUGS || '').split('\n').filter(Boolean));
+            const staleCount = Number(process.env.SWEEP_COUNT || '0');
+            const maxNew = Number(process.env.SWEEP_MAX_NEW || '20');
 
             // The label has to exist before an issue can carry it.
             // bootstrap-labels.yml creates it, but that workflow is a manual
@@ -99,35 +111,106 @@ jobs:
               if (error.status !== 422) throw error; // 422 = already exists
             }
 
-            // One rolling issue, not one per month: reuse whichever labelled
-            // issue is still open, oldest first, so a maintainer who has been
-            // ticking boxes for three months keeps their thread and its
-            // comments instead of finding a new empty one each time.
-            const { data: open } = await github.rest.issues.listForRepo({
+            // The marker, not the title: titles carry the entry name, entries
+            // get renamed, and a title match that misses forks the thread.
+            // Written by `issueMarker` in scripts/verification_sweep.mjs.
+            const MARKER = /<!--\s*refresh-entry:\s*([a-z0-9-]+)\s*-->/;
+            const open = await github.paginate(github.rest.issues.listForRepo, {
               owner,
               repo,
               state: 'open',
-              labels: labels.join(','),
-              sort: 'created',
-              direction: 'asc',
-              per_page: 1,
+              labels: 'verification',
+              per_page: 100,
             });
-            const existing = open.find((issue) => !issue.pull_request);
-
-            if (existing) {
-              await github.rest.issues.update({ owner, repo, issue_number: existing.number, title, body });
-              core.notice(`Updated #${existing.number}: ${title}`);
-              await core.summary.addRaw(`Updated [#${existing.number}](${existing.html_url}) — ${title}`).write();
-              return;
+            const mine = new Map();
+            for (const issue of open) {
+              if (issue.pull_request) continue;
+              const found = MARKER.exec(issue.body || '');
+              // No marker: an issue somebody labelled by hand, or the single
+              // rolling checklist earlier versions of this sweep kept. Not this
+              // job's to rewrite or close.
+              if (found) mine.set(found[1], issue);
             }
 
-            const { data: created } = await github.rest.issues.create({ owner, repo, title, body, labels });
-            core.notice(`Opened #${created.number}: ${title}`);
-            await core.summary.addRaw(`Opened [#${created.number}](${created.html_url}) — ${title}`).write();
+            let created = 0;
+            let refreshed = 0;
+            let deferred = staleCount - wanted.length;
+            const opened = [];
 
-      - name: Report a clean sweep
-        if: steps.sweep.outputs.count == '0'
-        run: echo "Every entry has been confirmed inside the window. Nothing to open." >> "$GITHUB_STEP_SUMMARY"
+            for (const item of wanted) {
+              const existing = mine.get(item.slug);
+              if (existing) {
+                if (existing.title !== item.title || existing.body !== item.body) {
+                  await github.rest.issues.update({
+                    owner,
+                    repo,
+                    issue_number: existing.number,
+                    title: item.title,
+                    body: item.body,
+                  });
+                }
+                refreshed += 1;
+                continue;
+              }
+              if (created >= maxNew) {
+                deferred += 1;
+                continue;
+              }
+              const { data } = await github.rest.issues.create({
+                owner,
+                repo,
+                title: item.title,
+                body: item.body,
+                labels: ['verification'],
+              });
+              created += 1;
+              opened.push(`- [#${data.number}](${data.html_url}) — ${item.title}`);
+            }
+
+            // Confirmed since the last run: say so on the thread and close it,
+            // so the label is a live queue rather than a growing archive.
+            let closed = 0;
+            for (const [slug, issue] of mine) {
+              if (staleSlugs.has(slug)) continue;
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body: 'This entry has been confirmed since — its last-confirmed date is back inside the window, so there is nothing left to do here. Closing; the sweep will open a fresh issue if it goes unconfirmed again.',
+              });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: issue.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              closed += 1;
+            }
+
+            const summary = core.summary.addHeading('Entry refresh sweep', 3);
+            if (staleCount === 0 && closed === 0) {
+              summary.addRaw('Every entry has been confirmed inside the window. Nothing to open.');
+            } else {
+              summary.addList([
+                `${staleCount} ${staleCount === 1 ? 'entry is' : 'entries are'} past the window`,
+                `${created} issue${created === 1 ? '' : 's'} opened`,
+                `${refreshed} existing issue${refreshed === 1 ? '' : 's'} refreshed`,
+                `${closed} issue${closed === 1 ? '' : 's'} closed because the entry was confirmed`,
+              ]);
+              if (opened.length) summary.addRaw(`\n${opened.join('\n')}\n`);
+              if (deferred > 0) {
+                summary.addRaw(
+                  `\n**${deferred} more ${deferred === 1 ? 'entry is' : 'entries are'} waiting.** ` +
+                    'One run opens at most `catalog.refresh_max_new_issues` new issues (from ' +
+                    '`_data/site.yml`) so a backlog does not arrive as one wall of notifications. ' +
+                    'Work through the ones above and run this workflow again from the Actions tab, ' +
+                    'or raise that number.\n'
+                );
+              }
+            }
+            await summary.write();
+            core.notice(`Refresh sweep: ${created} opened, ${refreshed} refreshed, ${closed} closed, ${deferred} deferred.`);
 
       # A red monthly run with nothing but a stack trace in it tells a
       # non-coder maintainer nothing. Whatever failed, this says what it means.

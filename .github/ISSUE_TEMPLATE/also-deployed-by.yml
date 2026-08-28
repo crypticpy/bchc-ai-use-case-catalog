@@ -1,0 +1,66 @@
+# Hand-authored, unlike new-entry.yml: this form asks about an entry somebody
+# else wrote rather than about the schema, so nothing here is generated. Field
+# ids are load-bearing — the entry page links here with
+# `?template=also-deployed-by.yml&slug=<slug>`, and
+# scripts/add_deployment_from_issue.mjs reads the answers back by label.
+name: "Also deployed by (add your organization to an entry)"
+description: "You deployed something already in the catalog? Attach your organization to that entry."
+title: "Also deployed by: "
+labels:
+  - content:also-deployed-by
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the short way to say "we run this too". You do not need to write an entry of your
+        own — four boxes and your organization is listed on the existing one, so the next person
+        can see who else has done it and ask you how it went.
+
+        **Everything you write here is public**, on this issue and on the published page.
+
+  - type: input
+    id: slug
+    attributes:
+      label: "Entry slug"
+      description: "The last part of the entry's web address — `.../catalog/automated-311-triage/` is `automated-311-triage`. If you arrived from the link on the entry page it is already filled in."
+      placeholder: "automated-311-triage"
+    validations:
+      required: true
+
+  - type: input
+    id: org
+    attributes:
+      label: "Organization"
+      description: "The city, county, agency or health department that deployed it. Write the name as you would want it read."
+      placeholder: "Multnomah County Health Department"
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: "Link"
+      description: "Somewhere a reader can go: your deployment, your repository, your fork, or just your organization's page. Must start with http:// or https://."
+      placeholder: "https://www.multco.us/health"
+    validations:
+      required: true
+
+  - type: input
+    id: email
+    attributes:
+      label: "Contact email"
+      description: "Optional, and published on the entry page as a mailto link where anyone can see it. Only fill this in if you want to be written to — a shared team address is usually the better answer than a personal one."
+      placeholder: "digital-services@multco.us"
+    validations:
+      required: false
+
+  - type: textarea
+    id: note
+    attributes:
+      label: "Anything worth knowing?"
+      description: "Optional, one or two sentences. What you adapted, what you would warn the next team about, how far along you are. Published under your organization's name."
+      placeholder: |
+        We kept the classifier but retrained it on our own call transcripts, and we run it in review
+        mode rather than auto-routing.
+    validations:
+      required: false

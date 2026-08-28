@@ -1,0 +1,402 @@
+name: Refresh an entry from issue
+
+# The answer to a refresh reminder. An issue labelled `content:refresh` arrives
+# from .github/ISSUE_TEMPLATE/refresh-entry.yml — usually from a one-click link
+# in the monthly sweep's issue — saying either "still accurate" or "here is what
+# changed".
+#
+#   * Still accurate -> scripts/refresh_entry_from_issue.mjs stamps `verified:`
+#     with today's date and this job opens a one-line pull request. Nothing is
+#     published until a maintainer merges it.
+#   * Something changed -> no pull request. The notes are quoted into a comment
+#     addressed to the maintainers, the issue is labelled
+#     `review:refresh-changes` and stays open, because turning prose into an
+#     edit is a person's job.
+#
+# Trust model (see SECURITY.md): anyone can open the issue that starts this job.
+#   * Issue content is NEVER interpolated into a `run:` script — it only ever
+#     reaches a step through `env:`, so a slug containing shell syntax is inert.
+#   * The script re-checks the slug against `^[a-z0-9]+(?:-[a-z0-9]+)*$` and
+#     re-checks the resolved path against the entry directory before reading or
+#     writing anything.
+#   * The only edit it can make is one date on one line.
+#
+# Set the repository variable SUBMISSIONS_OPEN to `false` to accept these only
+# from members and collaborators; leaving it unset keeps them open.
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+
+# The job below declares exactly the scopes it needs; nothing is granted by default.
+permissions: {}
+
+# One run per issue: editing an issue three times in a minute must not leave
+# three jobs force-pushing the same branch at each other.
+concurrency:
+  group: refresh-entry-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    # `state == 'open'` matters: editing a closed, already-merged refresh — to
+    # add a note, to fix a typo — would otherwise force-push its branch again
+    # and try to edit a merged pull request.
+    if: >-
+      github.event.issue.state == 'open'
+      && contains(github.event.issue.labels.*.name, 'content:refresh')
+      && (vars.SUBMISSIONS_OPEN != 'false'
+          || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      # Dispatching validate.yml/quality.yml onto the generated branch.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # The push below needs credentials; the checkout keeps them on purpose.
+          # zizmor: ignore[artipacked]
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Read the refresh answer
+        id: refresh
+        continue-on-error: true
+        run: node scripts/refresh_entry_from_issue.mjs
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+
+      - name: Report the failure on the issue
+        if: steps.refresh.outcome == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REFRESH_ERROR: ${{ steps.refresh.outputs.error }}
+        with:
+          script: |
+            const detail = process.env.REFRESH_ERROR || 'The refresh step failed; see the workflow logs for details.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'This refresh could not be applied yet.',
+                '',
+                '> ' + detail.split('\n').join('\n> '),
+                '',
+                'Edit this issue to fix the problem and the automation will try again. If the message above does not tell you what to change, comment here and a maintainer will help.'
+              ].join('\n')
+            });
+            core.setFailed(detail);
+
+      # Five different situations end here — an empty issue, an unanswered
+      # dropdown, an unknown slug, an entry already confirmed today, sample
+      # content — and the script says which one in a whole sentence.
+      - name: Comment when nothing changed
+        if: steps.refresh.outcome == 'success' && steps.refresh.outputs.outcome == 'none'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          NO_CHANGE_REASON: ${{ steps.refresh.outputs.reason }}
+        with:
+          script: |
+            const reason = process.env.NO_CHANGE_REASON;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'No entry was changed, so there is no pull request to review.',
+                '',
+                reason
+                  ? '> ' + reason.split('\n').join('\n> ')
+                  : '> The entry could not be found, or it had already been confirmed.',
+                '',
+                'Edit this issue if you want the automation to try again.'
+              ].join('\n')
+            });
+
+      # "Something changed" never opens a pull request: nobody can turn prose
+      # into a diff mechanically, and a generated diff nobody wrote is worse
+      # than none. The notes go to the maintainers with the entry named, and
+      # the issue stays open until a person has dealt with it.
+      - name: Hand the described changes to the maintainers
+        if: steps.refresh.outcome == 'success' && steps.refresh.outputs.outcome == 'changes'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ENTRY_SLUG: ${{ steps.refresh.outputs.slug }}
+          ENTRY_FILE: ${{ steps.refresh.outputs.file }}
+          ENTRY_CHANGES: ${{ steps.refresh.outputs.changes }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const slug = process.env.ENTRY_SLUG;
+            const file = process.env.ENTRY_FILE;
+            const changes = String(process.env.ENTRY_CHANGES || '');
+            const branch = context.payload.repository?.default_branch || 'main';
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                `Thanks — this is now in the maintainers' queue for **\`${slug}\`**. Nothing on the site has changed yet.`,
+                '',
+                '**What was reported:**',
+                '',
+                '> ' + changes.split('\n').join('\n> '),
+                '',
+                `Maintainers: the entry is [\`${file}\`](https://github.com/${owner}/${repo}/edit/${branch}/${file}). Apply what applies, set \`verified:\` to the day you checked, and close this issue with the pull request.`
+              ].join('\n')
+            });
+
+            // Best effort: a fork that never ran Bootstrap labels must still get
+            // the comment above, which is the part that carries the information.
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: context.issue.number,
+                labels: ['review:refresh-changes'],
+              });
+            } catch (error) {
+              core.warning(`Could not add the review:refresh-changes label (${error.status}). Run Bootstrap labels once from the Actions tab.`);
+            }
+
+      # A submitter can answer "yes" — opening the confirmation pull request
+      # below — then edit this same issue to answer "no" instead. Without
+      # this, that pull request stays open and mergeable, and merging it
+      # would stamp `verified:` after the submitter retracted the answer.
+      # `BRANCH` here is the same name a "yes" answer on this issue would
+      # have used (scripts/refresh_entry_from_issue.mjs), so it finds exactly
+      # that pull request and nothing another issue opened.
+      - name: Close a stale confirmation pull request
+        if: steps.refresh.outcome == 'success' && steps.refresh.outputs.outcome == 'changes'
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.refresh.outputs.branch }}
+        run: |
+          set -euo pipefail
+          # `--state open` matters: a closed or merged pull request must never
+          # be reopened by a later issue edit.
+          pr_number="$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$pr_number" ]; then
+            gh pr close "$pr_number" \
+              --comment "The submitter's answer on this issue changed to \"something changed\"; closing this stale confirmation."
+          fi
+
+      - name: Commit the confirmation on a new branch
+        id: commit
+        if: steps.refresh.outputs.outcome == 'confirmed'
+        env:
+          BRANCH: ${{ steps.refresh.outputs.branch }}
+          ENTRY_FILE: ${{ steps.refresh.outputs.file }}
+          SLUG: ${{ steps.refresh.outputs.slug }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # Exactly the one file the script was allowed to touch, never `-A`:
+          # this job's whole claim is that it changes one date on one line.
+          git add -- "$ENTRY_FILE"
+          if git diff --cached --quiet; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            echo "The refresh produced no changes." >&2
+            exit 0
+          fi
+          git commit -m "chore: confirm entry $SLUG is still accurate"
+          # The branch is machine-generated and named after this issue, so an
+          # `issues: edited` re-run replaces its contents rather than merging.
+          git push --force-with-lease origin "HEAD:refs/heads/$BRANCH"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        id: pr
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.refresh.outputs.branch }}
+          SLUG: ${{ steps.refresh.outputs.slug }}
+          ENTRY_FILE: ${{ steps.refresh.outputs.file }}
+          VERIFIED_DATE: ${{ steps.refresh.outputs.date }}
+          PR_TITLE: ${{ steps.refresh.outputs.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          # Everything between the braces is literal markdown; a backtick here is
+          # a code span, not a command substitution.
+          # shellcheck disable=SC2016
+          {
+            printf 'Someone confirmed from issue #%s that this entry is still accurate as published.\n\n' "$ISSUE_NUMBER"
+            printf 'Closes #%s\n\n' "$ISSUE_NUMBER"
+            printf 'The whole change is one date: `verified: %s` in `%s`. That resets the entry'"'"'s clock, so the page stops telling readers it may be out of date and the monthly sweep closes its reminder.\n\n' "$VERIFIED_DATE" "$ENTRY_FILE"
+            printf '### Maintainer checklist\n\n'
+            printf -- '- [ ] The person who confirmed it is someone whose word you would take for this entry\n'
+            printf -- '- [ ] The diff is the one date line and nothing else\n'
+            printf -- '- [ ] **Validate Content** is green on the *latest* commit\n'
+            printf -- '- [ ] Merge to reset the clock\n'
+          } > /tmp/pr-body.md
+
+          # An `issues: edited` re-run reuses the pull request that already
+          # points at this branch instead of failing. The label is safe to pass
+          # unconditionally: this job only runs for an issue that already
+          # carries `content:refresh`. `--state open` matters: a closed or
+          # merged pull request for this branch must not be resurrected and
+          # silently edited.
+          url="$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url' 2>/dev/null || true)"
+          if [ -n "$url" ]; then
+            gh pr edit "$BRANCH" --title "$PR_TITLE" --body-file /tmp/pr-body.md \
+              --add-label content:refresh
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+            echo "reused=true" >> "$GITHUB_OUTPUT"
+          else
+            url="$(gh pr create \
+              --base "${GITHUB_REF_NAME}" \
+              --head "$BRANCH" \
+              --title "$PR_TITLE" \
+              --label content:refresh \
+              --body-file /tmp/pr-body.md)"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows; GitHub parks them behind "Approve and run". `workflow_dispatch`
+      # is the documented exception, and its check runs bind to the branch head
+      # SHA — the pull request's head SHA — so they appear in its Checks tab.
+      # See .github/workflows/new-entry.yml for the long version.
+      - name: Run the content checks on the new branch
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.refresh.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml lint-workflows.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              # Never fail the job over this: the pull request exists either way,
+              # and a maintainer can approve the parked runs by hand.
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Link the pull request from the issue
+        if: steps.pr.outputs.url != '' && steps.pr.outputs.reused != 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+          VERIFIED_DATE: ${{ steps.refresh.outputs.date }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                `Thank you — that is the whole job. The confirmation is a pull request waiting for a maintainer:`,
+                '',
+                process.env.PR_URL,
+                '',
+                `It sets the entry's confirmed date to ${process.env.VERIFIED_DATE}. Once it merges, the page stops telling readers the entry may be out of date and you will not be asked again for another year.`
+              ].join('\n')
+            });
+
+      # An `issues: edited` re-run updates the pull request that already exists.
+      # The comment above tells people to edit the issue to correct an answer,
+      # so silence here reads as "the edit was ignored".
+      - name: Say the pull request was updated
+        if: steps.pr.outputs.reused == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Updated the pull request from your edit:',
+                '',
+                process.env.PR_URL,
+                '',
+                'It now matches this issue. A maintainer reviews it, and the entry\'s date does not change until it is merged.'
+              ].join('\n')
+            });
+
+      # Everything above can still leave the issue silent: the push or the pull
+      # request itself can be refused — classically because "Allow GitHub
+      # Actions to create and approve pull requests" was never ticked — and the
+      # failure comment further up only covers the refresh step.
+      - name: Say the pull request could not be opened
+        if: failure() && steps.refresh.outcome != 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                'Your answer was read, but the pull request could not be opened, so nothing has been lost and the entry is unchanged.',
+                '',
+                'The usual cause is one repository setting: a maintainer should open **Settings → Actions → General → Workflow permissions** and tick **Allow GitHub Actions to create and approve pull requests**.',
+                '',
+                `Once that is on, edit this issue to retry. The full run is under the [Actions tab](https://github.com/${owner}/${repo}/actions).`
+              ].join('\n')
+            });
+
+  # With SUBMISSIONS_OPEN set to `false` the job above simply does not run for
+  # an outside contributor — and a refresh reminder invites exactly those
+  # people, so their answer would sit there with no reply at all.
+  say-submissions-are-closed:
+    if: >-
+      github.event.action == 'opened'
+      && contains(github.event.issue.labels.*.name, 'content:refresh')
+      && vars.SUBMISSIONS_OPEN == 'false'
+      && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Say a maintainer will handle it by hand
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Thanks for confirming. Automatic updates are currently paused, so this has not become a pull request — a maintainer will apply it by hand.',
+                '',
+                'Nothing more is needed from you. Everything you wrote is saved on this issue.'
+              ].join('\n')
+            });

@@ -15,11 +15,11 @@
 module CatalogTemplate
   module ModulePages
     # Pages the catalog module owns beyond the entry folder itself. `/compare/`
-    # exists only to lay catalog entries side by side, so a site with the catalog
-    # switched off should not ship it, and it is a fixed path rather than a
-    # configurable one — hence here rather than in _data/modules.yml, which a
-    # fork edits.
-    CATALOG_EXTRA_PATHS = ["/compare/"].freeze
+    # exists only to lay catalog entries side by side, and `/about/search/`
+    # only to explain the catalog's search box, so a site with the catalog
+    # switched off should ship neither. Fixed paths rather than configurable
+    # ones — hence here rather than in _data/modules.yml, which a fork edits.
+    CATALOG_EXTRA_PATHS = ["/compare/", "/about/search/"].freeze
 
     # Path prefixes each module owns, keyed by module name. `catalog` is
     # derived from the schema's entry path rather than _data/modules.yml,

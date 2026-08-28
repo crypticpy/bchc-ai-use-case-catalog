@@ -40,12 +40,16 @@ export const EMPTIED_DATA = ['_data/events.yml', '_data/resources.yml'];
 export const EXAMPLE_MODULES = ['governance'];
 
 /**
- * Sample data files with no rows to empty: `_data/metrics.json` is the sample
+ * Sample data files with no rows to empty. `_data/metrics.json` is the sample
  * submission and review figures the governance page shows, in the shape
- * scripts/metrics.mjs writes; the fork's own monthly workflow writes the real
- * ones. Deleted outright — the governance page hides the block until then.
+ * scripts/metrics.mjs writes; `_data/security_signals.json` is the sample
+ * repository observations an entry page shows, in the shape
+ * scripts/security_signals.mjs writes. Both describe the demo content and would
+ * be untrue of a fork's own entries, so both are deleted outright rather than
+ * emptied — the blocks that read them stay hidden until the fork's own monthly
+ * workflow writes the real ones.
  */
-export const SAMPLE_DATA_FILES = ['_data/metrics.json'];
+export const SAMPLE_DATA_FILES = ['_data/metrics.json', '_data/security_signals.json'];
 
 /**
  * The showcase: `_showcase/<preset-id>/` is the sample content each live
@@ -277,7 +281,7 @@ export function ejectSummary(result) {
     lines.push(`Emptied ${result.emptied.join(' and ')} (the header comments stay).`);
   if (result.removed.length)
     lines.push(
-      `Removed ${result.removed.join(' and ')} — sample figures; your monthly Catalog metrics run writes yours.`
+      `Removed ${result.removed.join(' and ')} — sample data about the demo content; your own monthly workflows write yours.`
     );
   if (result.showcase.length)
     lines.push(

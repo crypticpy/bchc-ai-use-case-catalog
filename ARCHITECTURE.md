@@ -105,6 +105,8 @@ run identically in tests.
 | `new-entry.yml` | issue labelled `content:new-entry` | `scripts/new_entry_from_issue.mjs` (+ `lib/issue_body`, `lib/images`, `lib/yaml`, `lib/review` for the checklist and `escalate_on`) | PR adding `catalog/<slug>/` with downloaded screenshots, the maintainer checklist and `review:*` labels |
 | `thumbnails.yml` | PR touching `catalog/**` | `scripts/thumbnail_sources.mjs` + `pdftoppm` | commits `thumb.jpg` from `deck.pdf` |
 | `new-event.yml`, `new-year.yml`, `update-schedule.yml`, `update-event-attachments.yml` | issue templates for the events/cohorts modules | matching `scripts/*` | PRs against `_data/` |
+| `refresh-entry.yml` | issue labelled `content:refresh` | `scripts/refresh_entry_from_issue.mjs` | "still accurate" → PR stamping the entry's `verified:` date; "needs updates" → the reported changes are labelled `review:refresh-changes` for the maintainer queue |
+| `also-deployed-by.yml` | issue labelled `content:also-deployed-by` | `scripts/add_deployment_from_issue.mjs` | PR appending an organization to the entry's `entry.deployments_key` list |
 | `validate.yml` | PR / push | `generate.mjs --check`, `npm test`, `npm run coverage`, `npm run test:ruby`, `npm run validate`, CSS + Jekyll build | the merge gate; coverage evidence is retained as an artifact even when its reviewed floors fail |
 | `performance.yml` | PR / push to main / aggregate dispatch | `performance_fixture.mjs` + `interaction_performance.mjs` | deterministic 0–1,000-entry build/payload evidence plus blocking 100-entry filter/search p95 in low-end-mobile Chrome |
 | `quality.yml` | PR / push to main | `pa11y-ci` (WCAG 2 AA), keyboard flows, and blocking desktop/mobile Lighthouse budgets over `_site` | browser accessibility and performance gate |
