@@ -72,8 +72,14 @@ jobs:
       - name: Install npm dependencies
         run: npm ci --ignore-scripts
 
+      # The issue bodies travel through a file, not a step output: an output is
+      # re-exported below as one environment entry, which Linux caps near
+      # 128 KiB, and two hundred issue bodies can pass that. An env entry that
+      # large stops the runner from launching the step that reads it.
       - name: Find unconfirmed entries
         id: sweep
+        env:
+          SWEEP_ISSUES_FILE: ${{ runner.temp }}/sweep-issues.json
         run: node scripts/verification_sweep.mjs
 
       # Runs whatever the count is: with nothing stale there may still be issues
@@ -82,14 +88,18 @@ jobs:
       - name: Open, refresh and close the entry refresh issues
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          SWEEP_ISSUES: ${{ steps.sweep.outputs.issues }}
+          SWEEP_ISSUES_FILE: ${{ runner.temp }}/sweep-issues.json
           SWEEP_SLUGS: ${{ steps.sweep.outputs.slugs }}
           SWEEP_COUNT: ${{ steps.sweep.outputs.count }}
           SWEEP_MAX_NEW: ${{ steps.sweep.outputs.max_new }}
         with:
           script: |
+            const fs = require('fs');
             const { owner, repo } = context.repo;
-            const wanted = JSON.parse(process.env.SWEEP_ISSUES || '[]');
+            const issuesFile = process.env.SWEEP_ISSUES_FILE;
+            const wanted = issuesFile && fs.existsSync(issuesFile)
+              ? JSON.parse(fs.readFileSync(issuesFile, 'utf8'))
+              : [];
             const staleSlugs = new Set(String(process.env.SWEEP_SLUGS || '').split('\n').filter(Boolean));
             const staleCount = Number(process.env.SWEEP_COUNT || '0');
             const maxNew = Number(process.env.SWEEP_MAX_NEW || '20');
