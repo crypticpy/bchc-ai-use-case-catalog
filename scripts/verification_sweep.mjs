@@ -4,7 +4,8 @@
  * one issue per entry asking the people who can answer.
  *
  * Usage:  node scripts/verification_sweep.mjs [--today YYYY-MM-DD] [--json]
- * Outputs (Actions): `count`, `issues`, `max_new` — see
+ * Outputs (Actions): `count`, `slugs`, `max_new`; the issue bodies are written
+ * to the file named by $SWEEP_ISSUES_FILE — see
  * .github/workflows/verification-sweep.yml
  *
  * An entry is "confirmed" on the newest of its `verified`, `updated` and
@@ -50,12 +51,14 @@ export const DEFAULT_MAX_NEW_ISSUES = 20;
  * How many issue bodies one run hands to the workflow.
  *
  * A separate concern from the cap above, and a much larger number: this one is
- * a size guard, not a courtesy. Every body travels through `$GITHUB_OUTPUT`,
- * which is not an unbounded channel, so a catalog with a thousand overdue
- * entries must not turn the monthly job permanently red. The list of stale
- * slugs is emitted in full regardless (it is cheap, and the workflow needs all
- * of it to decide which issues to close), so nothing beyond this is mistaken
- * for fresh — it is only deferred, and the run summary says so.
+ * a size guard, not a courtesy. The bodies travel through the file named by
+ * `$SWEEP_ISSUES_FILE` — never a step output copied into one environment
+ * entry, which Linux caps near 128 KiB and which, exceeded, stops the runner
+ * from even launching the step that reads it — so the cap is no longer a
+ * transport ceiling, just a bound on how much JSON one run builds. The list of
+ * stale slugs is emitted in full regardless (it is cheap, and the workflow
+ * needs all of it to decide which issues to close), so nothing beyond this is
+ * mistaken for fresh — it is only deferred, and the run summary says so.
  */
 export const MAX_ISSUE_PAYLOAD = 200;
 /** The template of the per-entry dedupe marker; also parsed by the workflow. */
@@ -399,7 +402,11 @@ function main() {
   }
 
   setOutput('count', String(stale.length));
-  setOutput('issues', JSON.stringify(issues));
+  // The bodies go through a file: two hundred of them can pass 128 KiB, and an
+  // environment entry that large stops the runner from launching the step that
+  // would read it. See the MAX_ISSUE_PAYLOAD note above.
+  const issuesFile = process.env.SWEEP_ISSUES_FILE;
+  if (issuesFile) fs.writeFileSync(issuesFile, JSON.stringify(issues));
   setOutput('slugs', stale.map((entry) => entry.slug).join('\n'));
   setOutput('max_new', String(maxNew));
 }

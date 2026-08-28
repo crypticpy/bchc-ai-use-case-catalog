@@ -967,3 +967,22 @@ test('protected-main automation stays reviewable and generated PRs can satisfy r
   assert.match(codeql, /'Analyze ruby'/u);
   assert.match(workflow('performance.yml'), /\['scale', 'Performance and scale \(dispatch\)'\]/u);
 });
+
+test('the sweep hands issue bodies to its reader through a file, not an environment entry', () => {
+  // steps.sweep.outputs.issues copied into `env:` becomes a single Linux
+  // environment entry, capped near 128 KiB — two hundred issue bodies can pass
+  // that, and the runner then cannot launch the step that reads it.
+  const sweep = workflow('verification-sweep.yml');
+  assert.doesNotMatch(sweep, /steps\.sweep\.outputs\.issues/u);
+  const named = sweep.match(/SWEEP_ISSUES_FILE: \$\{\{ runner\.temp \}\}\/sweep-issues\.json/gu) ?? [];
+  assert.equal(named.length, 2, 'writer and reader must name the same issues file');
+});
+
+test('the changes guidance names the configured verification key, not a literal', () => {
+  // A catalog that renames `verified` via entry.verified_key must not be told
+  // to stamp a field its sweep does not read.
+  const refresh = workflow('refresh-entry.yml');
+  assert.match(refresh, /ENTRY_VERIFIED_KEY: \$\{\{ steps\.refresh\.outputs\.verified_key \}\}/u);
+  assert.match(refresh, /set \\`\$\{verifiedKey\}:\\` to the day you checked/u);
+  assert.doesNotMatch(refresh, /set \\`verified:\\` to the day you checked/u);
+});

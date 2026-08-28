@@ -145,12 +145,14 @@ jobs:
           ENTRY_SLUG: ${{ steps.refresh.outputs.slug }}
           ENTRY_FILE: ${{ steps.refresh.outputs.file }}
           ENTRY_CHANGES: ${{ steps.refresh.outputs.changes }}
+          ENTRY_VERIFIED_KEY: ${{ steps.refresh.outputs.verified_key }}
         with:
           script: |
             const { owner, repo } = context.repo;
             const slug = process.env.ENTRY_SLUG;
             const file = process.env.ENTRY_FILE;
             const changes = String(process.env.ENTRY_CHANGES || '');
+            const verifiedKey = process.env.ENTRY_VERIFIED_KEY || 'verified';
             const branch = context.payload.repository?.default_branch || 'main';
 
             await github.rest.issues.createComment({
@@ -164,7 +166,7 @@ jobs:
                 '',
                 '> ' + changes.split('\n').join('\n> '),
                 '',
-                `Maintainers: the entry is [\`${file}\`](https://github.com/${owner}/${repo}/edit/${branch}/${file}). Apply what applies, set \`verified:\` to the day you checked, and close this issue with the pull request.`
+                `Maintainers: the entry is [\`${file}\`](https://github.com/${owner}/${repo}/edit/${branch}/${file}). Apply what applies, set \`${verifiedKey}:\` to the day you checked, and close this issue with the pull request.`
               ].join('\n')
             });
 
