@@ -20,7 +20,7 @@ Built on the [Pub Health Catalog Template (PHCT)](https://github.com/crypticpy/p
 
 ## What's next
 
-[`docs/bchc/feature-ledger.md`](docs/bchc/feature-ledger.md) is the public record of where the catalog is going: what is being built now, what has been requested, and the design questions still to settle. Have an idea or feedback? Open a [feature request](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=feature.yml) — maintainers triage requests into the ledger.
+[`docs/bchc/feature-ledger.md`](docs/bchc/feature-ledger.md) is the public record of where the catalog is going: what is being built now, what has been requested, and the design questions still to settle. Have an idea or feedback? Open a [feature request](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=feature.yml) for catalog software capabilities, or email [info@bigcitieshealth.org](mailto:info@bigcitieshealth.org) for BCHC-specific suggestions — maintainers triage both into the ledger.
 
 ## Features
 

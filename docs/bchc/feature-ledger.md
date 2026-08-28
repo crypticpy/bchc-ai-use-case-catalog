@@ -7,10 +7,15 @@ coalition presentation generated exactly the kind of ideas, questions and feedba
 catalog like this should collect — and a request that lives in one person's inbox is a
 request that gets lost.
 
-**To propose something:** open a
-[feature request](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=feature.yml).
-Maintainers triage requests into this file; the issue thread stays the place where the
-discussion happens. Items move down the page as they progress: *under consideration* →
+**To propose something:** for a capability of the catalog software — search, forms,
+pages, automation — open a
+[feature request](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=feature.yml);
+that form asks you to confirm the idea is reusable template behavior, because that is
+where the software is built. For BCHC-specific ideas — coalition policy, content,
+taxonomy, how the catalog is governed — email
+[info@bigcitieshealth.org](mailto:info@bigcitieshealth.org) and maintainers will record
+the request in this file, so it is tracked here rather than in an inbox. Either way the
+request lands on this page: items move down it as they progress, *under consideration* →
 *in progress* → *shipped*, or into *design questions* when what blocks them is a
 decision rather than code.
 
