@@ -28,6 +28,9 @@ entry:
   status_approved_value: "Reviewed & approved"  # optional — what approval means; the PR checklist asks for it
   require_link: true       # optional — an entry with no link anywhere fails validation instead of warning
   contributor_key: organization  # optional — the field the monthly metrics count distinct "contributing organizations" from
+  submitter_key: submitter_github  # optional — the text field holding the submitter's GitHub username, for refresh reminders
+  deployments_key: also_deployed_by  # optional — the `links` field the "Also deployed by" form appends organizations to
+  repo_key: repo_url       # optional — the `url` field holding the project's repository link
 
 groups:                    # ordered; group filters and submit-form sections
   - key: about
@@ -45,6 +48,12 @@ fields:
 `entry.path` is also read by `_plugins/modules.rb` (to know which pages belong to the `catalog` module) and by every script that scaffolds or reads entries.
 
 The three `status_*` keys are optional pointers, in the same spirit as `verified`: they name a field rather than hardcoding one, so a schema without a review status simply leaves them out and nothing downstream looks for it. See [Review status and deprecation](#review-status-and-deprecation).
+
+`deployments_key` is a pointer of the same shape, naming the `links` field that lists the other organizations running an entry — see [Also deployed by](#also-deployed-by).
+
+`repo_key` is a pointer of the same shape, naming the `url` field that holds a project's repository link — see [Security signals](#security-signals).
+
+`submitter_key` is a pointer of the same shape. It names an ordinary optional `text` field — `submitter_github` in the shipped schema — where a submitter may leave their GitHub username, so the [monthly verification sweep](admin-guide.md#the-monthly-verification-sweep) can @mention the person who wrote the entry rather than only the maintainers. A leading `@` is fine, the value is only ever read as a handle (never as an address or a login), `check_front_matter.rb` warns rather than fails when it does not look like a username, and leaving the key out of the schema removes both the question and the mention.
 
 ### Groups
 
@@ -73,7 +82,7 @@ On the submit page, groups are also the steps. With JavaScript on and more than 
 | `published` | Automation | `YYYY-MM-DD`. The default sort key. |
 | `render_with_liquid` | Automation | Always `false`, and CI fails an entry without it: the body is a submitter's markdown and must not be run through Liquid at build time. |
 | `updated` | Automation, or maintainer | Optional `YYYY-MM-DD`. When present, the entry page shows "Updated …" alongside the published date, and "Recently updated" sorting uses it. The deploy stamps it when a push to `main` modifies the entry file (`scripts/stamp_updated.mjs` — modified files only, never sample content, never backwards; see [admin-guide.md](admin-guide.md#editing-or-removing-an-existing-entry)); set it by hand when you want a different day. |
-| `verified` | Maintainer | Optional `YYYY-MM-DD`. The day someone confirmed with the contact that the entry is still true. Stronger than `updated`, which only says the text changed. The scaffolder never sets it — a maintainer does, in review or when clearing an item from the [monthly sweep](admin-guide.md#the-monthly-verification-sweep). |
+| `verified` | Maintainer, or the refresh form | Optional `YYYY-MM-DD`. The day someone confirmed with the contact that the entry is still true. Stronger than `updated`, which only says the text changed. The scaffolder never sets it. A maintainer sets it in review, or somebody answers the [refresh reminder](admin-guide.md#the-monthly-verification-sweep) with "still accurate" and the automation opens a one-line pull request that does. |
 | `featured` | Maintainer | `true` pins the entry into the home carousel and shows a Featured badge. Maintainer-only; there is no submitter path to it. |
 | `thumbnail` | Maintainer | Optional image path. First choice for the card image, ahead of any `images` field. |
 
@@ -84,6 +93,8 @@ Sample entries shipped with the template also carry `sample: true`, which is how
 An entry is "last confirmed" on the **newest** of `verified`, `updated` and `published` — three progressively weaker answers to the same question, and the newest one is the honest one. Past `catalog.verify_after_days` in `_data/site.yml` (default 365) the entry page shows a quiet note near the fact strip, cards carry a one-line "Last confirmed …", and the default catalog order puts the entry after fresher ones. Nothing is hidden and nothing turns amber: an unconfirmed entry is still the best account of that project anyone has written down.
 
 Because the newest date wins, a fresh catalog shows no notices at all, and a maintainer clears one by setting `verified:` — not by touching `updated:`, which would claim an edit that did not happen.
+
+The notice on an entry page also carries a **Still accurate? Confirm it** link, and once a month the sweep asks the same question in an issue addressed to the person who submitted the entry. Both point at the same short form, and answering it "yes" opens the pull request that sets `verified:` — so the date is usually set by whoever knows the answer, not by the maintainer who chased them. See [the monthly verification sweep](admin-guide.md#the-monthly-verification-sweep).
 
 ### Review status and deprecation
 
@@ -101,6 +112,36 @@ Three pointers make it schema-driven rather than a special case:
 | `entry.contributor_key` | The field whose distinct values `scripts/metrics.mjs` counts as **contributing organizations** in `_data/metrics.json` — the figure card and per-quarter column on the governance page's "How the catalog is doing" block. Live entries only, `sample: true` content excluded, values trimmed and blanks skipped. Absent → the figure, its card and its column are not published; everything else in the block still is. |
 
 The Liquid filters behind this are `deprecated_entry`, `live_entries` and `deprecated_entries` in `_plugins/schema_filters.rb`; every template goes through them rather than comparing strings. Deprecation supersedes staleness: a deprecated entry never also shows the "last confirmed" note, because "may no longer be current" already covers it. See [admin-guide.md](admin-guide.md#editing-or-removing-an-existing-entry) for when to deprecate versus delete.
+
+### Also deployed by
+
+The single most useful fact about a use case is that somebody else has already run it — and the organization that can say so is not the one that wrote the entry. Asking them to author a full second entry to say "we run this too" is how that fact never gets recorded, so it has its own four-box form instead.
+
+`entry.deployments_key` is a pointer of the same shape as `status_key` and `submitter_key`. It names a `links` field — `also_deployed_by` in the shipped schema — where each item is one organization: `label` is its name, `url` a link a reader can follow, and the optional [`email` and `note`](#links) a contact address and a sentence about what they adapted.
+
+| Piece | Where |
+|---|---|
+| The pointer | `entry.deployments_key` in `_data/schema.yml`. Absent → nothing below is offered, and the form reports that the feature is not configured rather than guessing a key. |
+| The field | An ordinary `links` field carrying `form: false`, so the public submission forms never ask for it. In the shipped schema it sits last in the **Reuse** rail card (`group: reuse`, `weight: 9`, `icon: users`). |
+| The form | `.github/ISSUE_TEMPLATE/also-deployed-by.yml` — slug, organization, link, and the two optional boxes. The entry page links to it with the slug already filled in. |
+| The automation | `.github/workflows/also-deployed-by.yml` runs `scripts/add_deployment_from_issue.mjs`, which appends the organization (or updates the row that is already theirs) and opens a pull request. Nothing is published until a maintainer merges it: "we deployed this" is not self-verifying, and an address about to go on a public page needs a person to have looked at it. |
+
+The field is **not in the search index** yet: an item is a mapping, and `_plugins/search_index.rb` flattens scalars and string lists only. Set `search: true` on it once structured values are flattened there.
+
+### Security signals
+
+A catalog that lists code somebody else wrote is one click away from a reader deploying it. **This catalog links to that code; it does not host, run or audit it**, and the entry page says exactly that, in one sentence, on every entry with a repository link. Around that sentence sit two things, and the schema keeps them apart on purpose: automated *observations* about how a repository is packaged, and one maintainer-set *status* recording how much a person has looked.
+
+`entry.repo_key` is a pointer of the same shape as `status_key`, `submitter_key` and `deployments_key`. It names the `url` field holding the repository link — `repo_url` in the shipped schema.
+
+| Piece | Where |
+|---|---|
+| The pointer | `entry.repo_key` in `_data/schema.yml`. It must name a field this schema declares as `type: url`; anything else is treated as absent. Absent → the sweep reports that the feature is not configured and writes nothing, and neither the card nor the disclaimer renders on any entry. |
+| The disclaimer | One quiet sentence in `_includes/security-signals.html`, rendered on every entry whose `repo_key` field has a value. Plain Liquid, server-rendered, so it is there with JavaScript off. |
+| The observations | `_data/security_signals.json`, written monthly by `scripts/security_signals.mjs` via `.github/workflows/security-signals.yml`: last push, archived, license, security policy, and the public [OpenSSF Scorecard](https://scorecard.dev) score where there is one. Only `https://github.com/<owner>/<repo>` links are looked at; anything else is recorded as `applicable: false`. Shape and flags: [configuration.md](configuration.md#_datasecurity_signalsjson). |
+| The status | `security_review` — an ordinary `select` carrying `form: false` (maintainer-only), `facet: true`, `card: fact` and `group: data`, with the three values **Coalition security-reviewed · Automated checks only · Not reviewed**. It renders generically, like any other field: a fact in the entry's fact strip, a filter in the panel. What each value claims, and what a maintainer should check before granting the first: [admin-guide.md](admin-guide.md#security-review). |
+
+None of it is a safety judgement, and none of the wording anywhere implies one. Removing `entry.repo_key` removes the whole feature; removing the `security_review` field removes the human status and leaves the observations and the disclaimer.
 
 ## Field spec
 
@@ -191,6 +232,23 @@ resources:
 
 Use it for anything that does not deserve its own `url` field — shared drives, model cards, container images, vendor pages, recorded demos. The forms accept one per line as `Label | URL`; the scaffolder also tolerates `Label — URL`, `Label: URL`, and a bare URL (which gets the host as its label). Rendered on the entry page as a labelled row with a host chip (in the rail when its group has `placement: rail`). `mailto:` is allowed; everything else must be `http(s)`.
 
+An item may also carry two optional keys:
+
+```yaml
+also_deployed_by:
+  - label: "Multnomah County Health Department"
+    url: "https://www.multco.us/health"
+    email: "digital-services@multco.us"     # optional
+    note: "We kept the classifier but retrained it on our own call transcripts."  # optional
+```
+
+| Key | Meaning |
+|---|---|
+| `email` | A contact address for *that link*, published under it as a mailto link. Validated the way an `email` field is (it must contain `@`). Only ever written when somebody offered one on purpose — an address on a public page is an address that gets scraped. |
+| `note` | One or two sentences shown as a muted line under the row. Prose, not markup. |
+
+Both are additions to the row, never changes to it: an item written before they existed renders exactly as it always did, and a field whose items never carry them is untouched. The submission forms do not collect either — a `Label | URL` line still parses to `{label, url}` only — so they arrive from the dedicated flows that maintain a particular field, such as [Also deployed by](#also-deployed-by).
+
 ## Option metadata
 
 `options` stays a plain list of strings. `option_meta` adds presentation for any of them:
@@ -245,7 +303,7 @@ Deliberately not on the card: platform, tools, vendor, data sources, contact, li
 
 ## Shipped fields (AI use case catalog)
 
-41 fields in eight groups, listed in group order and then by weight — the order the submit wizard asks them in. `body` is the page body; everything else is front matter. `review_status` is maintainer-only (`form: false`).
+44 fields in eight groups, listed in group order and then by weight — the order the submit wizard asks them in. `body` is the page body; everything else is front matter. `review_status`, `security_review` and `also_deployed_by` are maintainer-only (`form: false`) and never appear in a submission form.
 
 | Key | Type | Group | Req | Facet | Card | Weight |
 |---|---|---|:--:|:--:|---|:--:|
@@ -271,6 +329,7 @@ Deliberately not on the card: platform, tools, vendor, data sources, contact, li
 | `resources` | links | reuse | | | | 6 |
 | `screenshots` | images | reuse | | | (card image) | 7 |
 | `deck_pdf` | file (`deck.pdf`) | reuse | | | | 8 |
+| `also_deployed_by` | links | reuse | | | | 9 |
 | `license` | select | sharing | yes | yes | fact | 1 |
 | `access_terms` | textarea | sharing | | | | 2 |
 | `portability` | select | sharing | yes | yes | fact | 3 |
@@ -286,9 +345,11 @@ Deliberately not on the card: platform, tools, vendor, data sources, contact, li
 | `data_sources` | list | data | | | | 3 |
 | `audience` | select | data | yes | yes | icon | 4 |
 | `data_governance_notes` | textarea | data | | | | 5 |
+| `security_review` | select | data | | yes | fact | 6 |
 | `contact_name` | text | contact | yes | | | 1 |
 | `contact_title` | text | contact | | | | 2 |
 | `contact_email` | email | contact | yes | | | 3 |
+| `submitter_github` | text | contact | | | | 4 |
 | `body` | markdown | story | yes | | | 1 |
 
 `organization` is last in **About** on purpose: it is a disambiguator, not an entry point. At weight 2 the filter rail opened with a column of one-off organization names and pushed "Area of work" below the fold.

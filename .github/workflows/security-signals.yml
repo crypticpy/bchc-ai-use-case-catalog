@@ -1,0 +1,212 @@
+name: Security signals
+
+# Once a month, look at what is publicly observable about the code each entry
+# links to — when the repository was last pushed to, whether it is archived,
+# what license it declares, whether it publishes a security policy, and whether
+# the OpenSSF Scorecard project has a public score for it — write
+# `_data/security_signals.json`, and open or update one pull request so a
+# maintainer sees the observations before they are published.
+#
+# This catalog LINKS to third-party code. It does not host it, run it, or audit
+# it. Nothing this workflow records says the code is safe: every value is a fact
+# about how the repository is packaged, and none of them inspects what it does.
+# The one human judgement in the feature is the `security_review` field a
+# maintainer sets by hand in the entry's pull request; this job never touches it.
+#
+# Which link is the repository link is the schema's to say — `entry.repo_key` in
+# _data/schema.yml. Without it the run reports that the feature is not
+# configured and writes nothing. Only `https://github.com/<owner>/<repo>` links
+# are looked at, because both read APIs are GitHub-shaped; anything else is
+# recorded as `applicable: false` rather than silently dropped. Every individual
+# call is allowed to fail: a rate limit or a network blip records "unavailable"
+# and the run stays green.
+#
+# The protected default branch is never pushed directly. With GITHUB_TOKEN the
+# workflow dispatches the release gates on the generated branch; with
+# CONTENT_BOT_TOKEN the pull request triggers them normally. Unchanged
+# observations mean no branch and no pull request update.
+#
+# Turn the schedule off by setting the repository variable SECURITY_SIGNALS to
+# `false` (Settings -> Secrets and variables -> Actions -> Variables), or by
+# deleting this file; a manual run from the Actions tab always works, and its
+# "Preview only" box prints the observations in the run summary without
+# committing anything.
+
+on:
+  schedule:
+    # 08:00 UTC on the 3rd — after the verification sweep on the 1st and the
+    # metrics run on the 2nd, so the three monthly jobs never queue together,
+    # and off the hour-zero peak where scheduled runs wait for ages.
+    - cron: "0 8 3 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview only — print the observations in the run summary, commit nothing"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: security-signals
+  cancel-in-progress: false
+
+jobs:
+  # A job whose `if` is false shows up as a bare grey "skipped" with no reason,
+  # which reads like a broken workflow rather than a setting somebody chose.
+  # This one runs only in that case and says so in the run summary.
+  turned-off:
+    if: vars.SECURITY_SIGNALS == 'false' && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say why nothing ran
+        run: |
+          echo "The security signals sweep is turned off by the repository variable SECURITY_SIGNALS. Turn it back on in Settings -> Secrets and variables -> Actions -> Variables, or run this workflow by hand from the Actions tab. The entry pages keep whatever observations were last committed, and the security review status on each entry is unaffected." >> "$GITHUB_STEP_SUMMARY"
+
+  signals:
+    if: vars.SECURITY_SIGNALS != 'false' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      # Opening the maintenance pull request.
+      pull-requests: write
+      # Committing _data/security_signals.json on a maintenance branch.
+      contents: write
+      # Dispatching the gates when the built-in token authors the pull request.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      # The token only raises the rate limit on the public read endpoints this
+      # uses; nothing here writes through the API.
+      - name: Observe the repositories the entries link to
+        id: signals
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/security_signals.mjs --dry-run
+          else
+            node scripts/security_signals.mjs
+          fi
+
+      - name: Say the feature is not configured
+        if: steps.signals.outputs.configured == 'false'
+        run: |
+          {
+            echo "### Nothing to observe"
+            echo
+            echo "This catalog's \`_data/schema.yml\` has no \`entry.repo_key\`, so nothing names the field that holds a project's repository link. Add the pointer to turn the sweep on, or leave it out and delete this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the refreshed-signals pull request
+        id: cpr
+        if: steps.signals.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          base: ${{ github.event.repository.default_branch }}
+          branch: automation/security-signals
+          commit-message: "chore(security): refresh the repository observations"
+          title: "Refresh the security signals"
+          body: |
+            Automated monthly refresh of `_data/security_signals.json` — what is
+            publicly observable about the repositories the catalog's entries link
+            to: last push, archived, license, security policy, and the OpenSSF
+            Scorecard score where there is a public one.
+
+            These are observations, not verdicts. This catalog links to code it
+            does not host or audit, and nothing in this file says any project is
+            safe to run. The `security_review` field on an entry is the only
+            human judgement, and it is set by hand — never by this job.
+
+            Skim the diff for anything worth acting on (a repository that has
+            gone missing, a project that has been archived, a score that fell)
+            and merge to publish.
+          add-paths: _data/security_signals.json
+          delete-branch: true
+
+      - name: Run the required checks on the signals branch
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.cpr.outputs.pull-request-branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml lint-workflows.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Report the refreshed observations
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
+        run: |
+          {
+            echo "### Refreshed \`_data/security_signals.json\`"
+            echo
+            echo "These are read-only observations about how each linked repository is packaged. They are not an audit and not a safety judgement."
+            echo
+            echo "Review and merge: $PR_URL"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report unchanged observations
+        if: steps.signals.outputs.changed != 'true' && steps.signals.outputs.configured == 'true' && inputs.dry_run != true
+        run: echo "Nothing has changed about the repositories the catalog links to since the last run. Nothing to commit." >> "$GITHUB_STEP_SUMMARY"
+
+      # An earlier run can open the pull request above; a later run's
+      # observations can then revert to what is already committed before a
+      # maintainer merges it, so `changed` comes back false here and every
+      # step above is skipped — but that earlier pull request is still open
+      # and still mergeable. Close it rather than leave it stale. The branch
+      # itself is left alone: the next real change force-with-leases over it.
+      - name: Close a stale signals pull request
+        if: steps.signals.outputs.changed != 'true' && steps.signals.outputs.configured == 'true' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          pr_number="$(gh pr list --head automation/security-signals --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$pr_number" ]; then
+            gh pr close "$pr_number" --comment "This month's observations match what is already committed; closing this stale pull request."
+          fi
+
+      # A red monthly run with nothing but a stack trace in it tells a
+      # non-coder maintainer nothing. Whatever failed, this says what it means.
+      - name: Explain a failed run
+        if: failure()
+        run: |
+          {
+            echo "### Could not refresh the security signals"
+            echo
+            echo "This is usually a temporary GitHub or OpenSSF Scorecard problem. Nothing on the site changed, no entry was edited, and the observations already published are still there — they simply were not updated this month."
+            echo
+            echo "The next monthly run will try again, or run this workflow now from the Actions tab."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -35,9 +35,12 @@ jobs:
           create "content:event-attachments"  "1B8A7A" "Attach materials to a cohort event"
           create "content:new-year"           "1B8A7A" "Scaffold a new cohort year"
           create "content:site-config"        "5B3E96" "Apply a site configuration from the /setup/ wizard (maintainers only)"
+          create "content:refresh"            "1D4E89" "Answer to a refresh reminder: confirm an entry, or say what changed"
+          create "content:also-deployed-by"   "1D4E89" "An organization saying they deployed an existing entry too"
           # Not a content: label — nobody applies this one by hand. The monthly
-          # verification sweep (verification-sweep.yml) applies it to the one
-          # rolling issue it keeps open, so maintainers can find or mute it.
+          # verification sweep (verification-sweep.yml) applies it to the refresh
+          # issue it keeps open per stale entry, so maintainers can find or mute
+          # the whole queue at once.
           create "verification"               "8250DF" "Entries due to be re-confirmed with their contact"
           create "bug"                        "D1242F" "Reproducible defect in shared PHCT behavior"
           create "accessibility"              "0E8A16" "Accessibility barrier or conformance defect"
@@ -54,6 +57,9 @@ jobs:
           create "review:data-governance"     "A371F7" "An answer asks for closer review — set by the scaffolder from the schema's escalate_on"
           create "review:revisions-requested" "D4A72C" "Sent back to the submitter with specific changes; edit the issue or reply on the pull request"
           create "review:declined"            "9E6A03" "Not published, with a rationale on the pull request; the submitter may appeal"
+          # Applied by refresh-entry.yml when someone answers a refresh reminder
+          # with "something changed": prose a maintainer has to turn into an edit.
+          create "review:refresh-changes"     "D4A72C" "An entry was reported out of date; the described changes need applying"
           echo "Labels are ready."
 
       - name: Preflight the repository settings

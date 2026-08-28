@@ -37,16 +37,16 @@ class ModulePagesTest < Minitest::Test
 
   def test_module_paths_derives_catalog_from_schema_entry_path
     data = { "modules" => {}, "schema" => { "entry" => { "path" => "projects" } } }
-    assert_equal ["/projects/", "/compare/"], CatalogTemplate::ModulePages.module_paths(data)["catalog"]
+    assert_equal ["/projects/", "/compare/", "/about/search/"], CatalogTemplate::ModulePages.module_paths(data)["catalog"]
   end
 
   def test_module_paths_defaults_catalog_to_slash_catalog_slash_when_schema_is_missing
-    assert_equal ["/catalog/", "/compare/"], CatalogTemplate::ModulePages.module_paths({})["catalog"]
+    assert_equal ["/catalog/", "/compare/", "/about/search/"], CatalogTemplate::ModulePages.module_paths({})["catalog"]
   end
 
   def test_module_paths_does_not_let_modules_data_override_catalog
     data = { "modules" => { "catalog" => ["/should-be-ignored/"] }, "schema" => { "entry" => { "path" => "catalog" } } }
-    assert_equal ["/catalog/", "/compare/"], CatalogTemplate::ModulePages.module_paths(data)["catalog"]
+    assert_equal ["/catalog/", "/compare/", "/about/search/"], CatalogTemplate::ModulePages.module_paths(data)["catalog"]
   end
 
   def test_module_paths_keeps_compare_with_the_catalog_whatever_the_entry_folder_is_called

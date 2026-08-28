@@ -97,6 +97,38 @@ first submission (details in `docs/launch.md` §2):
 4. Settings → Security → enable **Private vulnerability reporting** (or keep
    `organization.contact_email` current — `SECURITY.md` falls back to it).
 
+## If the account runs AI code-review bots
+
+Content pull requests — the ones the intake workflows scaffold from submission
+issues — are catalog data, not platform code, and the maintainers who merge them are
+often not coders. An AI code-review bot commenting on those PRs is noise at best; at
+worst its unresolved threads block the merge when the branch ruleset requires
+conversation resolution.
+
+Every scaffolded content PR carries two machine-readable markers from the moment it
+is created: a label (`content:new-entry`, `content:new-event`, `content:new-year`,
+`content:schedule`, or `content:event-attachments`) and a fixed title prefix
+(`Add entry:`, `Add event:`, `Scaffold cohort`, `Update cohort`, or
+`Update attachments for event`). Use whichever marker the installed bot's skip
+mechanism understands.
+
+For **Sourcery** specifically: its current review product is configured in the web
+dashboard, not in the repository — app.sourcery.ai → Review Settings → **Ignore
+title keywords**, where the five title prefixes above belong. Enter them
+**without the trailing colon** (`Add entry`, `Add event`, …): the field matches
+keywords as whole words, case-insensitively, and a keyword carrying punctuation
+does not match reliably (verified 2026-08: colon-less keywords skip the review,
+colon-suffixed ones were still reviewed). The template also
+ships a `.sourcery.yaml` with `ignore_labels`, but that key belongs to Sourcery's
+legacy bot and the review product does not honor it (verified 2026-08: a labeled
+content PR with the file present was still reviewed). Keep the file — it is
+harmless and documents intent — but do not rely on it alone. If the organization
+has installed a *different* review bot (CodeRabbit, Copilot code review, Codex,
+Greptile, …), research that bot's skip mechanism — check whether it is an in-repo
+config file or a dashboard setting, and whether it filters by label or by title —
+and configure the same exemption. Leave the bots on for everything else: template
+update PRs and hand-written code changes are exactly what they are good at.
+
 ## Verifying your work
 
 - `npm run validate` — YAML parse + front-matter + file-size gate; the minimum bar.

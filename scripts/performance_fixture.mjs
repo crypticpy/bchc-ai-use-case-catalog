@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 
 import { copyTree, readYaml, removeEntries, run } from './lib/build-tree.mjs';
+import { SCALE_INTERACTION_BUDGETS } from './interaction_performance.mjs';
 import { seedFixtureEntries } from './seed_fixture_entries.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -156,19 +157,75 @@ export function budgetFindings(metrics, config) {
     .map(([name, maximum]) => ({ name, actual: values[name], maximum }));
 }
 
+/**
+ * Every metric a tier may budget: the payload sizes this script measures, plus
+ * the interaction timings scripts/interaction_performance.mjs measures in
+ * Chrome. A name outside the union is enforced by neither gate, so it is a
+ * typo — and a budget nothing enforces is worse than no budget at all, because
+ * the file reads as if the limit were being checked.
+ */
+const SCALE_BUDGET_NAMES = new Set([
+  'search_json_gzip_bytes',
+  'entries_json_gzip_bytes',
+  ...SCALE_INTERACTION_BUDGETS,
+]);
+
+/**
+ * @param {object} config quality/performance-budgets.json.
+ * @throws {Error} when any tier budgets a metric nothing measures.
+ */
+export function assertScaleBudgetNames(config) {
+  const known = [...SCALE_BUDGET_NAMES].sort().join(', ');
+  for (const [tier, budgets] of Object.entries(config.scale_budgets ?? {})) {
+    for (const name of Object.keys(budgets ?? {})) {
+      if (SCALE_BUDGET_NAMES.has(name)) continue;
+      throw new Error(
+        `scale_budgets["${tier}"] budgets ${name}, which nothing measures. Use one of: ${known}.`
+      );
+    }
+  }
+}
+
 export function scaleBudgetFindings(metrics, config) {
+  assertScaleBudgetNames(config);
   const budgets = config.scale_budgets?.[String(metrics.entries)] || {};
   const values = {
     search_json_gzip_bytes: metrics.search_json_gzip_bytes,
     entries_json_gzip_bytes: metrics.entries_json_gzip_bytes,
   };
-  return Object.entries(budgets)
-    .map(([name, maximum]) => {
-      const actual = values[name];
-      if (!Number.isFinite(actual)) throw new Error(`scale probe did not measure ${name}`);
-      return { name, actual, maximum };
-    })
-    .filter(({ actual, maximum }) => actual > maximum);
+  return (
+    Object.entries(budgets)
+      // The rest of the union is timing, which only the browser probe can read.
+      .filter(([name]) => name in values)
+      .map(([name, maximum]) => {
+        const actual = values[name];
+        if (!Number.isFinite(actual)) throw new Error(`scale probe did not measure ${name}`);
+        return { name, actual, maximum };
+      })
+      .filter(({ actual, maximum }) => actual > maximum)
+  );
+}
+
+/**
+ * The fixture sizes whose built site is kept for the browser probe.
+ *
+ * `interaction_entries` is the reviewed list; a run that did not build one of
+ * them simply cannot measure it, and main() says so rather than dropping the
+ * tier in silence.
+ *
+ * @param {number[]} counts the sizes this run built.
+ * @param {object} budgets quality/performance-budgets.json.
+ * @returns {{retained: number[], missing: number[]}}
+ */
+export function retainedTiers(counts, budgets) {
+  const wanted = Array.isArray(budgets.interaction_entries)
+    ? budgets.interaction_entries
+    : [budgets.supported_entries];
+  const built = new Set(counts);
+  return {
+    retained: wanted.filter((count) => built.has(count)),
+    missing: wanted.filter((count) => !built.has(count)),
+  };
 }
 
 function buildFixture(count, scratchRoot, budgets, siteOutput = '', baseurl = '') {
@@ -225,8 +282,11 @@ function buildFixture(count, scratchRoot, budgets, siteOutput = '', baseurl = ''
     search_json_gzip_bytes: gzipBytes(path.join(siteDir, 'search.json')),
     entries_json_gzip_bytes: gzipBytes(path.join(siteDir, 'entries.json')),
   };
-  if (siteOutput && count === budgets.supported_entries) {
-    fs.cpSync(siteDir, path.resolve(ROOT, siteOutput), {
+  // One directory per retained tier, named by its entry count: the browser
+  // probe reads them back by name, so 500 and 1000 can be measured beside the
+  // supported ceiling rather than instead of it.
+  if (siteOutput && retainedTiers([count], budgets).retained.length) {
+    fs.cpSync(siteDir, path.resolve(ROOT, siteOutput, String(count)), {
       recursive: true,
       errorOnExist: true,
       force: false,
@@ -276,10 +336,14 @@ function main(argv) {
           `${metrics.target_findings.length} target findings`
       );
     }
-    if (args.siteOutput && !args.counts.includes(budgets.supported_entries)) {
-      console.log(
-        `  No browser fixture retained: --counts did not include the supported ${budgets.supported_entries}-entry ceiling.`
-      );
+    if (args.siteOutput) {
+      const { retained, missing } = retainedTiers(args.counts, budgets);
+      console.log(`  Browser fixtures retained for: ${retained.length ? retained.join(', ') : 'none'}`);
+      if (missing.length) {
+        console.log(
+          `  No browser fixture retained for ${missing.join(', ')}: --counts did not build ${missing.length === 1 ? 'that tier' : 'those tiers'}.`
+        );
+      }
     }
   } finally {
     fs.rmSync(scratchRoot, { recursive: true, force: true });

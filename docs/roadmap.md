@@ -16,6 +16,31 @@ site and the review workflow were aligned to it field by field, adding and never
 The plan document moved out with the catalog it was written for (see CHANGELOG); waves 1–3
 shipped as v1.5.0 and wave 4 as v1.6.0 (phases 11 and 12 below).
 
+## v1.9.0 release-candidate shakedown — open findings
+
+Found while operating the rc.3–rc.5 deployment; to be resolved (or explicitly deferred)
+before stable v1.9.0. The full rc shakedown ledger is still owed to this file.
+
+- **`_data/derivatives.json` is a merge-conflict magnet.** The thumbnails workflow
+  writes derivative entries into one shared manifest, so any two open content PRs that
+  add media (deck PDFs, screenshots) conflict on it — the second merge needs a by-hand
+  union of the JSON (observed 2026-08-26 with three entry PRs queued, each carrying a
+  deck). Media-less content PRs (schedule updates, cohort scaffolds) are unaffected.
+  Fix candidates: per-entry manifest fragments merged at build time (the stronger fix),
+  or a documented union merge driver — noting `.gitattributes` only selects a driver,
+  so each clone would still need the `git config merge.<name>.driver` line.
+- **Sourcery's review product ignores the shipped `.sourcery.yaml`.** The
+  `github: ignore_labels` key only reaches the legacy bot; a labeled content PR was
+  still reviewed with the file on the default branch (2026-08-26). The working control
+  is the Sourcery dashboard's "Ignore title keywords" — verified live 2026-08-27
+  (keywords must be entered without the trailing colon; the field matches whole
+  words) — documented in the admin guide and `AGENTS.md`; decide whether the file
+  is worth keeping as intent documentation.
+- **Branch protection with "require branches to be up to date" makes content queues
+  painful.** Each merge strands every other open content PR on "branch is out-of-date";
+  a maintainer who was told to just review-and-merge cannot recover without the update
+  button. Recommend non-strict required checks for content-repo rulesets in the docs.
+
 ## Phases
 
 | # | Phase | Scope | Exit check | Status |

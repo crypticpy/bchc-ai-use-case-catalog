@@ -1,0 +1,370 @@
+name: Also deployed by
+
+# "We run this too." An issue labelled `content:also-deployed-by` arrives from
+# .github/ISSUE_TEMPLATE/also-deployed-by.yml — usually from the link at the
+# bottom of an entry page — naming an organization, a link, and optionally a
+# contact address and a sentence about what they adapted.
+#
+# scripts/add_deployment_from_issue.mjs appends that organization to the entry's
+# `links` field named by `entry.deployments_key` in _data/schema.yml, and this
+# job opens a pull request. Nothing is published until a maintainer merges it,
+# which is the point: the claim "we deployed this" is not self-verifying, and a
+# published contact address needs a human to have looked at it.
+#
+# A resubmission of the same organization updates its item in place rather than
+# adding a second one, so editing the issue corrects the listing.
+#
+# Trust model (see SECURITY.md): anyone can open the issue that starts this job.
+#   * Issue content is NEVER interpolated into a `run:` script — it only ever
+#     reaches a step through `env:`, so an organization name containing shell
+#     syntax is inert.
+#   * The script re-checks the slug against `^[a-z0-9]+(?:-[a-z0-9]+)*$` and
+#     re-checks the resolved path against the entry directory before reading or
+#     writing anything.
+#   * The only edit it can make is one key's block in one entry's front matter.
+#
+# Set the repository variable SUBMISSIONS_OPEN to `false` to accept these only
+# from members and collaborators; leaving it unset keeps them open.
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+
+# The job below declares exactly the scopes it needs; nothing is granted by default.
+permissions: {}
+
+# One run per issue: editing an issue three times in a minute must not leave
+# three jobs force-pushing the same branch at each other.
+concurrency:
+  group: also-deployed-by-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  attach:
+    # `state == 'open'` matters: editing a closed, already-merged submission — to
+    # fix a typo, to add a note — would otherwise force-push its branch again
+    # and try to edit a merged pull request.
+    if: >-
+      github.event.issue.state == 'open'
+      && contains(github.event.issue.labels.*.name, 'content:also-deployed-by')
+      && (vars.SUBMISSIONS_OPEN != 'false'
+          || contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      # Dispatching validate.yml/quality.yml onto the generated branch.
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # The push below needs credentials; the checkout keeps them on purpose.
+          # zizmor: ignore[artipacked]
+          token: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".node-version"
+          cache: npm
+
+      - name: Select exact npm
+        run: node scripts/install_exact_npm.mjs
+
+      - name: Install npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Read the submission
+        id: deployment
+        continue-on-error: true
+        run: node scripts/add_deployment_from_issue.mjs
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+
+      - name: Report the failure on the issue
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          DEPLOYMENT_ERROR: ${{ steps.deployment.outputs.error }}
+        with:
+          script: |
+            const detail = process.env.DEPLOYMENT_ERROR || 'The step failed; see the workflow logs for details.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Your organization could not be added yet.',
+                '',
+                '> ' + detail.split('\n').join('\n> '),
+                '',
+                'Edit this issue to fix the problem and the automation will try again. If the message above does not tell you what to change, comment here and a maintainer will help.'
+              ].join('\n')
+            });
+            core.setFailed(detail);
+
+      # Several different situations end here — an empty issue, a missing name
+      # or link, an address that is not one, an unknown slug, sample content, a
+      # catalog that has not configured the feature, an organization already
+      # listed with exactly these details — and the script says which one in a
+      # whole sentence.
+      - name: Comment when nothing changed
+        if: steps.deployment.outcome == 'success' && steps.deployment.outputs.outcome == 'none'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          NO_CHANGE_REASON: ${{ steps.deployment.outputs.reason }}
+        with:
+          script: |
+            const reason = process.env.NO_CHANGE_REASON;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'No entry was changed, so there is no pull request to review.',
+                '',
+                reason
+                  ? '> ' + reason.split('\n').join('\n> ')
+                  : '> The entry could not be found, or it already listed this organization.',
+                '',
+                'Edit this issue if you want the automation to try again.'
+              ].join('\n')
+            });
+
+      - name: Commit the listing on a new branch
+        id: commit
+        if: steps.deployment.outputs.outcome == 'added'
+        env:
+          BRANCH: ${{ steps.deployment.outputs.branch }}
+          ENTRY_FILE: ${{ steps.deployment.outputs.file }}
+          SLUG: ${{ steps.deployment.outputs.slug }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          # Exactly the one file the script was allowed to touch, never `-A`:
+          # this job's whole claim is that it edits one key in one entry.
+          git add -- "$ENTRY_FILE"
+          if git diff --cached --quiet; then
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            echo "The submission produced no changes." >&2
+            exit 0
+          fi
+          # The organization name is issue text, so it stays out of this script
+          # and out of the commit subject; the slug is pattern-checked.
+          git commit -m "content: add another deployment of $SLUG"
+          # The branch is machine-generated and named after this issue, so an
+          # `issues: edited` re-run replaces its contents rather than merging.
+          git push --force-with-lease origin "HEAD:refs/heads/$BRANCH"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open the pull request
+        id: pr
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.deployment.outputs.branch }}
+          SLUG: ${{ steps.deployment.outputs.slug }}
+          ORG: ${{ steps.deployment.outputs.org }}
+          ENTRY_FILE: ${{ steps.deployment.outputs.file }}
+          PR_TITLE: ${{ steps.deployment.outputs.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          # A bot-computed enum ('added' | 'updated'), never issue text — safe
+          # to use in `run:` the same way it is already safe in `if:`.
+          DEPLOYMENT_ACTION: ${{ steps.deployment.outputs.action }}
+        run: |
+          set -euo pipefail
+          # Everything between the braces is literal markdown; a backtick here is
+          # a code span, not a command substitution. The organization name and
+          # its link are deliberately absent — they are issue text, and the
+          # reviewer reads them in the diff and on the issue, not here.
+          # shellcheck disable=SC2016
+          if [ "$DEPLOYMENT_ACTION" = "updated" ]; then
+            # A resubmission matched an existing row (by lowercased organization
+            # name or link) and REPLACED it wholesale — this is not an addition,
+            # and the title and body must say so plainly rather than reusing the
+            # "add" wording, which would read as a benign, additive change.
+            pr_title="Update the $ORG deployment listing on $SLUG"
+            {
+              printf 'An organization said on issue #%s that they have deployed this entry too — but the ' "$ISSUE_NUMBER"
+              printf 'organization name or link already matched a row on the list, so this **replaces** that\n'
+              printf 'listing rather than adding a new one.\n\n'
+              printf 'Closes #%s\n\n' "$ISSUE_NUMBER"
+              printf 'The whole change is one item **replaced** in the "also deployed by" list in `%s`.\n\n' "$ENTRY_FILE"
+              printf '### Maintainer checklist\n\n'
+              printf -- '- [ ] The organization is real, and plausibly the one that opened the issue\n'
+              printf -- '- [ ] The submitter plausibly represents the organization whose listing this replaces\n'
+              printf -- '- [ ] The link resolves and is theirs\n'
+              printf -- '- [ ] Any email address was offered on purpose and is a fine one to publish\n'
+              printf -- '- [ ] The note, if there is one, reads as information rather than promotion\n'
+              printf -- '- [ ] The diff is that one list and nothing else\n'
+              printf -- '- [ ] **Validate Content** is green on the *latest* commit\n'
+            } > /tmp/pr-body.md
+          else
+            pr_title="$PR_TITLE"
+            {
+              printf 'An organization said on issue #%s that they have deployed this entry too.\n\n' "$ISSUE_NUMBER"
+              printf 'Closes #%s\n\n' "$ISSUE_NUMBER"
+              printf 'The whole change is one item added to the "also deployed by" list in `%s`.\n\n' "$ENTRY_FILE"
+              printf '### Maintainer checklist\n\n'
+              printf -- '- [ ] The organization is real, and plausibly the one that opened the issue\n'
+              printf -- '- [ ] The link resolves and is theirs\n'
+              printf -- '- [ ] Any email address was offered on purpose and is a fine one to publish\n'
+              printf -- '- [ ] The note, if there is one, reads as information rather than promotion\n'
+              printf -- '- [ ] The diff is that one list and nothing else\n'
+              printf -- '- [ ] **Validate Content** is green on the *latest* commit\n'
+            } > /tmp/pr-body.md
+          fi
+
+          # An `issues: edited` re-run reuses the pull request that already
+          # points at this branch instead of failing. The label is safe to pass
+          # unconditionally: this job only runs for an issue that already
+          # carries `content:also-deployed-by`. `--state open` matters: a
+          # closed or merged pull request for this branch must not be
+          # resurrected and silently edited (see refresh-entry.yml for the
+          # matching fix).
+          url="$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url' 2>/dev/null || true)"
+          if [ -n "$url" ]; then
+            gh pr edit "$BRANCH" --title "$pr_title" --body-file /tmp/pr-body.md \
+              --add-label content:also-deployed-by
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+            echo "reused=true" >> "$GITHUB_OUTPUT"
+          else
+            url="$(gh pr create \
+              --base "${GITHUB_REF_NAME}" \
+              --head "$BRANCH" \
+              --title "$pr_title" \
+              --label content:also-deployed-by \
+              --body-file /tmp/pr-body.md)"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows; GitHub parks them behind "Approve and run". `workflow_dispatch`
+      # is the documented exception, and its check runs bind to the branch head
+      # SHA — the pull request's head SHA — so they appear in its Checks tab.
+      # See .github/workflows/new-entry.yml for the long version.
+      - name: Run the content checks on the new branch
+        if: steps.commit.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOT_TOKEN: ${{ secrets.CONTENT_BOT_TOKEN }}
+          BRANCH: ${{ steps.deployment.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$BOT_TOKEN" ]; then
+            echo "CONTENT_BOT_TOKEN is set, so the pull request triggers its own checks." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "### Checks dispatched on \`$BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
+          for workflow in validate.yml quality.yml lint-workflows.yml; do
+            if gh workflow run "$workflow" --ref "$BRANCH"; then
+              echo "- \`$workflow\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              # Never fail the job over this: the pull request exists either way,
+              # and a maintainer can approve the parked runs by hand.
+              echo "- \`$workflow\` could not be dispatched; approve the parked run from the Actions tab." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+      - name: Link the pull request from the issue
+        if: steps.pr.outputs.url != '' && steps.pr.outputs.reused != 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Thank you — that is the whole job. Your organization is in a pull request waiting for a maintainer:',
+                '',
+                process.env.PR_URL,
+                '',
+                'Nothing appears on the entry page until that is merged. If anything in it is wrong, edit this issue and the pull request follows.'
+              ].join('\n')
+            });
+
+      # An `issues: edited` re-run updates the pull request that already exists.
+      # The comment above tells people to edit the issue to correct a detail,
+      # so silence here reads as "the edit was ignored".
+      - name: Say the pull request was updated
+        if: steps.pr.outputs.reused == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Updated the pull request from your edit:',
+                '',
+                process.env.PR_URL,
+                '',
+                'It now matches this issue. A maintainer reviews it, and the entry page does not change until it is merged.'
+              ].join('\n')
+            });
+
+      # Everything above can still leave the issue silent: the push or the pull
+      # request itself can be refused — classically because "Allow GitHub
+      # Actions to create and approve pull requests" was never ticked — and the
+      # failure comment further up only covers the script step.
+      - name: Say the pull request could not be opened
+        if: failure() && steps.deployment.outcome != 'failure'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.issue.number,
+              body: [
+                'Your submission was read, but the pull request could not be opened, so nothing has been lost and the entry is unchanged.',
+                '',
+                'The usual cause is one repository setting: a maintainer should open **Settings → Actions → General → Workflow permissions** and tick **Allow GitHub Actions to create and approve pull requests**.',
+                '',
+                `Once that is on, edit this issue to retry. The full run is under the [Actions tab](https://github.com/${owner}/${repo}/actions).`
+              ].join('\n')
+            });
+
+  # With SUBMISSIONS_OPEN set to `false` the job above simply does not run for
+  # an outside contributor — and this form invites exactly those people, so
+  # their submission would sit there with no reply at all.
+  say-submissions-are-closed:
+    if: >-
+      github.event.action == 'opened'
+      && contains(github.event.issue.labels.*.name, 'content:also-deployed-by')
+      && vars.SUBMISSIONS_OPEN == 'false'
+      && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Say a maintainer will handle it by hand
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: [
+                'Thanks for telling us. Automatic updates are currently paused, so this has not become a pull request — a maintainer will add your organization by hand.',
+                '',
+                'Nothing more is needed from you. Everything you wrote is saved on this issue.'
+              ].join('\n')
+            });

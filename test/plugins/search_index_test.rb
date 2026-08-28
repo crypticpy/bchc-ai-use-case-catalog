@@ -221,6 +221,204 @@ class SearchIndexGeneratorTest < Minitest::Test
     assert_equal [], docs_for(site)
   end
 
+  # -- structured field values ---------------------------------------------
+
+  # A `links`-shaped value is the shipped case, but nothing in the generator
+  # names it: what is asserted here is the SHAPE rule, so a schema that grows a
+  # `{org, url, email, note}` field is indexed the day it is added.
+  def test_a_field_holding_hashes_indexes_their_values_and_not_their_keys
+    text = @generator.field_text([
+                                   { "label" => "Toolkit", "url" => "https://example.org/toolkit" },
+                                   { "org" => "County health", "email" => "mailto:team@example.org",
+                                     "note" => "Adapted in 2026" }
+                                 ])
+
+    assert_equal ["Toolkit", "County health", "Adapted in 2026"], text
+  end
+
+  def test_addresses_inside_a_structured_value_are_not_indexed
+    text = @generator.field_text([
+                                   { "a" => "https://example.org/x", "b" => "//cdn.example.org/y",
+                                     "c" => "/catalog/thing/", "d" => "./relative", "e" => "www.example.org",
+                                     "f" => "Readable" }
+                                 ])
+
+    assert_equal ["Readable"], text
+  end
+
+  def test_only_a_real_address_scheme_is_dropped
+    addresses = @generator.field_text([
+                                        { "a" => "mailto:team@example.org", "b" => "tel:+15551234567",
+                                          "c" => "https://example.org/x", "d" => "HTTPS://EXAMPLE.ORG/Y" }
+                                      ])
+
+    assert_equal [], addresses
+  end
+
+  # `mailto:` is usually typed without its scheme. A value that is nothing
+  # but an email is an address; prose that merely contains one keeps its words.
+  def test_a_bare_email_is_an_address_too
+    text = @generator.field_text([
+                                   { "email" => "digital-services@health.example.gov",
+                                     "intranet" => "ops@intranet",
+                                     "note" => "Ask at desk@example.org before visiting" }
+                                 ])
+
+    # `ops@intranet` has no dot, but the submission forms accept it — whatever
+    # they let in stays out of the index.
+    assert_equal ["Ask at desk@example.org before visiting"], text
+  end
+
+  # A prose label reads as `word:`, which is not a URI scheme. Losing these was
+  # losing exactly the words this flattening was built to index.
+  def test_prose_that_carries_a_colon_is_kept
+    text = @generator.field_text([
+                                   { "a" => "Guidance: redact PII first", "b" => "Note: see appendix",
+                                     "c" => "Contact: Jane Doe", "d" => "Ratio: 2:1" }
+                                 ])
+
+    assert_equal ["Guidance: redact PII first", "Note: see appendix", "Contact: Jane Doe", "Ratio: 2:1"], text
+  end
+
+  # A scalar is the reader asking for exactly that value, so a `url` field
+  # marked `search: true` still indexes its own URL.
+  def test_a_scalar_field_is_indexed_as_it_stands
+    assert_equal ["https://example.org/tool"], @generator.field_text("https://example.org/tool")
+    assert_equal %w[Alpha Beta], @generator.field_text(["Alpha", "Beta"])
+    assert_equal ["2026"], @generator.field_text(2026)
+  end
+
+  def test_blank_and_missing_values_contribute_nothing
+    assert_equal [], @generator.field_text(nil)
+    assert_equal [], @generator.field_text([nil, "  ", []])
+    assert_equal [], @generator.field_text({ "url" => "https://example.org" })
+  end
+
+  def test_an_entrys_facets_read_a_structured_field_as_words
+    schema = { "fields" => [{ "key" => "resources", "search" => true }] }
+    site = build_site(schema: schema, pages: [{
+      "dir" => "catalog/thing", "layout" => "entry", "slug" => "thing", "title" => "Thing",
+      "resources" => [{ "label" => "Evaluation memo", "url" => "https://example.org/memo" }]
+    }])
+
+    assert_equal "Evaluation memo", docs_for(site).first[:facets]
+  end
+
+  # -- concepts ------------------------------------------------------------
+
+  # @param count [Integer] how many docs
+  # @param words [Proc] index -> the body words for that doc
+  # @return [Array<Hash>] payload-shaped docs
+  def concept_docs(count, &words)
+    Array.new(count) do |index|
+      { title: "Entry #{index + 1}", summary: "", facets: "",
+        sections: [{ h: nil, a: nil, t: words.call(index) }] }
+    end
+  end
+
+  # Six entries pair "chatbot" with "assistant"; six pair "geocode" with
+  # "addresses"; the rest share nothing. Nobody wrote either pair down.
+  # @return [Array<Hash>]
+  def paired_docs
+    concept_docs(20) do |index|
+      if index < 6 then "The chatbot answers residents and the assistant drafts replies."
+      elsif index < 12 then "Geocode the intake addresses before the addresses reach mapping."
+      else "Filler prose number #{index} about unrelated topic #{index}."
+      end
+    end
+  end
+
+  def test_words_that_keep_appearing_together_become_related
+    terms = @generator.concept_terms(paired_docs, CatalogTemplate::SearchIndexGenerator::CONCEPT_DEFAULTS)
+
+    assert_includes terms["chatbot"], "assistant"
+    assert_includes terms["assistant"], "chatbot"
+    assert_includes terms["geocode"], "addresses"
+    refute_includes terms["chatbot"], "geocode"
+  end
+
+  def test_the_map_is_sorted_and_identical_across_runs
+    defaults = CatalogTemplate::SearchIndexGenerator::CONCEPT_DEFAULTS
+    first = @generator.concept_terms(paired_docs, defaults)
+    second = @generator.concept_terms(paired_docs, defaults)
+
+    assert_equal first, second
+    assert_equal first.keys.sort, first.keys
+    assert(first.values.none?(&:empty?))
+  end
+
+  # The stop-word list nobody maintains: a word this catalog uses everywhere
+  # cannot be about any one entry in it.
+  def test_a_word_most_entries_use_is_not_a_concept
+    docs = concept_docs(20) { |index| "Every entry mentions surveillance. Unique#{index} topic#{index}." }
+    terms = @generator.concept_terms(docs, CatalogTemplate::SearchIndexGenerator::CONCEPT_DEFAULTS)
+
+    refute terms.key?("surveillance")
+  end
+
+  # Thirteen entries: "dispatch" and "console" are in seven of them (54%),
+  # "chatbot" and "assistant" in six (46%). Half of thirteen is not a whole
+  # entry, and rounding that share UP let a word over the configured ratio stay.
+  # @return [Array<Hash>]
+  def threshold_docs
+    concept_docs(13) do |index|
+      parts = []
+      parts << "The dispatch console routes the dispatch console queue." if index < 7
+      parts << "The chatbot answers residents and the assistant drafts replies." if index < 6
+      parts << "Filler prose number #{index} about unrelated topic #{index}."
+      parts.join(" ")
+    end
+  end
+
+  def test_a_word_over_the_ratio_is_dropped_at_a_size_that_does_not_divide
+    terms = @generator.concept_terms(threshold_docs, CatalogTemplate::SearchIndexGenerator::CONCEPT_DEFAULTS)
+
+    refute terms.key?("dispatch")
+    assert(terms.values.none? { |related| related.include?("dispatch") })
+  end
+
+  def test_a_word_exactly_at_the_ratio_is_kept
+    terms = @generator.concept_terms(threshold_docs, CatalogTemplate::SearchIndexGenerator::CONCEPT_DEFAULTS)
+
+    assert_includes terms["chatbot"], "assistant"
+  end
+
+  def test_a_catalog_too_small_to_measure_derives_nothing
+    docs = concept_docs(6) { "The chatbot answers residents and the assistant drafts replies." }
+
+    assert_empty @generator.concept_terms(docs, CatalogTemplate::SearchIndexGenerator::CONCEPT_DEFAULTS)
+  end
+
+  def test_the_layer_can_be_switched_off_without_dropping_the_query_knobs
+    options = CatalogTemplate::SearchIndexGenerator::CONCEPT_DEFAULTS.merge("enabled" => false)
+    block = @generator.concepts(paired_docs, options)
+
+    assert_empty block[:terms]
+    assert_in_delta 0.9, block[:weight]
+    assert_equal 4, block[:max_expansions]
+  end
+
+  def test_search_yml_overrides_only_the_keys_it_names
+    site = build_site
+    site.data["search"] = { "concepts" => { "weight" => 0.25, "unknown" => 1 } }
+    options = @generator.concept_options(site)
+
+    assert_in_delta 0.25, options["weight"]
+    assert_equal 4, options["max_expansions"]
+    refute options.key?("unknown")
+  end
+
+  def test_the_payload_carries_the_concept_block
+    site = build_site(pages: [{
+      "dir" => "catalog/thing", "layout" => "entry", "slug" => "thing", "title" => "Thing"
+    }])
+    @generator.generate(site)
+
+    parsed = JSON.parse(JSON.generate(site.static_files.last.instance_variable_get(:@payload)))
+    assert_equal({}, parsed["concepts"]["terms"])
+    assert_in_delta 0.9, parsed["concepts"]["weight"]
+  end
+
   # -- synonyms ------------------------------------------------------------
 
   def test_synonyms_are_bidirectional_lowercased_and_deduplicated
@@ -287,5 +485,58 @@ class SearchIndexGeneratorTest < Minitest::Test
     parsed = JSON.parse(JSON.generate(site.static_files.last.instance_variable_get(:@payload)))
     assert_equal "thing", parsed["docs"].first["id"]
     assert_equal "S", parsed["docs"].first["sections"].first["h"]
+  end
+
+  def test_the_version_names_the_content_not_the_build
+    entry = {
+      "dir" => "catalog/thing", "layout" => "entry", "slug" => "thing",
+      "title" => "Thing", "body" => "## S\nP.\n"
+    }
+    versions = Array.new(2) do
+      site = build_site(pages: [entry.dup])
+      @generator.generate(site)
+      site.static_files.last.instance_variable_get(:@payload)[:version]
+    end
+    assert_match(/\A\h{16}\z/, versions.first)
+    # Two builds of the same catalog agree, however far apart generated_at is.
+    assert_equal versions.first, versions.last
+
+    changed = build_site(pages: [entry.merge("title" => "Other thing")])
+    @generator.generate(changed)
+    refute_equal versions.first, changed.static_files.last.instance_variable_get(:@payload)[:version]
+  end
+
+  def test_the_version_names_the_index_implementation_too
+    entry = {
+      "dir" => "catalog/thing", "layout" => "entry", "slug" => "thing",
+      "title" => "Thing", "body" => "## S\nP.\n"
+    }
+    FileUtils.mkdir_p(File.join(@tmp, "assets", "js"))
+    File.write(File.join(@tmp, "assets", "js", "lunr.min.js"), "/* lunr 2.3.9 */")
+    site = build_site(pages: [entry.dup])
+    @generator.generate(site)
+    before = site.static_files.last.instance_variable_get(:@payload)[:version]
+
+    # Same catalog, upgraded lunr: every cached serialized index must retire.
+    File.write(File.join(@tmp, "assets", "js", "lunr.min.js"), "/* lunr 3.0.0 */")
+    site = build_site(pages: [entry.dup])
+    @generator.generate(site)
+    refute_equal before, site.static_files.last.instance_variable_get(:@payload)[:version]
+  end
+
+  def test_the_version_and_entry_count_are_stamped_into_site_config
+    site = build_site(pages: [
+      { "dir" => "catalog/thing", "layout" => "entry", "slug" => "thing", "title" => "Thing" },
+      { "dir" => "catalog/other", "layout" => "entry", "slug" => "other", "title" => "Other" },
+      { "dir" => "events/kickoff", "layout" => "event", "cohort" => "2026",
+        "event_id" => "kickoff", "title" => "Kickoff" }
+    ])
+    @generator.generate(site)
+
+    stamp = site.config["search_index"]
+    payload = site.static_files.last.instance_variable_get(:@payload)
+    assert_equal payload[:version], stamp["version"]
+    # Entries only: events and cohorts are searchable but never gate the UI.
+    assert_equal 2, stamp["entries"]
   end
 end

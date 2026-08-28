@@ -1,0 +1,46 @@
+# Hand-authored, unlike new-entry.yml: this form asks about an entry rather than
+# about the schema, so nothing here is generated. Field ids are load-bearing —
+# the monthly sweep links here with `?template=refresh-entry.yml&slug=<slug>`,
+# and scripts/refresh_entry_from_issue.mjs reads the answers back by label.
+name: "Refresh an entry (confirm it is still accurate)"
+description: "Say whether a published entry is still true, or what has changed since."
+title: "Refresh: <entry slug>"
+labels:
+  - content:refresh
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Entries carry a last-confirmed date, and after a year the page starts telling readers it may
+        be out of date. Confirming one takes a minute and puts the date back.
+
+  - type: input
+    id: slug
+    attributes:
+      label: "Entry slug"
+      description: "The last part of the entry's web address — `.../catalog/automated-311-triage/` is `automated-311-triage`. If you arrived from a refresh reminder it is already filled in."
+      placeholder: "automated-311-triage"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: accurate
+    attributes:
+      label: "Is the entry still accurate as published?"
+      description: "Yes stamps today's date on the entry through a pull request. No sends your notes to the maintainers instead."
+      options:
+        - "Yes — everything on the page is still correct"
+        - "No — something has changed"
+    validations:
+      required: true
+
+  - type: textarea
+    id: changes
+    attributes:
+      label: "What changed?"
+      description: "Only needed if you answered No. Plain sentences are perfect — the tool was retired, the contact moved on, the cost figure is out of date. A maintainer turns this into the edit."
+      placeholder: |
+        The pilot became a production system in March, so "Pilot" is no longer the right stage.
+        Jordan has left; the contact should be sam.rivera@city.gov.
+    validations:
+      required: false

@@ -562,7 +562,7 @@ test('the canonical PHCT Pages and quality workflows cannot silently skip the sh
 });
 
 test('machine-maintained branches use lease-protected force pushes', () => {
-  for (const name of ['apply-setup.yml', 'new-entry.yml']) {
+  for (const name of ['apply-setup.yml', 'new-entry.yml', 'refresh-entry.yml', 'also-deployed-by.yml']) {
     const source = workflow(name);
     assert.doesNotMatch(source, /git push --force origin/);
     assert.match(source, /git push --force-with-lease origin/);
@@ -571,6 +571,271 @@ test('machine-maintained branches use lease-protected force pushes', () => {
   const updater = workflow('update-phct.yml');
   assert.doesNotMatch(updater, /git push --force /u);
   assert.match(updater, /push --force-with-lease origin/u);
+});
+
+// The refresh pair is the one loop in the template that writes to an entry from
+// an issue anybody may open, so the two halves are held to the shapes that make
+// that safe: no issue text in a shell, one file in the commit, and a dedupe key
+// the sweep and the script agree on to the character.
+test('the refresh loop keeps issue text out of the shell and touches one file', () => {
+  const refresh = workflow('refresh-entry.yml');
+  const parsed = YAML.parse(refresh);
+  const steps = Object.values(parsed.jobs).flatMap((job) => job.steps ?? []);
+
+  for (const step of steps.filter((candidate) => typeof candidate.run === 'string')) {
+    assert.doesNotMatch(
+      step.run,
+      /\$\{\{\s*(github\.event\.issue|steps\.refresh\.outputs\.(reason|changes|error))/u,
+      `${step.name} interpolates issue text into a shell script`
+    );
+  }
+  assert.match(refresh, /ISSUE_BODY: \$\{\{ github\.event\.issue\.body \}\}/u);
+
+  const commit = workflowStepScript(
+    'refresh-entry.yml',
+    'refresh',
+    'Commit the confirmation on a new branch'
+  );
+  assert.match(commit, /git add -- "\$ENTRY_FILE"/u);
+  assert.doesNotMatch(commit, /git add -A/u, 'a date stamp must never sweep up an unrelated file');
+
+  // `contents: write` is the whole reason this needs care; the sweep that links
+  // to it asks for nothing but the ability to open an issue.
+  const sweep = workflow('verification-sweep.yml');
+  assert.match(sweep, /permissions:\n\s+issues: write/u);
+  assert.doesNotMatch(sweep, /contents: write/u);
+
+  // A closed or merged pull request for the branch must never be resurrected
+  // and silently edited by a later issue edit.
+  const openStep = workflowStepScript('refresh-entry.yml', 'refresh', 'Open the pull request');
+  assert.match(openStep, /gh pr list --head "\$BRANCH" --state open/u);
+});
+
+/**
+ * Run a workflow's shell step through bash with a fake `gh` on PATH that
+ * records every invocation to `log` and, for `gh pr list`, prints
+ * `prNumber` (or nothing) as the whole of its stdout — enough for the
+ * step's own `--jq` filtering to be irrelevant, since the step only ever
+ * captures the fake command's stdout wholesale.
+ */
+function runWithFakeGh(script, { env = {}, prNumber = '' } = {}) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'phct-gh-fake-'));
+  const bin = path.join(directory, 'bin');
+  const log = path.join(directory, 'gh-calls.log');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(log, '');
+  fs.writeFileSync(
+    path.join(bin, 'gh'),
+    `#!/bin/sh
+echo "$@" >> "$GH_CALL_LOG"
+if [ "$1" = "pr" ] && [ "$2" = "list" ]; then
+  printf '%s\\n' "$FAKE_PR_NUMBER"
+fi
+`
+  );
+  fs.chmodSync(path.join(bin, 'gh'), 0o755);
+
+  const result = spawnSync('bash', ['-c', script], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PATH: `${bin}:${process.env.PATH}`,
+      GH_CALL_LOG: log,
+      FAKE_PR_NUMBER: prNumber,
+      ...env,
+    },
+  });
+
+  const calls = fs.readFileSync(log, 'utf8').split('\n').filter(Boolean);
+  fs.rmSync(directory, { force: true, recursive: true });
+  return { ...result, calls };
+}
+
+// A submitter can answer "yes" — opening the deterministic confirmation pull
+// request — then edit the same issue to answer "no". Without this step, that
+// pull request stays open and mergeable after the submitter retracted it.
+test('answering "no" after "yes" closes the stale confirmation pull request on that exact branch', () => {
+  const script = workflowStepScript(
+    'refresh-entry.yml',
+    'refresh',
+    'Close a stale confirmation pull request'
+  );
+  assert.match(script, /gh pr list --head "\$BRANCH" --state open/u, 'must scope the search to this branch');
+  assert.doesNotMatch(script, /\$\{\{/u, 'issue text must reach this step only through env');
+
+  const open = runWithFakeGh(script, { env: { BRANCH: 'refresh/thing-42' }, prNumber: '17' });
+  assert.equal(open.status, 0, open.stderr);
+  assert.equal(open.calls.length, 2, `expected a list then a close, got: ${open.calls.join(' | ')}`);
+  assert.match(open.calls[0], /^pr list --head refresh\/thing-42 --state open/u);
+  assert.match(open.calls[1], /^pr close 17 --comment/u);
+
+  // No open pull request on that branch: nothing to close, and the step
+  // still exits clean.
+  const none = runWithFakeGh(script, { env: { BRANCH: 'refresh/thing-42' }, prNumber: '' });
+  assert.equal(none.status, 0, none.stderr);
+  assert.equal(none.calls.length, 1, `expected only the list call, got: ${none.calls.join(' | ')}`);
+});
+
+// The other loop that writes to an entry from an issue anybody may open, and
+// the only one that publishes a stranger's name, link and email address on
+// somebody else's page. Same shapes: no issue text in a shell, one file in the
+// commit, and every claim held until a maintainer merges it.
+test('the also-deployed-by loop keeps issue text out of the shell and touches one file', () => {
+  const source = workflow('also-deployed-by.yml');
+  const parsed = YAML.parse(source);
+  const steps = Object.values(parsed.jobs).flatMap((job) => job.steps ?? []);
+
+  for (const step of steps.filter((candidate) => typeof candidate.run === 'string')) {
+    assert.doesNotMatch(
+      step.run,
+      /\$\{\{\s*(github\.event\.issue\.(body|title)|steps\.deployment\.outputs\.(reason|org|error))/u,
+      `${step.name} interpolates issue text into a shell script`
+    );
+  }
+  assert.match(source, /ISSUE_BODY: \$\{\{ github\.event\.issue\.body \}\}/u);
+
+  const commit = workflowStepScript('also-deployed-by.yml', 'attach', 'Commit the listing on a new branch');
+  assert.match(commit, /git add -- "\$ENTRY_FILE"/u);
+  assert.doesNotMatch(commit, /git add -A/u, 'one listing must never sweep up an unrelated file');
+
+  // The form is hand-authored (it asks about an entry, not about the schema),
+  // so the label and the title prefix the two label workflows key off have to
+  // stay in step with it to the character.
+  const form = YAML.parse(
+    fs.readFileSync(path.join(ROOT, '.github', 'ISSUE_TEMPLATE', 'also-deployed-by.yml'), 'utf8')
+  );
+  assert.deepEqual(form.labels, ['content:also-deployed-by']);
+  assert.equal(form.title.trim(), 'Also deployed by:');
+  assert.deepEqual(
+    form.body.filter((field) => field.id).map((field) => field.id),
+    ['slug', 'org', 'url', 'email', 'note']
+  );
+  assert.match(workflow('bootstrap-labels.yml'), /create "content:also-deployed-by"/u);
+  assert.match(workflow('missing-label.yml'), /startsWith\('Also deployed by:'\)/u);
+});
+
+// A resubmission that matches an existing row (by name or link) REPLACES that
+// row wholesale — mergeDeployment's `action: 'updated'` — and the pull request
+// must say so plainly rather than reusing the "add" wording, or a maintainer
+// approves what looks like a benign addition and actually replaces somebody
+// else's listing.
+test('the also-deployed-by pull request tells a replacement apart from an addition', () => {
+  const source = workflow('also-deployed-by.yml');
+  const openStep = workflowStepScript('also-deployed-by.yml', 'attach', 'Open the pull request');
+
+  // The bot-computed action output reaches the shell only through `env:`.
+  assert.match(source, /DEPLOYMENT_ACTION: \$\{\{ steps\.deployment\.outputs\.action \}\}/u);
+  assert.match(openStep, /if \[ "\$DEPLOYMENT_ACTION" = "updated" \]/u);
+
+  // The 'added' wording is unchanged.
+  assert.match(openStep, /The whole change is one item added to the "also deployed by" list/u);
+
+  // The 'updated' branch says this replaces an existing listing, and the
+  // checklist asks the reviewer to confirm the submitter represents that
+  // organization.
+  assert.match(openStep, /this \*\*replaces\*\* that/u);
+  assert.match(openStep, /listing rather than adding a new one/u);
+  assert.match(openStep, /one item \*\*replaced\*\* in the "also deployed by" list/u);
+  assert.match(openStep, /plausibly represents the organization whose listing this replaces/u);
+  assert.match(openStep, /Update the \$ORG deployment listing on \$SLUG/u);
+
+  // A closed or merged pull request for the branch must never be resurrected.
+  assert.match(openStep, /gh pr list --head "\$BRANCH" --state open/u);
+});
+
+test('the sweep and the script agree on the marker that dedupes a refresh thread', async () => {
+  const { issueMarker } = await import('../../scripts/verification_sweep.mjs');
+  const sweep = workflow('verification-sweep.yml');
+  const pattern = /const MARKER = (\/.+\/);/u.exec(sweep);
+  assert.ok(pattern, 'verification-sweep.yml no longer declares a MARKER pattern');
+
+  // The literal comes from a file in this repository, not from any input.
+  const marker = new Function(`return ${pattern[1]}`)();
+  assert.deepEqual(marker.exec(issueMarker('some-entry'))?.[1], 'some-entry');
+  // Dedupe is on the marker and never on the title, which carries a name that
+  // changes; a title match that misses opens a second thread every month.
+  assert.doesNotMatch(sweep, /issue\.title === item\.title \?/u);
+});
+
+// Three unattended monthly jobs now run against this repository. They are the
+// automation a maintainer never watches, so the shapes that keep them quiet and
+// stoppable are held here rather than in anybody's memory: distinct schedules,
+// a kill switch that explains itself instead of showing a bare grey "skipped",
+// and — for the one that reaches out to third-party services — no write access
+// it does not need.
+test('the monthly sweeps stay off each other’s schedule and can each be switched off', () => {
+  const monthly = {
+    'verification-sweep.yml': 'VERIFICATION_SWEEP',
+    'metrics.yml': 'CATALOG_METRICS',
+    'security-signals.yml': 'SECURITY_SIGNALS',
+  };
+  const crons = new Set();
+  for (const [name, variable] of Object.entries(monthly)) {
+    const parsed = YAML.parse(workflow(name));
+    const schedule = parsed.on.schedule.map((item) => item.cron);
+    assert.equal(schedule.length, 1, `${name} should keep one monthly schedule`);
+    assert.ok(!crons.has(schedule[0]), `${name} shares a cron with another monthly sweep`);
+    crons.add(schedule[0]);
+    assert.deepEqual(parsed.permissions, {}, `${name} does not start from no permissions at all`);
+
+    // The kill switch and the job that exists only to say the switch is on.
+    const off = parsed.jobs['turned-off'];
+    assert.ok(off, `${name} has no self-explaining skipped job`);
+    assert.equal(
+      off.if,
+      `vars.${variable} == 'false' && github.event_name != 'workflow_dispatch'`,
+      `${name} keys its kill switch off the wrong variable`
+    );
+    assert.match(
+      String(off.steps[0].run),
+      new RegExp(`${variable}[\\s\\S]*Settings -> Secrets and variables -> Actions -> Variables`, 'u'),
+      `${name} does not tell the maintainer where the switch is`
+    );
+    // Whatever went wrong, a red monthly run has to say what it means.
+    const steps = Object.values(parsed.jobs).flatMap((job) => job.steps ?? []);
+    assert.ok(
+      steps.some((step) => String(step.if ?? '') === 'failure()'),
+      `${name} has no plain-English explanation of a failed run`
+    );
+  }
+
+  // The sweep that talks to GitHub's and OpenSSF's public read APIs. It writes
+  // one data file through a reviewed pull request and nothing else — in
+  // particular it never edits an entry and never opens an issue.
+  const signals = YAML.parse(workflow('security-signals.yml'));
+  assert.deepEqual(Object.keys(signals.jobs.signals.permissions).sort(), [
+    'actions',
+    'contents',
+    'pull-requests',
+  ]);
+  assert.equal(signals.jobs.signals.permissions.issues, undefined);
+  assert.match(workflow('security-signals.yml'), /add-paths: _data\/security_signals\.json/u);
+  assert.match(workflow('security-signals.yml'), /node scripts\/security_signals\.mjs/u);
+  // The catalog links to code it does not audit, and the pull request that
+  // publishes these observations has to say so where a reviewer reads it.
+  assert.match(workflow('security-signals.yml'), /does not host or audit/u);
+});
+
+// A run can open the rolling `automation/security-signals` pull request, and a
+// LATER run's observations can revert to what is already committed before a
+// maintainer merges it. `changed` then comes back false and every step that
+// depends on it is skipped — but the stale pull request from the earlier run
+// is still open and still mergeable, and would publish observations nobody
+// asked to publish. This closes it instead of leaving it stale.
+test('an unchanged security-signals run closes a stale rolling pull request rather than leaving it open', () => {
+  const script = workflowStepScript('security-signals.yml', 'signals', 'Close a stale signals pull request');
+  assert.match(script, /gh pr list --head automation\/security-signals --state open/u);
+  assert.doesNotMatch(script, /\$\{\{/u, 'issue text must reach this step only through env');
+
+  const open = runWithFakeGh(script, { prNumber: '9' });
+  assert.equal(open.status, 0, open.stderr);
+  assert.equal(open.calls.length, 2, `expected a list then a close, got: ${open.calls.join(' | ')}`);
+  assert.match(open.calls[0], /^pr list --head automation\/security-signals --state open/u);
+  assert.match(open.calls[1], /^pr close 9 --comment/u);
+
+  const none = runWithFakeGh(script, { prNumber: '' });
+  assert.equal(none.status, 0, none.stderr);
+  assert.equal(none.calls.length, 1, `expected only the list call, got: ${none.calls.join(' | ')}`);
 });
 
 test('every npm dependency install selects the exact package manager after setup-node', () => {
@@ -592,10 +857,12 @@ test('every npm dependency install selects the exact package manager after setup
 // answer on both paths.
 test('every issue-driven content workflow answers on the issue, in success and in failure', () => {
   const contentWorkflows = [
+    'also-deployed-by.yml',
     'apply-setup.yml',
     'new-entry.yml',
     'new-event.yml',
     'new-year.yml',
+    'refresh-entry.yml',
     'update-event-attachments.yml',
     'update-schedule.yml',
   ];
@@ -627,17 +894,25 @@ test('every issue-driven content workflow answers on the issue, in success and i
   assert.match(missing, /types:\n\s+- opened/u);
   assert.match(missing, /Bootstrap labels/u);
   assert.match(missing, /issues: write/u);
+  // Every content workflow triggers on `opened`/`edited`, never `labeled` —
+  // adding the label a maintainer is told to add here does not by itself
+  // start anything, so the rescue instruction has to say what does.
+  assert.match(missing, /will not start anything/u);
+  assert.match(missing, /make any small edit to the issue afterward/u);
 });
 
 test('protected-main automation stays reviewable and generated PRs can satisfy required checks', () => {
   const generatedPullRequestWorkflows = [
+    'also-deployed-by.yml',
     'apply-setup.yml',
     'new-entry.yml',
     'new-event.yml',
     'new-year.yml',
+    'refresh-entry.yml',
     'update-event-attachments.yml',
     'update-schedule.yml',
     'metrics.yml',
+    'security-signals.yml',
     'pages.yml',
     'thumbnails.yml',
   ];
@@ -665,6 +940,12 @@ test('protected-main automation stays reviewable and generated PRs can satisfy r
   assert.match(metrics, /branch: automation\/catalog-metrics/u);
   assert.match(metrics, /pull-requests: write/u);
   assert.doesNotMatch(metrics, /git push/u);
+
+  const signals = workflow('security-signals.yml');
+  assert.match(signals, /uses: peter-evans\/create-pull-request@/u);
+  assert.match(signals, /branch: automation\/security-signals/u);
+  assert.match(signals, /pull-requests: write/u);
+  assert.doesNotMatch(signals, /git push/u);
 
   const pages = workflow('pages.yml');
   assert.match(pages, /uses: peter-evans\/create-pull-request@/u);

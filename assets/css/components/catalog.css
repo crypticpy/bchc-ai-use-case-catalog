@@ -24,6 +24,15 @@
      the class in it keeps the attribute-only half out of the purge.) */
   .entry-card, [data-empty-state] { @apply transition-opacity duration-120 ease-brand; }
   .entry-card.is-entering, [data-empty-state].is-entering { @apply opacity-0; }
+  /* Cards outside the viewport cost nothing: content-visibility skips their
+     layout and paint, which at a thousand entries is most of the grid — the
+     number the scale budgets watch. The intrinsic-size fallback reserves
+     roughly one card of height so the scrollbar doesn't jump; `auto` upgrades
+     it to the card's real size once it has rendered, and the list-view value
+     matches its single collapsed row. Browsers without the property ignore
+     both lines and render every card exactly as before. */
+  .entry-grid .entry-card { content-visibility: auto; contain-intrinsic-size: auto 420px; }
+  .entry-grid[data-view="list"] .entry-card { contain-intrinsic-size: auto 88px; }
   /* A band, not a cover shot: at 288px a 16:9 deck render is illegible, and the top
      band is where a slide or a dashboard puts its title. No scrim — both badge tones
      (data-tone="accent" and "on-dark") carry their own opaque ground. */
