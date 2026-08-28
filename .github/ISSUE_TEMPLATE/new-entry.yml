@@ -488,6 +488,14 @@ body:
       placeholder: "jordan.lee@city.gov"
     validations:
       required: true
+  - type: input
+    id: submitter_github
+    attributes:
+      label: GitHub username
+      description: "Your GitHub username (optional) Used once a year: when this entry is due to be re-confirmed the reminder mentions you, so the request reaches the person who wrote it. Leave it blank and the reminder goes to the maintainers alone."
+      placeholder: jordan-lee
+    validations:
+      required: false
   - type: markdown
     attributes:
       value: |-
