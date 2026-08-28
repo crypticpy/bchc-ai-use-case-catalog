@@ -6,10 +6,12 @@
  * functions produce.
  */
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   DEFAULT_MAX_NEW_ISSUES,
@@ -403,4 +405,35 @@ test('a custom verified_key is honoured end to end: staleEntries stops nagging o
   // not stale.
   const withSchemaKeys = staleEntries(entries, todayDay, 365, verificationKeys);
   assert.equal(withSchemaKeys.length, 0);
+});
+
+/* ------------------------------------------------------------------- main */
+
+test('the issue bodies land in $SWEEP_ISSUES_FILE, never in $GITHUB_OUTPUT', () => {
+  // Two hundred bodies can pass 128 KiB, and a step output re-exported as one
+  // environment entry that large stops the runner from launching the step
+  // that reads it — so the bodies must bypass $GITHUB_OUTPUT entirely.
+  const { root, write } = repo();
+  write('_data/schema.yml', 'entry:\n  path: "catalog"\nfields: []\n');
+  write('catalog/thing/index.md', '---\ntitle: "A thing"\npublished: 2020-01-01\n---\n\nBody.\n');
+  const issuesFile = path.join(root, 'sweep-issues.json');
+  const outputFile = path.join(root, 'github-output.txt');
+  fs.writeFileSync(outputFile, '');
+
+  const script = fileURLToPath(new URL('../../scripts/verification_sweep.mjs', import.meta.url));
+  execFileSync(process.execPath, [script, '--today', '2026-08-17'], {
+    cwd: root,
+    env: { ...process.env, SWEEP_ISSUES_FILE: issuesFile, GITHUB_OUTPUT: outputFile },
+  });
+
+  const raw = fs.readFileSync(issuesFile, 'utf8');
+  const issues = JSON.parse(raw);
+  assert.ok(Array.isArray(issues));
+  assert.equal(issues.length, 1);
+  assert.match(raw, /refresh-entry: thing/);
+
+  const outputs = fs.readFileSync(outputFile, 'utf8');
+  assert.match(outputs, /^count<</mu);
+  assert.match(outputs, /^slugs<</mu);
+  assert.doesNotMatch(outputs, /^issues<</mu, 'the bodies must not travel through $GITHUB_OUTPUT');
 });
