@@ -90,6 +90,33 @@ entry:
   # organizations" on the governance page — live entries only, sample content
   # excluded. Absent → the figure is not published.
   contributor_key: "organization"
+  # Who to nudge when an entry goes stale (optional). Names the text field
+  # holding the submitter's GitHub username, so the monthly refresh reminder can
+  # @mention the person who wrote the entry instead of only the maintainers
+  # (scripts/verification_sweep.mjs). Absent, or blank on an entry → the
+  # reminder simply carries no personal mention. Never guessed from a value:
+  # only the field named here is read as a handle.
+  submitter_key: "submitter_github"
+  # Who else runs this (optional). Names the `links` field that lists the other
+  # organizations that deployed this use case, one item per organization
+  # ({label, url} plus the optional `email` and `note` a `links` item may carry).
+  # It is written only by the "Also deployed by" issue form
+  # (.github/ISSUE_TEMPLATE/also-deployed-by.yml ->
+  # .github/workflows/also-deployed-by.yml -> scripts/add_deployment_from_issue.mjs),
+  # never by the public submission forms, which is why the field carries
+  # `form: false`. Absent → the form reports that the feature is not configured
+  # and the entry page shows no "add your organization" link.
+  deployments_key: "also_deployed_by"
+  # Where the code is (optional). Names the `url` field holding the project's
+  # repository link. The monthly security-signals sweep
+  # (scripts/security_signals.mjs -> .github/workflows/security-signals.yml)
+  # reads it to know which repository to observe, and the entry page reads it to
+  # know when to say that this catalog links to code it does not audit. A
+  # pointer like `status_key` and `submitter_key`: nothing names the field
+  # directly. Absent → the sweep reports that the feature is not configured and
+  # writes nothing, and neither the "Security signals" card nor the
+  # run-your-own-review line renders on any entry.
+  repo_key: "repo_url"
 
 # Ordered groups: { key, title, description?, icon?, placement? }.
 # Filters show facet fields grouped this way; the submit wizard turns each group

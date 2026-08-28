@@ -163,7 +163,10 @@ export const SCHEMA = {
     "status_scaffold_value": "Under review",
     "status_approved_value": "Reviewed & approved",
     "require_link": true,
-    "contributor_key": "organization"
+    "contributor_key": "organization",
+    "submitter_key": "submitter_github",
+    "deployments_key": "also_deployed_by",
+    "repo_key": "repo_url"
   },
   "groups": [
     {
