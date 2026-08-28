@@ -197,6 +197,9 @@ function main() {
     setOutput('slug', form.slug);
     setOutput('file', relative);
     setOutput('changes', form.changes);
+    // The guidance comment names the date field to stamp, which a catalog can
+    // rename via entry.verified_key — hand the resolved name to the workflow.
+    setOutput('verified_key', verifiedKey);
     // Same branch name a "yes" answer on this issue would have used, so a
     // submitter who answers "yes" and then edits the issue to "no" leaves the
     // workflow a name to find and close that stale confirmation with.

@@ -3,7 +3,7 @@
 - Status: in execution; automated baseline implemented 2026-08-22
 - Created: 2026-08-21
 - Target: a release candidate suitable for the wider BCHC demo audience next week
-- Candidate: `v1.9.0-rc.6`
+- Candidate: `v1.9.0-rc.7`
 - Parent repository: [`crypticpy/phct`](https://github.com/crypticpy/phct)
 - Downstream demo: [`crypticpy/bchc-ai-use-case-catalog`](https://github.com/crypticpy/bchc-ai-use-case-catalog)
 

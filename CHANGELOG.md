@@ -8,6 +8,20 @@ major version, and each entry says so when it happens.
 
 ## [Unreleased]
 
+## [1.9.0-rc.7] — 2026-08-28
+
+### Fixed
+
+- The refresh-reminder guidance now names the deployment's actual verified-date
+  field: the workflow reads the schema's `entry.verified_key` from the script
+  instead of assuming a field literally named `verified`, so a catalog that
+  renamed the field is told to stamp the right key.
+- The verification sweep hands its drafted issue bodies to the follow-up step
+  through a file under the runner's temp directory instead of a step output, so
+  a sweep that drafts many reminders in one run can no longer hit the runner's
+  per-environment-entry size cap; `count`, `slugs` and `max_new` remain
+  ordinary outputs.
+
 ## [1.9.0-rc.6] — 2026-08-27
 
 ### Added
@@ -1168,7 +1182,8 @@ fixed in this release, and the remaining P3s are listed in `docs/roadmap.md`.
   in-browser and CLI configurators, GitHub-issue submission flow, events /
   cohorts / resources modules, Lunr search, thumbnails workflow.
 
-[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.6...HEAD
+[Unreleased]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.7...HEAD
+[1.9.0-rc.7]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.6...v1.9.0-rc.7
 [1.9.0-rc.6]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.5...v1.9.0-rc.6
 [1.9.0-rc.5]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.4...v1.9.0-rc.5
 [1.9.0-rc.4]: https://github.com/crypticpy/phct/compare/v1.9.0-rc.3...v1.9.0-rc.4
