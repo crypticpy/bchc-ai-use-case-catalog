@@ -31,6 +31,7 @@ _data/events.yml                             merge=ours
 _data/resources.yml                          merge=ours
 _data/cohorts/**                             merge=ours
 _data/metrics.json                           merge=ours
+_data/security_signals.json                  merge=ours
 _data/derivatives.json                       merge=ours
 catalog/**                                   merge=ours
 cohorts/**                                   merge=ours
