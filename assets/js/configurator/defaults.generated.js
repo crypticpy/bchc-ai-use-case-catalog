@@ -98,6 +98,11 @@ export const SITE = {
         "module": "submit"
       },
       {
+        "label": "How search works",
+        "url": "/about/search/",
+        "module": "catalog"
+      },
+      {
         "label": "Maintainer guide",
         "url": "https://github.com/crypticpy/bchc-ai-use-case-catalog/blob/main/docs/admin-guide.md"
       }
@@ -859,6 +864,18 @@ export const SCHEMA = {
       "description": "Attach the slide deck here. A thumbnail is generated from its first page."
     },
     {
+      "key": "also_deployed_by",
+      "label": "Also deployed by",
+      "prompt": "Who else is running this?",
+      "type": "links",
+      "form": false,
+      "group": "reuse",
+      "weight": 9,
+      "icon": "users",
+      "search": true,
+      "description": "Other organizations running this, maintained through the \"Also deployed by\" issue form."
+    },
+    {
       "key": "license",
       "label": "License",
       "prompt": "Under what license is it shared?",
@@ -1290,6 +1307,40 @@ export const SCHEMA = {
       "description": "Data-use agreements, retention rules, de-identification steps — the caveats that travel with the resource."
     },
     {
+      "key": "security_review",
+      "label": "Security review",
+      "prompt": "How much has anybody looked at this code?",
+      "type": "select",
+      "form": false,
+      "group": "data",
+      "weight": 6,
+      "facet": true,
+      "card": "fact",
+      "icon": "shield-check",
+      "options": [
+        "Coalition security-reviewed",
+        "Automated checks only",
+        "Not reviewed"
+      ],
+      "option_meta": {
+        "Coalition security-reviewed": {
+          "short": "Sec-reviewed",
+          "tone": "primary",
+          "description": "A coalition maintainer read this project's security practices — its policy, its dependencies, how it handles data — on the date recorded in the pull request. It is a point-in-time reading of practices, not an audit of the code and not a guarantee that it is safe to run."
+        },
+        "Automated checks only": {
+          "short": "Auto checks",
+          "description": "Nobody has reviewed this project. All that is recorded is what the monthly sweep could observe from the outside — repository activity, license, security policy, public OpenSSF Scorecard — and none of that inspects what the code does."
+        },
+        "Not reviewed": {
+          "short": "Not reviewed",
+          "tone": "warn",
+          "description": "Nobody has looked at this project on the catalog's behalf. Treat the link as a starting point for your own review, not as a recommendation."
+        }
+      },
+      "description": "Set by maintainers, not the submitter. None of these values means the code is safe to run — run your own security review before deploying."
+    },
+    {
       "key": "contact_name",
       "label": "Contact name",
       "prompt": "Who can people contact?",
@@ -1319,6 +1370,17 @@ export const SCHEMA = {
       "group": "contact",
       "weight": 3,
       "placeholder": "jordan.lee@city.gov"
+    },
+    {
+      "key": "submitter_github",
+      "label": "GitHub username",
+      "prompt": "Your GitHub username (optional)",
+      "type": "text",
+      "group": "contact",
+      "weight": 4,
+      "search": false,
+      "placeholder": "jordan-lee",
+      "description": "Used once a year: when this entry is due to be re-confirmed the reminder mentions you, so the request reaches the person who wrote it. Leave it blank and the reminder goes to the maintainers alone."
     },
     {
       "key": "body",

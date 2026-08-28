@@ -107,6 +107,9 @@ footer:
     - label: "Submit an entry"
       url: "/submit/"
       module: submit
+    - label: "How search works"
+      url: "/about/search/"
+      module: catalog
     - label: "Maintainer guide"
       url: "https://github.com/crypticpy/bchc-ai-use-case-catalog/blob/main/docs/admin-guide.md"
   copyright: "Big Cities Health Coalition"
