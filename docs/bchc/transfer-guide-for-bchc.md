@@ -2,7 +2,7 @@
 
 This guide is for the Big Cities Health Coalition staff taking ownership of the AI Use Case
 Catalog. It assumes you have never used GitHub. You will not write code, install anything, or use
-a command line. Everything here happens in a web browser, and all of it takes about 30 minutes.
+a command line. Everything here happens in a web browser, and your part takes about 30 minutes.
 
 Your technical maintainer (GitHub username **`crypticpy`**) does the technical work and stays on to
 look after the catalog. Your part is to create BCHC's home on GitHub, let the maintainer in, and
@@ -61,7 +61,8 @@ GitHub requires this for anyone who manages a repository, and it protects BCHC's
 
 ### Step 3: Create the BCHC organization
 
-**If BCHC already has a GitHub organization, skip this step** and go to question 1 in Part 2.
+**If BCHC already has a GitHub organization, skip this step, but still do Steps 4 and 5** in that
+organization.
 
 1. Click the **+** (top right, next to your picture) → **New organization**.
 2. Choose the **Free** plan.
@@ -85,14 +86,29 @@ BCHC could be locked out of its own account. A second owner prevents that.
 
 ### Step 5: Invite the technical maintainer
 
+There are two ways to do this. **Option A is recommended** because it leaves BCHC almost nothing
+technical to do.
+
+**Option A (recommended): invite the maintainer as a temporary Owner**
+
 1. Still on the **People** tab, click **Invite member**.
 2. Type **`crypticpy`** and choose the role **Owner**.
 3. Click **Send invitation**.
 
-**Why Owner?** Owner lets the maintainer adjust the organization's settings and move the catalog
-in without walking you through a long list of technical screens. It is temporary: when the move is
-finished, the maintainer will tell you, and you lower the role to Member (Part 4, step 4). The
-maintainer keeps full control of the catalog itself, but not of the rest of your organization.
+Owner lets the maintainer adjust the organization's settings and move the catalog in without
+walking you through a list of technical screens. It is temporary: when the move is finished, the
+maintainer tells you, and you lower the role to Member (Part 4, Step 4). The maintainer then keeps
+full control of the catalog itself, but not of the rest of your organization.
+
+**Option B: invite the maintainer as a Member, and change the settings yourself**
+
+Choose this if BCHC would rather nobody outside BCHC is ever an Owner.
+
+1. Still on the **People** tab, click **Invite member**.
+2. Type **`crypticpy`** and choose the role **Member**.
+3. Click **Send invitation**.
+4. Work through the [organization settings checklist](#appendix-organization-settings-for-option-b)
+   at the end of this guide (about 10 minutes). The maintainer can talk you through it on a call.
 
 ## Part 2: Send these answers to your maintainer
 
@@ -114,21 +130,49 @@ Copy this list into an email, fill it in, and send it. Anything you don't know y
    BCHC company login (your Microsoft or Google work sign-in) rather than a GitHub password?
    (yes / no) If yes, tell the maintainer before the meeting, as the plan changes.
 
-## Part 3: The move (the maintainer does this; you can watch)
+## Part 3: The move, step by step
 
-Once the invitation is accepted, the maintainer:
+This is the whole move, in order. "You" means a BCHC Owner; "the maintainer" means `crypticpy`.
+Plan for about an hour together on a call. The catalog site is **offline for a few minutes**
+between steps 4 and 6.
 
-1. Checks the new organization's settings and adjusts the few that the catalog needs.
-2. Moves the catalog into the BCHC organization. This takes seconds.
-3. Brings the site back up at its new address. **The site is offline for a few minutes** between
-   the move and this step.
-4. Updates the catalog's own links to point at the new home, and reconnects the automatic
-   template updates.
+1. **The maintainer accepts your invitation.** It arrives by email. You can see it worked when
+   `crypticpy` appears on your organization's **People** tab without the word "Pending".
+2. **The organization settings are checked.** With Option A, the maintainer does this. With
+   Option B, you do it using the [appendix](#appendix-organization-settings-for-option-b), and the
+   maintainer checks it with you.
+3. **The maintainer makes a last check** that the catalog is healthy in its current home.
+4. **The maintainer moves the catalog** into your organization. It takes a few seconds. You will
+   see it on your organization's page under **Repositories**.
+5. **The maintainer gets full access to the catalog.**
+   - Option A: the maintainer does this.
+   - Option B: you do it. Open the catalog repository → **Settings** (top right of the repository,
+     the gear icon) → **Collaborators and teams** in the left menu → **Add people** → type
+     `crypticpy` → choose the role **Admin** → **Add**. Admin (not Write or Maintain) is needed to
+     manage the site's settings.
+6. **The maintainer brings the site back up** at its new address and sends it to you. From here,
+   the old `crypticpy.github.io` address stops working.
+7. **The maintainer updates the catalog's own links** (in its pages and forms) to point at its new
+   home.
+8. **The maintainer reconnects automatic template updates.** This needs a new access token (a
+   limited key that lets the catalog receive template updates). If your organization asks for
+   token approval, you get an email about a pending request from `crypticpy`: open it and click
+   **Approve**. (With Option A, the maintainer can approve it.)
+9. **The maintainer checks everything else survived the move**: the site's settings, its
+   protections, and its submission labels.
+10. **You lower the maintainer's organization role** to Member (Option A only). See Part 4,
+    Step 4. Wait until the maintainer says steps 1 to 9 are done.
 
-The only thing that might need a BCHC click is a request to approve an **access token** (a kind of
-limited key that lets the catalog receive template updates automatically). If GitHub emails you
-about a pending token request from `crypticpy` for the catalog, open it and click **Approve**. The
-maintainer will tell you if this applies.
+**Later, not on the day:**
+
+- **Your own web address** (if you chose one in question 5): the maintainer sends your domain
+  contact one record to add, then switches the catalog to that address.
+- **Name the people.** The product owner and backup person are added to the catalog's list of
+  maintainers once each has a GitHub account and has agreed.
+- **Require a second pair of eyes.** Once there are two people who can approve changes, the
+  maintainer switches on a rule that every change needs one approval before it goes live.
+- **Practice runs.** Before the handoff is called done, the backup person rehearses a few routine
+  tasks (taking an entry down, undoing a change) with the maintainer's written instructions.
 
 ## Part 4: Your first look around (about 15 minutes, after the move)
 
@@ -157,7 +201,7 @@ You do not need the **Code** tab. That is where the files live, and the maintain
 
 You will now get an email for each new submission and each entry waiting for review.
 
-### Step 4: Lower the maintainer's organization role
+### Step 4: Lower the maintainer's organization role (Option A only)
 
 **Only when the maintainer tells you the move is finished.** By then the maintainer will have
 full access to the catalog itself, so this does not take anything away that is needed.
@@ -199,3 +243,48 @@ use case. Only people you give access to can approve changes or change settings.
 
 **What if we change our minds?**
 The move can be reversed. The maintainer can move the catalog back.
+
+## Appendix: organization settings for Option B
+
+Only needed if you chose Option B in Part 1, Step 5. With Option A, the maintainer does all of
+this. GitHub occasionally renames things on these screens; if something doesn't match, ask the
+maintainer.
+
+To get there: go to your organization's page, then click **Settings** (the gear icon in the row of
+tabs). Each item below starts from that Settings page. Click **Save** at the bottom of any section
+you change.
+
+**Membership** (left menu: **Member privileges**)
+
+1. **Base permissions:** choose **Read**.
+2. **Repository creation:** tick **Public**. This is what lets the maintainer move the catalog in.
+3. **Pages creation:** tick **Public**. This lets the catalog publish its website.
+4. **Repository deletion and transfer:** leave as it is, but tell the maintainer whether it is
+   ticked. It affects who could move the catalog back out later.
+
+**Automation** (left menu: **Actions** → **General**)
+
+5. **Policies:** choose **Allow all actions and reusable workflows**. The catalog applies its own
+   stricter rules on top.
+6. **Workflow permissions:** leave **Read repository contents and packages permissions** selected,
+   and **tick "Allow GitHub Actions to create and approve pull requests"**. This one matters: without
+   it, submissions never turn into entries.
+
+**Access tokens** (left menu: **Personal access tokens** → **Settings**)
+
+7. **Fine-grained personal access tokens:** choose **Allow access via fine-grained personal access
+   tokens**. Requiring administrator approval is fine; it just means you approve one request in
+   Part 3, step 8.
+
+**Security** (left menu: **Code security**)
+
+8. **Do not** apply a security configuration that turns on **CodeQL "default setup"** for the
+   catalog. The catalog runs its own version of that check, and the two conflict. Everything else
+   there (secret scanning, Dependabot alerts) is welcome.
+
+**Sign-in security** (left menu: **Authentication security**)
+
+9. If **Require two-factor authentication** is ticked, that's fine. The maintainer already uses
+   it.
+
+When you're done, tell the maintainer. They can check most of it from their side.
