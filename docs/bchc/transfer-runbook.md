@@ -25,7 +25,10 @@ fixing and adjusting things until BCHC names its own maintainer.
 
 ## Inputs to collect from BCHC in the meeting
 
-Fill this in first. Several later steps cannot start without it.
+Fill this in first. Several later steps cannot start without it. The plain-language guide for BCHC
+staff, [`transfer-guide-for-bchc.md`](transfer-guide-for-bchc.md), walks them through creating the
+org, inviting `@crypticpy` as a temporary Owner (so `@crypticpy` does Phase 1 on their behalf) and
+answering these questions.
 
 | Input | Answer | Notes |
 |---|---|---|
