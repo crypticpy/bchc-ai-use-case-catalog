@@ -233,6 +233,12 @@ no longer reaches this repository.
 - [ ] Variables: `gh variable list -R <ORG>/bchc-ai-use-case-catalog` is empty, as intended. Unset
       means `SUBMISSIONS_OPEN`, `CATALOG_METRICS`, `SECURITY_SIGNALS` and `VERIFICATION_SWEEP` are
       on and `CATALOG_SHOWCASE` is off (see `operations-inventory.yml`).
+- [ ] Organization variables shared with this repository also reach the workflows, and the
+      repository list above does not show them. Check they are empty too:
+      `gh api repos/<ORG>/bchc-ai-use-case-catalog/actions/organization-variables --jq '.variables[].name'`.
+      An inherited `SUBMISSIONS_OPEN=false` would silently close intake, and `CATALOG_SHOWCASE=true`
+      would deploy the template showcase. If any appear, ask the org owner to remove this repository
+      from that variable's access list, or set a repository variable of the same name, which wins.
 - [ ] Security features:
       ```bash
       gh api repos/<ORG>/bchc-ai-use-case-catalog --jq '.security_and_analysis'
@@ -266,10 +272,11 @@ Not required in the meeting, but required before the handoff is called done.
       it stays at 0, or the only maintainer cannot merge.
 - [ ] **Review tooling (optional).** No review bot is required and none is assumed. The Sourcery and
       Codex apps were installed on `@crypticpy`'s account and do not follow the repository. If BCHC
-      has a Copilot plan that includes code review, it can be turned on in the `protect-main`
-      ruleset ("Automatically request Copilot code review") or per PR. Because the ruleset requires
-      conversation resolution, keep automated review off content PRs (see the admin guide's note
-      on review bots).
+      has a Copilot plan that includes code review, request it per PR on code changes (Reviewers →
+      Copilot). Do not turn on the ruleset option to request Copilot review automatically: it
+      applies to every PR into `main`, including scaffolded content PRs, and because the ruleset
+      requires conversation resolution, bot threads would block content merges (see the admin
+      guide's note on review bots).
 - [ ] **Update path end to end.** Actions → Update from PHCT → Run workflow with the next PHCT
       release tag, driven by the new maintainers. Re-running the current `v1.9.0` finishes green as
       "Already up to date" without exercising the token or the pull request step, so the full test
