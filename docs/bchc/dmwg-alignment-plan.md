@@ -408,6 +408,8 @@ rail card on the source. Plausible remains optional.
    The framework's "confirm authentication for submissions" is the DMWG's call; we
    document both in the governance page and admin guide.
 3. **Institutional home / hosting owner** (§4.6) — organisational; nothing to build.
+   Update 2026-09-24: BCHC is taking ownership in its own GitHub organization, with the
+   repository transfer planned for 2026-09-25 ([transfer runbook](transfer-runbook.md)).
 
 ## Sequencing and gates
 
