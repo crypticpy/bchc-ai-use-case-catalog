@@ -18,6 +18,10 @@ Fill in the [**Submit** form](https://crypticpy.github.io/bchc-ai-use-case-catal
 
 Built on the [Pub Health Catalog Template (PHCT)](https://github.com/crypticpy/phct); see [`docs/upgrading.md`](docs/upgrading.md) for pulling in template improvements.
 
+### Ownership
+
+This repository is moving from `@crypticpy`'s account to the Big Cities Health Coalition's own GitHub organization, which will own the repository and the published site. `@crypticpy` continues as the interim technical maintainer until BCHC names its own. [`docs/bchc/transfer-runbook.md`](docs/bchc/transfer-runbook.md) is the step-by-step plan for the move, and [`MAINTAINERS.md`](MAINTAINERS.md) lists who holds which role. The live-site address will change with the move; this README is updated when it does.
+
 ## What's next
 
 [`docs/bchc/feature-ledger.md`](docs/bchc/feature-ledger.md) is the public record of where the catalog is going: what is being built now, what has been requested, and the design questions still to settle. Have an idea or feedback? Open a [feature request](https://github.com/crypticpy/bchc-ai-use-case-catalog/issues/new?template=feature.yml) for catalog software capabilities, or email [info@bigcitieshealth.org](mailto:info@bigcitieshealth.org) for BCHC-specific suggestions — maintainers triage both into the ledger.
@@ -35,7 +39,7 @@ Built on the [Pub Health Catalog Template (PHCT)](https://github.com/crypticpy/p
 - **Modules.** Turn catalog, submit, carousel, stats, events, cohorts, resources and governance on or off independently; navigation and the home page adapt automatically, and pages under a disabled module are dropped from the build.
 - **Theming.** Colors, fonts and corner rounding live in [`_data/theme.yml`](_data/theme.yml) and become CSS variables consumed by Tailwind — no CSS editing required for a rebrand. Every colour has one semantic job, so a re-skin cannot quietly break contrast.
 - **Accessibility as a build rule, not a pass.** Nothing is signalled by colour or icon alone, every control has a visible focus ring and a ≥3:1 border, filter changes are announced once, and the whole catalog still works with JavaScript disabled.
-- **CI content pipeline.** Front-matter and file-size validation on every pull request, automatic thumbnail generation from uploaded PDFs, and workflows that scaffold cohort years, events and schedule updates from issues. Scaffolded content pull requests are labelled at creation so code-review bots can be told to skip them — entries are data, not code; for Sourcery the skip lives in its dashboard (Review Settings → Ignore title keywords, listing the scaffold title prefixes `Add entry:`, `Add event:`, `Scaffold cohort`, `Update cohort`, `Update attachments for event` — see the [template admin guide](https://github.com/crypticpy/phct/blob/main/docs/admin-guide.md#bot-pull-requests)).
+- **CI content pipeline.** Front-matter and file-size validation on every pull request, automatic thumbnail generation from uploaded PDFs, and workflows that scaffold cohort years, events and schedule updates from issues. Scaffolded content pull requests are labelled at creation and use fixed title prefixes, so any code-review tool an organization turns on can be told to skip them — entries are data, not code. No review bot is required; see the [template admin guide](https://github.com/crypticpy/phct/blob/main/docs/admin-guide.md#bot-pull-requests) for how to configure one if you use it.
 
 ## Run your own
 

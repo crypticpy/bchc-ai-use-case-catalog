@@ -13,6 +13,13 @@
 - Automated code baseline: **green**
 - Stable release and BCHC handoff: **no-go until the human and live-repository gates below pass**
 
+> **Update 2026-09-24.** The evidence below is dated 2026-08-22 and is kept as recorded; later
+> settings and drill evidence is in [`operations-inventory.yml`](operations-inventory.yml). The
+> repository is planned to move to BCHC's own GitHub organization on 2026-09-25 following the
+> [transfer runbook](transfer-runbook.md), with `@crypticpy` continuing as contracted interim
+> technical maintainer. The transfer does not change the candidate decision rule at the end of
+> this file.
+
 This is the dated evidence record for the canonical
 [release-readiness plan](phct-release-readiness-plan.md). A green local test run proves that the
 candidate is technically coherent; it does not replace pull-request review, live GitHub workflow
@@ -94,7 +101,7 @@ No unresolved automated P0 or P1 code defect is known at this checkpoint.
 | RR-H01 | Review these changes and obtain green required CI plus independent human approval in PHCT and BCHC. | PHCT maintainer | In progress — PRs #14 and #2 are open, triggered CI is green, automated findings have fixes and inline evidence, and fresh current-head automated review plus human approval are pending. |
 | RR-H02 | Tag an immutable PHCT release candidate, run the actual BCHC update workflow, review the checksum report and generated changes, then prove revert/rollback of the update pull request. | PHCT maintainer | In progress — the exact commit-to-commit rehearsal passed; creating the immutable tag, running the real workflow, and proving rollback remain open. |
 | RR-H03 | Complete a real issue → pull request → media processing → review → merge → Pages deploy → notification rehearsal in both repositories. Use non-sensitive test content and remove it afterward. | Repository admins | Open |
-| RR-H04 | Name a BCHC product owner and backup technical maintainer; grant least-privilege access; update `CODEOWNERS`, `MAINTAINERS.md`, and the private contact system. | BCHC sponsor | Open |
+| RR-H04 | Name a BCHC product owner and backup technical maintainer; grant least-privilege access; update `CODEOWNERS`, `MAINTAINERS.md`, and the private contact system. | BCHC sponsor | Open — repository transfer to BCHC's organization scheduled 2026-09-25 ([runbook](transfer-runbook.md)); product owner and backup maintainer still to be named. |
 | RR-H05 | Correct and verify branch rules, required checks/approval, Pages environment protection, Actions permissions, secrets/variables, domain/DNS, security settings, labels, and notifications against `docs/bchc/operations-inventory.yml`. | Repository admins | Open — read-only API audit completed; the hardening findings below remain. |
 | RR-H06 | Manually test current Firefox, Safari, Edge, iOS Safari, and Android Chrome plus VoiceOver and NVDA; verify 200%/400% zoom, keyboard-only use, visible focus, forced colors, reduced motion, and representative long/empty/error content. | Accessibility reviewer | Open |
 | RR-H07 | Perform the documented bad-deploy rollback, content takedown, credential-response, repository backup, and restore drills; record timestamps, participants, gaps, and corrections. | Primary and backup maintainers | Open |
